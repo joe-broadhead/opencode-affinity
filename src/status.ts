@@ -1,0 +1,416 @@
+import type { Plugin, Rpc } from "@opencode/plugin"
+import type { Account } from "./account.js"
+import { CLIENT_URL, PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
+import { isSupportedHost, type HostCheck } from "./host-version.js"
+import { classify } from "./affinity-tools.js"
+import { defaultRules, unguardedAgents, type Rule } from "./permissions.js"
+import { shortReason } from "./redact.js"
+import { VERSION } from "./version.js"
+
+export { shortReason }
+
+/** The shared status labels in machine form; `/affinity-status` shows them as `sign-in required` and so on. */
+type State = "connected" | "sign_in_required" | "connecting" | "disabled" | "failed" | "not_configured" | "conflict"
+/**
+ * Who owns the `affinity` server: this plugin, the user's own config (adopted unchanged), or a server at another URL
+ * (`expected` is Affinity's). URLs are shown as origin and path only. `signIn` is `own` for an adopted entry with
+ * `oauth: false`, which signs in with its own headers and has no `/connect` entry.
+ */
+export type ServerSource =
+  | { readonly type: "plugin"; readonly url: string; readonly signIn: "oauth" }
+  | { readonly type: "adopted"; readonly url: string; readonly signIn: "oauth" | "own" }
+  | { readonly type: "conflict"; readonly url: string; readonly expected: string }
+
+interface SkillPath {
+  readonly id: string
+  readonly path: string
+}
+
+/** What status is built from. The TUI fills what it can see; fields it cannot see stay undefined. */
+export interface StatusFacts {
+  readonly server?: { readonly status: "connected" | "pending" | "disabled" | "failed" | "needs_auth"; readonly error?: string }
+  readonly source?: ServerSource
+  readonly account?: Account
+  readonly host: HostCheck
+  /** The names of the tools the `affinity` server serves, without the `affinity_` prefix. */
+  readonly tools?: readonly string[]
+  /**
+   * The server's status changed moments ago: a server that just connected lists its tools shortly after, so no tools
+   * yet means "still listing", not "none for this account".
+   */
+  readonly settling?: boolean
+  readonly agents?: readonly { readonly id: string; readonly permissions: readonly Rule[] }[]
+  readonly problems?: readonly string[]
+  /** The plugin's own skills, and the skills OpenCode lists; the listed one wins when both have an id. */
+  readonly skills?: { readonly own: readonly SkillPath[]; readonly listed: readonly SkillPath[] }
+}
+
+/**
+ * One status model for `/affinity-status`, the `/affinity` dialog and the status RPC. `version`, `host`, `state`,
+ * `unguardedAgents` and `nextStep` are the fields every plugin of this family shares; the rest are Affinity's own.
+ */
+export interface Status {
+  /** The plugin's version. */
+  readonly version: string
+  readonly state: State
+  /** For a failed connection only: OpenCode's reason, on one line of at most 160 characters, URLs without their query. */
+  readonly error?: string
+  readonly source?: ServerSource
+  /** The Affinity organisation's name from the last account read since OpenCode started, or null before one. */
+  readonly organisation: string | null
+  /** What the sign-in allows, from the same read: `read-only` means Affinity refuses every change. */
+  readonly grant: "read-write" | "read-only" | "api-key" | null
+  /**
+   * While a sign-in is required: what to do when Affinity shows an error page instead of asking for access, because
+   * the organisation has not added OpenCode's client URL. OpenCode tells the plugin nothing about a refused sign-in, so
+   * status can't confirm it: this is the step to take if it happened. Null otherwise.
+   */
+  readonly adminStep: string | null
+  /** How many Affinity tools OpenCode lists and the default rules let run or ask: the listed ones that are not denied. */
+  readonly tools: number
+  /** The listed tools that the default rules deny, such as submit_feedback; a later rule of the user's can turn one on. */
+  readonly deniedTools: readonly string[]
+  /** True while a server that just connected may still be listing its tools. */
+  readonly listing: boolean
+  /** How many of them the plugin does not know. */
+  readonly unknownCount: number
+  /** Up to 20 of the unknown tools' names, only those made of lowercase letters, digits and `_`. */
+  readonly unknownTools: readonly string[]
+  /** Agents where a new Affinity tool would run without asking; empty when there are none. */
+  readonly unguardedAgents: readonly string[]
+  /** The plugin's skills that OpenCode loads from another file of the same id instead. */
+  readonly shadowedSkills?: readonly SkillPath[]
+  readonly host: HostCheck
+  readonly problems: readonly string[]
+  /** The one next step: the `Next step` row, "Nothing to do." when nothing is needed. */
+  readonly nextStep: string
+}
+
+/**
+ * The sign-in step. Affinity accepts OpenCode's sign-in only once an Affinity admin has added OpenCode's client URL to
+ * the organisation; until then it shows its own error page and never returns to OpenCode, so the second half says what
+ * to do then.
+ */
+export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically); if Affinity shows an error page instead of asking for access, ask your Affinity admin to add OpenCode's client URL, as the Organisation setup row says.`
+
+/**
+ * The admin step for a refused sign-in, with its code: the Organisation setup row while a sign-in is required. It holds
+ * no "Next step", because the status has exactly one.
+ */
+export const CLIENT_NOT_ALLOWED = `If Affinity shows an error page instead of asking for access (CLIENT_NOT_ALLOWED), OpenCode is not yet allowed in your Affinity organisation: ask an Affinity admin to add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
+
+/** The default rules to paste into an agent's own permissions, one rule a line, as a JSON array body. */
+const AGENT_RULES = defaultRules()
+  .map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`)
+  .join("\n")
+
+/** The next step while agents lack the rules: the family's one fixed sentence. */
+const AGENTS_NEXT_STEP =
+  "Put the default rules shown by /affinity-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Affinity tools."
+
+const NOTHING_TO_DO = "Nothing to do."
+
+const TESTED_TEXT = `${TESTED_HOSTS.slice(0, -1).join(", ")} or ${TESTED_HOSTS.at(-1)}`
+const LISTED_UNKNOWN = 20
+// A tool name comes from the server; list only plain names.
+const SAFE_NAME = /^[a-z][a-z0-9_]{0,63}$/
+
+/** The plugin's skills that OpenCode lists from another file: a skill with the same id, such as a user's, replaced it. */
+function shadowedOf(facts: StatusFacts): SkillPath[] {
+  return (facts.skills?.own ?? []).flatMap((own) => {
+    const listed = facts.skills?.listed.find((skill) => skill.id === own.id)
+    return listed && listed.path !== own.path ? [{ id: own.id, path: listed.path }] : []
+  })
+}
+
+const STATE_OF = { connected: "connected", pending: "connecting", needs_auth: "sign_in_required", failed: "failed", disabled: "disabled" } as const
+
+export function buildStatus(facts: StatusFacts): Status {
+  const state: State = facts.source?.type === "conflict" ? "conflict" : facts.server ? STATE_OF[facts.server.status] : "not_configured"
+  const listed = facts.tools ?? []
+  const unknown = listed.filter((tool) => classify(tool) === "unknown")
+  const denied = listed.filter((tool) => classify(tool) === "denied")
+  // OpenCode's text for a needed sign-in can hold an authorization URL, so only a failure's reason is kept.
+  const error = facts.server?.status === "failed" && facts.server.error ? shortReason(facts.server.error) : undefined
+  const shadowed = shadowedOf(facts)
+  const status = {
+    version: VERSION,
+    state,
+    ...(error ? { error } : {}),
+    ...(facts.source ? { source: facts.source } : {}),
+    organisation: facts.account?.organisation ?? null,
+    grant: facts.account?.grant ?? null,
+    adminStep: state === "sign_in_required" ? CLIENT_NOT_ALLOWED : null,
+    tools: listed.length - denied.length,
+    deniedTools: denied,
+    listing: state === "connected" && listed.length === 0 && facts.settling === true,
+    unknownCount: unknown.length,
+    unknownTools: unknown.filter((name) => SAFE_NAME.test(name)).slice(0, LISTED_UNKNOWN),
+    unguardedAgents: unguardedAgents(facts.agents ?? []),
+    ...(shadowed.length ? { shadowedSkills: shadowed } : {}),
+    host: facts.host,
+    problems: facts.problems ?? [],
+  }
+  return { ...status, nextStep: nextStepOf(status) }
+}
+
+function nextStepOf(status: Omit<Status, "nextStep">): string {
+  const { source } = status
+  switch (status.state) {
+    case "conflict": {
+      const { url, expected } = source as Extract<ServerSource, { type: "conflict" }>
+      return `Your OpenCode config defines mcp.servers.${SERVER_NAME} with ${url}, but the plugin uses ${expected}. Point it at ${expected} or remove it, then restart OpenCode.`
+    }
+    case "not_configured":
+      return `OpenCode has no ${SERVER_NAME} MCP server. Check that no organisation policy (mcp.use) or other plugin removes it, then restart OpenCode.`
+    case "disabled":
+      return `The ${SERVER_NAME} MCP server is disabled. Enable it in /mcps, or remove "disabled": true from mcp.servers.${SERVER_NAME} in opencode.json.`
+    case "connecting":
+      return "Affinity is still connecting. Run /affinity-status again in a few seconds."
+    case "sign_in_required":
+      return SIGN_IN
+    case "failed":
+      // An entry with its own sign-in sends an API key in its headers, which the plugin never reads.
+      if (source?.type === "adopted" && source.signIn === "own") {
+        return `Check your network and the API key in the headers of your own mcp.servers.${SERVER_NAME} (Affinity: Settings, Manage Apps), then restart OpenCode.`
+      }
+      return "Check your network, then run /affinity-status again."
+  }
+  if (status.listing) return "Affinity is still listing its tools. Run /affinity-status again in a few seconds."
+  if (status.unguardedAgents.length) return AGENTS_NEXT_STEP
+  // A problem reads `CODE: What happened. Next step: What to do.`; its own next step becomes the status's.
+  const problem = status.problems[0]?.split(" Next step: ")[1]
+  if (problem) return problem
+  if (status.shadowedSkills?.length) {
+    return `Rename or move ${status.shadowedSkills.map((skill) => `the "${skill.id}" skill at ${skill.path}`).join(" and ")}, which OpenCode loads instead of the plugin's skill of the same name.`
+  }
+  // An untested host changes no next step: the OpenCode row says it is untested.
+  return NOTHING_TO_DO
+}
+
+const STATE_TEXT: Record<State, string> = {
+  connected: "connected",
+  connecting: "connecting",
+  sign_in_required: "sign-in required",
+  failed: "failed",
+  disabled: "disabled",
+  not_configured: "not configured",
+  conflict: "conflict",
+}
+
+const NOT_READ = "not read yet"
+const GRANT_TEXT = {
+  "read-write": "Affinity grant: read and write",
+  "read-only": "Affinity grant: read-only, so Affinity refuses changes",
+  "api-key": "Affinity grant: API key (full access)",
+} as const
+/** The permission posture, which the default rules fix. */
+const RULES_NOT_ADDED = "RULES_NOT_ADDED:"
+
+/** The server's address and owner, after the state label. */
+function serverText(source: ServerSource) {
+  if (source.type === "plugin") return `${source.url}, registered by this plugin`
+  if (source.type === "adopted") return `${source.url}, your own mcp.servers.${SERVER_NAME}${source.signIn === "own" ? " without OAuth" : ""}, used unchanged`
+  return `your mcp.servers.${SERVER_NAME} points at ${source.url}`
+}
+
+function toolsText({ tools, unknownCount, unknownTools, deniedTools, listing }: Status) {
+  if (listing) return "none listed yet (Affinity is still listing them)"
+  const off = deniedTools.length ? `; off by default: ${list(deniedTools)}` : ""
+  if (unknownCount === 0) return `${tools} available, 0 unknown${off}`
+  const more = unknownCount - unknownTools.length
+  const names = unknownTools.length ? `: ${unknownTools.join(", ")}${more > 0 ? ` and ${more} more` : ""}` : ""
+  return `${tools} available, ${unknownCount} unknown${names} (unknown tools ask before running)${off}`
+}
+
+const list = (names: readonly string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`)
+
+/** The grant, if read, and whether the default rules are in place: facts status can check, not a fixed claim. */
+function accessText({ grant, problems, unguardedAgents }: Status) {
+  const rules = problems.some((problem) => problem.startsWith(RULES_NOT_ADDED))
+    ? "default rules not added (see the OpenCode row)"
+    : unguardedAgents.length
+      ? "default rules missing in the agents listed below"
+      : "no agent runs new Affinity tools unasked"
+  return `${grant ? GRANT_TEXT[grant] : `Affinity grant ${NOT_READ}`}; ${rules}`
+}
+
+/**
+ * Whether the organisation lets OpenCode sign in. OpenCode reports no refused sign-in to plugins, so while a sign-in is
+ * required this row gives the admin step to take if Affinity showed an error page; once connected through OAuth, the
+ * organisation has allowed it.
+ */
+function organisationText({ state, source, adminStep }: Status) {
+  if (adminStep) return adminStep
+  if (source?.type === "adopted" && source.signIn === "own") return "not needed: your own entry signs in with an API key"
+  if (state === "connected") return "done: this Affinity organisation lets OpenCode sign in"
+  return `once per Affinity organisation, an admin adds OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps`
+}
+
+/** The OpenCode row: the version, whether it is tested, the supported range, then any setup problems. */
+function hostText({ host, problems }: Status) {
+  const { version, range, tested } = host
+  const outside = version === null || !isSupportedHost(version)
+  const notes = [
+    ...(outside ? [`It is outside the supported range; the plugin runs because allowUntestedHost is true. If Affinity misbehaves, use OpenCode ${TESTED_TEXT}.`] : []),
+    ...problems,
+  ]
+  return `${version ?? "unknown version"} (${tested ? "tested" : "untested"}; supported range ${range})${notes.length ? `. ${notes.join(" ")}` : ""}`
+}
+
+export function formatStatus(status: Status) {
+  const { source, unguardedAgents: agents } = status
+  const details = [status.error, source && serverText(source), status.listing && "still listing its tools"].filter(Boolean).join("; ")
+  return [
+    "Affinity status",
+    `- Connection: ${STATE_TEXT[status.state]}${details ? ` (${details})` : ""}`,
+    `- Account: ${status.organisation ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_current_user call since OpenCode started)`}`,
+    `- Access: ${accessText(status)}`,
+    `- Organisation setup: ${organisationText(status)}`,
+    `- Tools: ${toolsText(status)}`,
+    `- Agents without default rules: ${agents.length ? `${agents.join(", ")}\n${AGENT_RULES}` : "none"}`,
+    `- OpenCode: ${hostText(status)}`,
+    `- Next step: ${status.nextStep}`,
+  ].join("\n")
+}
+
+export interface StatusContext {
+  readonly mcp: Pick<Plugin.Context["mcp"], "list">
+  readonly agent: Pick<Plugin.Context["agent"], "list">
+  readonly tool: Pick<Plugin.Context["tool"], "list">
+  readonly skill: Pick<Plugin.Context["skill"], "list">
+}
+
+/** The captured account: what the last account read said, and a way to forget it once the user is signed out. */
+interface AccountState {
+  readonly current: () => Account | undefined
+  readonly forget: () => void
+  /** When the server's status last changed, or the watcher started, in milliseconds since the epoch. */
+  readonly changedAt: () => number
+}
+
+/** How long after a status change no tools still means "listing". */
+const LISTING_MS = 15_000
+
+/** Reads the live facts through public host APIs. Optional lookups that fail leave their field empty. */
+export async function readStatus(
+  ctx: StatusContext,
+  facts: Pick<StatusFacts, "source" | "host" | "problems"> & { readonly skills?: readonly SkillPath[]; readonly account?: AccountState },
+) {
+  const [servers, agents, tools, listed] = await Promise.all([
+    ctx.mcp.list(),
+    ctx.agent.list(),
+    ctx.tool.list(),
+    // The skill check is advice; a failed list must not hide the rest of the status.
+    ctx.skill.list().then(
+      (result) => result.data,
+      () => undefined,
+    ),
+  ])
+  const server = servers.data.find((entry) => entry.name === SERVER_NAME)
+  // A server that needs a new sign-in may come back as another account.
+  if (server?.status.status === "needs_auth") facts.account?.forget()
+  const account = facts.account?.current()
+  const { skills: own, account: watched, ...rest } = facts
+  const settling = watched !== undefined && Date.now() - watched.changedAt() < LISTING_MS
+  return buildStatus({
+    ...rest,
+    ...(server ? { server: server.status } : {}),
+    ...(account ? { account } : {}),
+    tools: tools.filter((tool) => tool.options?.namespace === SERVER_NAME).map((tool) => tool.name),
+    settling,
+    agents: agents.data,
+    ...(own && listed ? { skills: { own, listed } } : {}),
+  })
+}
+
+/** Why status could not be read: a coded message and its next step. The reason is cut like a failure's. */
+function unavailable(error: unknown) {
+  const reason = shortReason(error instanceof Error ? error.message : String(error))
+  return {
+    message: `STATUS_UNAVAILABLE: Could not read Affinity's status${reason ? ` (${reason})` : ""}.`,
+    nextStep: "Restart OpenCode, then run /affinity-status again.",
+  }
+}
+
+const strings = { type: "array", items: { type: "string" } }
+const count = { type: "integer", minimum: 0 }
+const nullableString = { type: ["string", "null"] }
+
+/**
+ * One read-only method for the TUI view and scripts. The TUI part does not receive the plugin options on 2.2.x, and
+ * cannot see the server's own findings, so it asks the server for the same status /affinity-status reports.
+ */
+export const StatusRpc = {
+  id: PLUGIN_ID,
+  methods: {
+    status: {
+      input: { type: "object" },
+      output: {
+        type: "object",
+        required: ["version", "state", "organisation", "grant", "adminStep", "tools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
+        properties: {
+          version: { type: "string" },
+          state: { enum: ["connected", "sign_in_required", "connecting", "disabled", "failed", "not_configured", "conflict"] },
+          error: { type: "string" },
+          source: {
+            type: "object",
+            required: ["type", "url"],
+            properties: { type: { enum: ["plugin", "adopted", "conflict"] }, url: { type: "string" }, expected: { type: "string" }, signIn: { enum: ["oauth", "own"] } },
+          },
+          organisation: nullableString,
+          grant: { enum: ["read-write", "read-only", "api-key", null] },
+          adminStep: nullableString,
+          tools: count,
+          deniedTools: strings,
+          listing: { type: "boolean" },
+          unknownCount: count,
+          unknownTools: strings,
+          unguardedAgents: strings,
+          shadowedSkills: {
+            type: "array",
+            items: { type: "object", required: ["id", "path"], properties: { id: { type: "string" }, path: { type: "string" } } },
+          },
+          host: {
+            type: "object",
+            required: ["version", "range", "tested"],
+            properties: { version: nullableString, range: { type: "string" }, tested: { type: "boolean" } },
+          },
+          problems: strings,
+          nextStep: { type: "string" },
+        },
+      },
+      errors: { unavailable: { type: "object", required: ["nextStep"], properties: { nextStep: { type: "string" } } } },
+    },
+  },
+  events: {},
+} satisfies Rpc.PortableDefinition
+
+export function registerStatusRpc(rpc: Pick<Plugin.Context["rpc"], "register">, read: () => Promise<Status>) {
+  return rpc.register(StatusRpc, {
+    status: (_input, { error }) =>
+      read().catch((cause: unknown) => {
+        const { message, nextStep } = unavailable(cause)
+        return error("unavailable", message, { nextStep })
+      }),
+  })
+}
+
+export function registerStatusCommand(
+  ctx: { readonly command: Pick<Plugin.Context["command"], "transform">; readonly session: Pick<Plugin.Context["session"], "synthetic"> },
+  read: () => Promise<Status>,
+) {
+  return ctx.command.transform((editor) =>
+    editor.add({
+      name: "affinity-status",
+      description: "Show Affinity's connection, sign-in, account, tools and the next step",
+      execute: async ({ sessionID }) => {
+        const text = await read().then(formatStatus, (cause: unknown) => {
+          const { message, nextStep } = unavailable(cause)
+          return `${message} Next step: ${nextStep}`
+        })
+        await ctx.session.synthetic({ sessionID, text, description: "Affinity status", resume: false })
+      },
+    }),
+  )
+}

@@ -1,0 +1,1040 @@
+{
+ "source": "Affinity affinity-mcp 0.7.1, read statically: names, readOnlyHint and destructiveHint, and parameters as name*:type. Replace with the live tool list when there is one.",
+ "tools": [
+  {
+   "name": "get_current_user",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": []
+  },
+  {
+   "name": "search_companies_top_matches",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "query:string|null",
+    "search_criteria",
+    "list_ids:array<integer>|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "search_all_companies",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "search_criteria",
+    "field_ids:array<string>|null",
+    "field_types",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_company_info",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "company_id*:integer",
+    "field_ids:array<string>|null",
+    "field_types"
+   ]
+  },
+  {
+   "name": "get_company_list_entries",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "company_id*:integer",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_merge_task",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "task_id*:string",
+    "entity_type*"
+   ]
+  },
+  {
+   "name": "render_market_map",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "thesis*",
+    "your_companies*",
+    "explore_companies*"
+   ]
+  },
+  {
+   "name": "get_entity_fields",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_type*",
+    "cursor:string|null",
+    "limit:integer",
+    "filter:string|null",
+    "includes"
+   ]
+  },
+  {
+   "name": "get_list_fields",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "cursor:string|null",
+    "limit:integer",
+    "filter:string|null",
+    "includes"
+   ]
+  },
+  {
+   "name": "get_list_field_dropdown_options",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "field_id*",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_entity_field_dropdown_options",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_type*",
+    "field_id*",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_field_value_changes",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "cursor:string|null",
+    "limit:integer",
+    "filter_expr:string|null",
+    "order_by:string|null"
+   ]
+  },
+  {
+   "name": "get_investor_executive_connections",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "company_id*:integer",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_coworker_connections",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "company_id*:integer",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_lists",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "term:string|null",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_single_list_entry",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "list_entry_id*:integer",
+    "field_ids:array<string>|null",
+    "field_types"
+   ]
+  },
+  {
+   "name": "get_list_info",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer"
+   ]
+  },
+  {
+   "name": "search_list_entries",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "search_criteria",
+    "field_ids:array<string>|null",
+    "field_types",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_meetings",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "filter_expr:string|null",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_meetings_for_entity",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_id*:integer",
+    "entity_type*",
+    "start_time*",
+    "end_time*",
+    "internal_person_id:integer|null",
+    "logging_type",
+    "page_size:integer",
+    "page_token:string|null"
+   ]
+  },
+  {
+   "name": "query_notes",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "filter_expr:string|null",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_notes_for_entity",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_id*:integer",
+    "entity_type*",
+    "filter_expr:string|null",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_entities_attached_to_note",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "note_id*:integer",
+    "entity_type*",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "search_notes",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "prompt*:string",
+    "note_ids:array<integer>|null",
+    "company_id:integer|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_entity_files",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_id:integer|null",
+    "entity_type",
+    "page_token:string|null",
+    "page_size:integer"
+   ]
+  },
+  {
+   "name": "get_entity_file_metadata",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file_id*:integer"
+   ]
+  },
+  {
+   "name": "search_files",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "prompt*:string",
+    "file_ids:array<integer>|null",
+    "company_id:integer|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "search_opportunities",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "term:string|null",
+    "page_size:integer|null",
+    "page_token:string|null"
+   ]
+  },
+  {
+   "name": "search_persons",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "search_criteria",
+    "field_ids:array<string>|null",
+    "field_types",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_person_info",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "person_id*:integer",
+    "field_ids:array<string>|null",
+    "field_types"
+   ]
+  },
+  {
+   "name": "get_persons_info",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "person_ids*:array<integer>",
+    "field_ids:array<string>|null",
+    "field_types",
+    "cursor:string|null",
+    "limit:integer",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_person_list_entries",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "person_id*:integer",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_person_relationships",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "person_id*:integer",
+    "cursor:string|null",
+    "limit:integer",
+    "filter_expr:string|null",
+    "order_by:string|null",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_company_relationships",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "company_id*:integer",
+    "cursor:string|null",
+    "limit:integer",
+    "filter_expr:string|null",
+    "order_by:string|null",
+    "total_count:boolean"
+   ]
+  },
+  {
+   "name": "get_reminders",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_id:integer|null",
+    "entity_type",
+    "creator_id:integer|null",
+    "owner_id:integer|null",
+    "completer_id:integer|null",
+    "reminder_type",
+    "reset_type",
+    "status",
+    "due_before:string|null",
+    "due_after:string|null",
+    "page_size:integer",
+    "page_token:string|null"
+   ]
+  },
+  {
+   "name": "get_saved_views",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_saved_view_list_entries",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "view_id*:integer",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_transcript_fragments",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "transcript_id*:integer",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "get_users",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "term:string|null",
+    "filter_expr:string|null",
+    "cursor:string|null",
+    "limit:integer"
+   ]
+  },
+  {
+   "name": "render_warm_intro_graph",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "team*",
+    "targets*",
+    "edges*"
+   ]
+  },
+  {
+   "name": "create_company",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "name*:string",
+    "domain:string|null",
+    "person_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "send_feedback",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "subject*:string",
+    "body*:string"
+   ]
+  },
+  {
+   "name": "create_field",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "name*:string",
+    "value_type*",
+    "entity_type*",
+    "list_id:integer|null",
+    "allows_multiple:boolean",
+    "is_required:boolean"
+   ]
+  },
+  {
+   "name": "create_list_field_dropdown_option",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "field_id*",
+    "option_type*",
+    "text*:string",
+    "rank:integer|null",
+    "color",
+    "status_category",
+    "win_rate:integer|null"
+   ]
+  },
+  {
+   "name": "create_interaction",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "interaction_type*",
+    "date*:string",
+    "person_ids*:array<integer>",
+    "content*:string",
+    "direction"
+   ]
+  },
+  {
+   "name": "create_list",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "name*:string",
+    "entity_type*",
+    "is_public:boolean"
+   ]
+  },
+  {
+   "name": "create_list_entry",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "list_id*:integer",
+    "entity_id*:integer"
+   ]
+  },
+  {
+   "name": "create_note",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "note_type*",
+    "content*:string",
+    "person_ids:array<integer>|null",
+    "company_ids:array<integer>|null",
+    "opportunity_ids:array<integer>|null",
+    "meeting_id:integer|null",
+    "parent_note_id:integer|null"
+   ]
+  },
+  {
+   "name": "create_opportunity",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "name*:string",
+    "list_id*:integer",
+    "company_ids:array<integer>|null",
+    "person_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "create_person",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "first_name*:string",
+    "last_name*:string",
+    "emails*:array<string>",
+    "company_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "create_reminder",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "owner_id*:integer",
+    "reminder_type*",
+    "entity_id*:integer",
+    "entity_type*",
+    "content:string|null",
+    "due_date:string|null",
+    "reset_type",
+    "reminder_days:integer|null",
+    "is_completed:boolean|null"
+   ]
+  },
+  {
+   "name": "update_company",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "company_id*:integer",
+    "name:string|null",
+    "domain:string|null",
+    "person_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "delete_company",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "company_ids*",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "merge_companies",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "primary_company_id*:integer",
+    "duplicate_company_id*:integer",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "update_list_field_dropdown_option",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "list_id*:integer",
+    "field_id*",
+    "dropdown_option_id*:integer",
+    "text:string|null",
+    "rank:integer|null",
+    "color",
+    "status_category",
+    "win_rate:integer|null"
+   ]
+  },
+  {
+   "name": "delete_list_field_dropdown_option",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "list_id*:integer",
+    "field_id*",
+    "dropdown_option_id*:integer"
+   ]
+  },
+  {
+   "name": "delete_list_entries",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "list_id*:integer",
+    "list_entry_ids*",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "upsert_entity_field_values",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "entity_type*",
+    "entity_id*:integer",
+    "upserts*"
+   ]
+  },
+  {
+   "name": "upsert_list_entry_field_values",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "list_id*:integer",
+    "list_entry_id*:integer",
+    "upserts*"
+   ]
+  },
+  {
+   "name": "update_note",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "note_id*:integer",
+    "content:string|null",
+    "person_ids:array<integer>|null",
+    "company_ids:array<integer>|null",
+    "opportunity_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "delete_note",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "note_ids*",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "update_opportunity",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "opportunity_id*:integer",
+    "name:string|null",
+    "company_ids:array<integer>|null",
+    "person_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "delete_opportunity",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "opportunity_ids*",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "update_person",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "person_id*:integer",
+    "first_name:string|null",
+    "last_name:string|null",
+    "emails:array<string>|null",
+    "company_ids:array<integer>|null"
+   ]
+  },
+  {
+   "name": "delete_person",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "person_ids*",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "merge_persons",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "primary_person_id*:integer",
+    "duplicate_person_id*:integer",
+    "confirm:boolean"
+   ]
+  },
+  {
+   "name": "update_reminder",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "reminder_id*:integer",
+    "owner_id:integer|null",
+    "reminder_type",
+    "content:string|null",
+    "due_date:string|null",
+    "reset_type",
+    "reminder_days:integer|null",
+    "is_completed:boolean|null"
+   ]
+  },
+  {
+   "name": "delete_reminder",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true
+   },
+   "inputs": [
+    "reminder_id*:integer"
+   ]
+  },
+  {
+   "name": "issue_entity_files_upload_token",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "entity_id*:integer",
+    "entity_type*",
+    "filename*:string",
+    "filesize*:integer",
+    "content_type*:string"
+   ]
+  },
+  {
+   "name": "issue_entity_files_download_token",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file_id*:integer"
+   ]
+  },
+  {
+   "name": "affinity_data_migration",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "affinity_event_setup",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "affinity_lp_pipeline_brief",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "affinity_meeting_prep",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "affinity_missed_deal_review",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "affinity_reference_check",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "company_signals",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "crm_audit",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "customer_ready_to_raise",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "market_map_generator",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "portfolio_attention_score",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  },
+  {
+   "name": "warm_intro",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false
+   },
+   "inputs": [
+    "file:string|null"
+   ]
+  }
+ ]
+}
