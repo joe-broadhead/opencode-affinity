@@ -13,7 +13,7 @@ import { CLIENT_URL, OAUTH_SCOPE, SUPPORTED_HOST, TESTED_HOSTS } from "../../src
 import { DENIED_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
-import { CLIENT_NOT_ALLOWED, SIGN_IN, StatusRpc } from "../../src/status.js"
+import { ADMIN_STEP, SIGN_IN, StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
@@ -40,7 +40,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
 }
 
 /**
- * The host lists an MCP server's tools shortly after it connects. The registry lists the three denied tools too; the
+ * The host lists an MCP server's tools shortly after it connects. The registry lists the ten denied tools too; the
  * deny hides them from the model's tools and refuses them.
  */
 const affinityTools = (host: Host) =>
@@ -122,7 +122,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(await attempt(host, plan, "plan", "shiny_new_tool")).toMatchObject({ asked: "affinity_shiny_new_tool", ok: false })
   })
 
-  test("P2 and H2: known reads run without a prompt, everything else asks, and the three denied tools are hidden", async () => {
+  test("P2 and H2: known reads run without a prompt, everything else asks, and the ten denied tools are hidden", async () => {
     const build = await session(host)
     const before = host.fake.calls.length
     expect(await attempt(host, build, "build", "search_persons")).toMatchObject({ asked: undefined, ok: true })
@@ -291,7 +291,7 @@ describe("a model turn that reads the account", () => {
     expect(text).not.toMatch(/u_fake_1|tenant_fake_1|Jane/)
   })
 
-  test("DC-5: the model's own calls to the three denied tools never reach Affinity, and none is offered to it", async () => {
+  test("DC-5: the model's own calls to the ten denied tools never reach Affinity, and none is offered to it", async () => {
     host.fake.model.script = DENIED_TOOLS.map((tool) => ({ tool: `affinity_${tool}`, arguments: { confirm: true } }))
     const before = host.fake.model.requests.length
     const sessions = host.client.sessions as unknown as {
@@ -343,6 +343,24 @@ describe("a Code Mode turn that reads the account", () => {
     })
     expect(text).toContain("- Account: Northwind Capital\n")
     expect(text).not.toMatch(/u_fake_1|tenant_fake_1|Jane/)
+  })
+
+  test("AF-5: inside execute, each denied tool is missing from the namespace call and never reaches Affinity", async () => {
+    // The riskiest path users run by default: the model calls Affinity inside Code Mode. The deny is on each tool's
+    // own action, so Code Mode's namespace has no such function; a catch keeps the script running to report it.
+    const attempts = DENIED_TOOLS.map((tool) => `try { await tools.affinity.${tool}({ confirm: true }); out.push("ran ${tool}") } catch (error) { out.push("${tool}:" + String(error).slice(0, 80)) }`).join(" ")
+    host.fake.model.script = [{ tool: "execute", arguments: { code: `const out = []; ${attempts}; return out` } }]
+    const before = host.fake.calls.length
+    const requests = host.fake.model.requests.length
+    const sessions = host.client.sessions as unknown as {
+      create: (input: object) => Promise<{ id: string }>
+      prompt: (input: object) => Promise<unknown>
+    }
+    const sessionID = (await sessions.create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
+    await sessions.prompt({ sessionID, text: "Delete the duplicate company, merge the two person records and report it to Affinity." })
+    await until("the Code Mode turn ends", async () => host.fake.model.requests.length > requests && (host.fake.model.requests.at(-1) as { messages?: { role: string }[] }).messages?.some((message) => message.role === "tool"))
+    expect(host.fake.calls.slice(before)).toEqual([])
+    for (const tool of DENIED_TOOLS) expect(host.fake.calls).not.toContain(tool)
   })
 })
 
@@ -464,11 +482,76 @@ describe("a server that asks for a sign-in", () => {
       const read = await statusRpc(host)
       return read.organisation === null ? read : undefined
     })
-    expect(output).toMatchObject({ state: "sign_in_required", nextStep: SIGN_IN, adminStep: CLIENT_NOT_ALLOWED, organisation: null, grant: null })
+    // AF-2: this server connected earlier, so a sign-in that expired is a renewal: no admin step for a first sign-in.
+    expect(output).toMatchObject({ state: "sign_in_required", nextStep: SIGN_IN, adminStep: null, everConnected: true, organisation: null, grant: null })
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: sign-in required (${host.fake.url}, registered by this plugin)`)
+    expect(text).toContain("- Organisation setup: done earlier: the sign-in has expired, so run /connect again\n")
+    expect(text).not.toContain("OpenCode's client URL")
     expect(text).toContain(`- Next step: ${SIGN_IN}`)
     expect(text).not.toContain("Northwind Capital")
+  })
+})
+
+// AF-6: the two entries docs/configuration.md documents as a user's own `mcp.servers.affinity`. The plugin adopts each
+// unchanged; the authorize endpoint shows what OpenCode asks with.
+describe("the documented own entries", () => {
+  const oauth = (host: Host) =>
+    host.client.integration.oauth as unknown as {
+      connect: (input: object) => Promise<{ data: { attemptID: string; url: string } }>
+      cancel: (input: object) => Promise<void>
+    }
+  /** Starts a sign-in as /connect does, and returns its authorize URL and the attempt to cancel. */
+  async function authorizeUrl(host: Host) {
+    const server = await until("the adopted server needs a sign-in", async () => {
+      const { data } = await host.client.mcp.list({ location: host.location })
+      const found = data.find((item) => item.name === "affinity")
+      return found?.status.status === "needs_auth" && found.integrationID ? found : undefined
+    })
+    const integrationID = server.integrationID!
+    const { data: integration } = await host.client.integration.get({ integrationID, location: host.location })
+    const { data: attempt } = await oauth(host).connect({ integrationID, methodID: (integration.methods[0] as unknown as { id: string }).id, location: host.location })
+    return { integrationID, attempt, url: new URL(attempt.url) }
+  }
+
+  describe("the read-only entry", () => {
+    let host: Host
+    beforeAll(async () => {
+      host = await startHost({ challenge: true, config: (url) => ({ mcp: { servers: { affinity: { type: "remote", url, oauth: { scope: "mcp.read offline_access" } } } } }) })
+    })
+    afterAll(() => host?.close())
+
+    test("asks for the read scope alone, through OpenCode's client URL, and status names the entry as the user's own", async () => {
+      const { integrationID, attempt, url } = await authorizeUrl(host)
+      expect(url.searchParams.get("scope")).toBe("mcp.read offline_access")
+      expect(url.searchParams.get("client_id")).toBe(CLIENT_URL)
+      await oauth(host).cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
+      expect(await statusRpc(host)).toMatchObject({ state: "sign_in_required", source: { type: "adopted", signIn: "oauth" }, adminStep: `${ADMIN_STEP} If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead.` })
+    })
+  })
+
+  // AF-6: an own OAuth app has a real client ID, which this test does not have. It tests the config shape and the
+  // status rows only: the entry is adopted, and OpenCode would ask with the entry's client ID rather than its CIMD one.
+  describe("the organisation's own OAuth app", () => {
+    const CLIENT_ID = "affinity-org-fake-client-0123456789"
+    let host: Host
+    beforeAll(async () => {
+      host = await startHost({
+        challenge: true,
+        config: (url) => ({ mcp: { servers: { affinity: { type: "remote", url, oauth: { client_id: CLIENT_ID, scope: "mcp mcp.read offline_access" } } } } }),
+      })
+    })
+    afterAll(() => host?.close())
+
+    test("is adopted unchanged, and status names it as the user's own entry", async () => {
+      const output = await statusRpc(host)
+      expect(output).toMatchObject({ state: "sign_in_required", source: { type: "adopted", signIn: "oauth" } })
+      const text = await status(host, await session(host))
+      expect(text).toContain("- Connection: sign-in required (")
+      expect(text).toContain("your own mcp.servers.affinity, used unchanged")
+      // The client ID never reaches status.
+      for (const shown of [text, JSON.stringify(output)]) expect(shown).not.toContain(CLIENT_ID)
+    })
   })
 })
 
@@ -529,10 +612,10 @@ describe("a sign-in that Affinity refuses, because the organisation has not adde
 
   async function stillSignInRequired() {
     const output = await statusRpc(host)
-    expect(output).toMatchObject({ state: "sign_in_required", nextStep: SIGN_IN, adminStep: CLIENT_NOT_ALLOWED, organisation: null })
+    expect(output).toMatchObject({ state: "sign_in_required", nextStep: SIGN_IN, adminStep: ADMIN_STEP, everConnected: false, organisation: null })
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: sign-in required (${host.fake.url}, registered by this plugin)`)
-    expect(text).toContain(`- Organisation setup: ${CLIENT_NOT_ALLOWED}\n`)
+    expect(text).toContain(`- Organisation setup: ${ADMIN_STEP}\n`)
     expect(text).toContain(`- Next step: ${SIGN_IN}`)
     expect(text.match(/Next step/g)).toHaveLength(1)
     const { data } = await host.client.mcp.list({ location: host.location })
