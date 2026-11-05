@@ -578,6 +578,74 @@ describe("the /connect entry", () => {
   })
 })
 
+// AB-3: the /connect mark is only observable while a credential remains, so this signs in with Affinity's own flow and a
+// token that has no refresh token: a 401 then needs a new sign-in rather than a refresh, and the account stays. The
+// plugin reads its mark back from the projected connection, so the mark it sets is the one it clears.
+describe("the /connect sign-in mark", () => {
+  let host: Host
+  beforeAll(async () => {
+    host = await startHost({ oauth: true, challenge: true, fake: { refreshTokens: false } })
+  })
+  afterAll(() => host?.close())
+
+  const SIGN_IN_AGAIN = "Affinity needs a new sign-in. Choose this account to sign in again."
+
+  /** The /connect entry's connections, with the status a credential shows there. */
+  const connections = async () => {
+    const { data: servers } = await host.client.mcp.list({ location: host.location })
+    const integrationID = servers.find((item) => item.name === "affinity")?.integrationID
+    if (!integrationID) return []
+    const { data } = await host.client.integration.get({ integrationID, location: host.location })
+    return (data as unknown as { connections?: { type?: string; status?: { status: string; message?: string } }[] }).connections ?? []
+  }
+
+  /** Signs in through OpenCode's own flow: the authorization endpoint redirects the loopback callback, which exchanges its code. */
+  const signIn = async () => {
+    const { data: servers } = await host.client.mcp.list({ location: host.location })
+    const integrationID = servers.find((item) => item.name === "affinity")!.integrationID!
+    const { data: integration } = await host.client.integration.get({ integrationID, location: host.location })
+    const oauth = (host.client.integration as unknown as { oauth: { connect: (input: object) => Promise<{ data: { attemptID: string; url: string } }> } }).oauth
+    const { data: attempt } = await oauth.connect({ integrationID, methodID: (integration.methods[0] as unknown as { id: string }).id, location: host.location })
+    const redirect = await fetch(attempt.url, { redirect: "manual" })
+    const callback = redirect.headers.get("location")
+    expect(callback).toMatch(/^http:\/\/127\.0\.0\.1:\d+\//)
+    await fetch(callback!)
+  }
+  const connected = () =>
+    until("the server is connected", async () => {
+      const { data } = await host.client.mcp.list({ location: host.location })
+      return data.find((item) => item.name === "affinity")?.status.status === "connected"
+    })
+
+  test("is set while the server needs a sign-in, and cleared once the same account connects again", async () => {
+    host.fake.refuse = "sign-in"
+    await signIn()
+    await until("the sign-in stores a token without a refresh token", async () => host.fake.tokens.length === 1)
+    expect(host.fake.tokens[0]).toMatchObject({ grant_type: "authorization_code" })
+    expect(host.fake.tokens[0]).not.toHaveProperty("refresh_token")
+    host.fake.challenge = false
+    await connected()
+    expect(await until("/connect shows the account", async () => (await connections()).find((item) => item.type === "credential" && item.status?.message === undefined))).toBeDefined()
+
+    // The token stops working, and there is no refresh token: a new sign-in, with the credential kept.
+    host.fake.challenge = true
+    const mcp = host.client.mcp as unknown as Record<"connect" | "disconnect", (input: object) => Promise<unknown>>
+    await mcp.disconnect({ server: "affinity", location: host.location })
+    await mcp.connect({ server: "affinity", location: host.location }).catch(() => {})
+    await until("the server needs a sign-in", async () => {
+      const { data } = await host.client.mcp.list({ location: host.location })
+      return data.find((item) => item.name === "affinity")?.status.status === "needs_auth"
+    })
+    expect(await until("/connect shows the new sign-in on the account", async () => (await connections()).find((item) => item.status?.message === SIGN_IN_AGAIN))).toBeDefined()
+
+    // The same account connects again: the plugin clears its own mark.
+    host.fake.challenge = false
+    await mcp.connect({ server: "affinity", location: host.location })
+    await connected()
+    expect(await until("/connect clears the sign-in mark", async () => ((await connections()).some((item) => item.status?.message) ? undefined : true))).toBe(true)
+  })
+})
+
 // Affinity accepts OpenCode's client metadata document only once an organisation admin has added it. Until then it
 // refuses the client: with its own error page that never returns to OpenCode (what Affinity documents), or with a
 // redirect that carries an `error`. OpenCode 2.2.x stores no credential either way, keeps the server `needs_auth`, and

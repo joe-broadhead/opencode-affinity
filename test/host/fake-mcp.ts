@@ -11,6 +11,8 @@
 // server metadata that support a client metadata document (CIMD) and no dynamic registration, and an authorize
 // endpoint that refuses OpenCode's client, as Affinity does until an organisation adds it: with its own error page
 // (`refuse: "page"`, Affinity's documented behaviour) or with a redirect that carries an `error` (`refuse: "redirect"`).
+// With `refuse: "sign-in"` it behaves as a signed-in browser: the authorization endpoint redirects the loopback callback
+// with a code, and the token endpoint exchanges it for a token, so a host test can complete OpenCode's sign-in.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
@@ -38,6 +40,11 @@ export const CHALLENGE_SCOPE = "mcp mcp.read offline_access"
 export interface FakeMcpOptions {
   /** `affinity` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "affinity"
+  /**
+   * Whether the token endpoint issues a refresh token. Without one, a 401 later needs a new sign-in and leaves the
+   * credential in place, which is the `/connect` account the plugin marks.
+   */
+  readonly refreshTokens?: boolean
 }
 
 /** The scripted model's id, as the fake's model API lists it. */
@@ -70,10 +77,12 @@ export interface FakeMcp {
   readonly called: { readonly tool: string; readonly path: string }[]
   /** Each tool call's arguments, in order. */
   readonly inputs: { readonly tool: string; readonly arguments: unknown }[]
-  /** How the authorize endpoint refuses the client: Affinity's own error page, or a redirect with an `error`. */
-  refuse: "page" | "redirect"
+  /** How the authorize endpoint answers: Affinity's own error page, a redirect with an `error`, or a sign-in. */
+  refuse: "page" | "redirect" | "sign-in"
   /** Each authorize request's query: client_id, scope, redirect_uri and the rest. */
   readonly authorizeRequests: Record<string, string>[]
+  /** Each token request's form, in order. */
+  readonly tokens: Record<string, string>[]
   /** The `x-affinity-test` header of every request, to tell whose server config the host used. */
   readonly markers: (string | undefined)[]
   /** The `authorization` header of every request. */
@@ -115,7 +124,8 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   }
   const model = { script: [] as ScriptedCall[], requests: [] as unknown[] }
   // Filled once the server listens; the request handler reads `challenge` and `origin` from it.
-  const fake = { challenge: false, refuse: "page", authorizeRequests: [] as Record<string, string>[] } as FakeMcp
+  const fake = { challenge: false, refuse: "page", authorizeRequests: [] as Record<string, string>[], tokens: [] as Record<string, string>[] } as FakeMcp
+  let codes = 0
   /**
    * One streamed chat completion. A request that offers tools is an agent turn: after n tool results the model makes
    * the n-th scripted call, then answers "Done.". Any other request, such as a title, gets text.
@@ -165,10 +175,27 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
       fake.authorizeRequests.push(query)
       if (fake.refuse === "page") return void response.writeHead(400, { "content-type": "text/html" }).end("<html><body>This app is not allowed in your organization.</body></html>")
       const back = new URL(query.redirect_uri ?? `${fake.origin}/nowhere`)
-      back.searchParams.set("error", "unauthorized_client")
-      back.searchParams.set("error_description", "The client is not allowed in this organization")
       if (query.state) back.searchParams.set("state", query.state)
+      if (fake.refuse === "redirect") {
+        back.searchParams.set("error", "unauthorized_client")
+        back.searchParams.set("error_description", "The client is not allowed in this organization")
+      } else back.searchParams.set("code", `fake-code-${++codes}`)
       return void response.writeHead(302, { location: back.toString() }).end()
+    }
+    if (route === "/auth/oauth2/token" && request.method === "POST") {
+      const form = Object.fromEntries(new URLSearchParams(await read(request)))
+      fake.tokens.push(form)
+      // While the server challenges, a refresh is refused like a revoked token: the person must sign in again.
+      if (fake.challenge && form.grant_type === "refresh_token") return void response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "invalid_grant" }))
+      return void response.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({
+          access_token: `fake-access-${fake.tokens.length}`,
+          token_type: "Bearer",
+          expires_in: 3600,
+          ...(options.refreshTokens === false ? {} : { refresh_token: `fake-refresh-${fake.tokens.length}` }),
+          scope: CHALLENGE_SCOPE,
+        }),
+      )
     }
     if (route === "/auth/oauth2/token") return void response.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: "invalid_client" }))
     markers.push(header(request, "x-affinity-test"))

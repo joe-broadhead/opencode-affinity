@@ -70,7 +70,9 @@ transform again, which then runs after the host's, and disposes the old one.
 
 While the server is `needs_auth` and the integration has an active account, it reports
 `{ status: "needs_auth" }` on that account with `ctx.integration.connection.status`, so `/connect` shows that a new
-sign-in is required. It clears only its own report, once the server is connected again. A user's own entry with
+sign-in is required. `connection.active` returns the credential alone, so the plugin reads the status back from
+`integration.get`, which projects it, and clears only its own message once the server is connected again. A user's own
+entry with
 `"oauth": false` has no integration, so there is nothing to name.
 
 ## Status
@@ -154,6 +156,7 @@ These facts about OpenCode 2.2.3 hold on 2.2.4 and 2.2.5 too. Links point to the
 | Code Mode | MCP tools are in Code Mode by default (`tools.affinity.<tool>`). A declined prompt is an error the program can catch. | [`codemode/tool.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/codemode/tool.ts) |
 | Dialog close paths | A plugin's `ui.dialog.alert` resolves on its dialog's `onClose`. Opening another dialog (`replace`), `clear` (also a click outside), Escape and Ctrl+C all call `onClose` for each dialog they remove, so the `/affinity` dialog's `r` key and listeners stop on every path. | The pack test reads each stock release's terminal UI code for this |
 | A refused sign-in | OpenCode signs in with its client metadata document only when the server entry sets no `oauth.client_id` or `oauth.redirect_uri`, and the authorization server says it supports one. If Affinity refuses the client and shows its own error page, nothing returns to OpenCode's loopback callback, and the `/connect` attempt waits until it expires after ten minutes. If the authorization server redirects back with an `error`, the attempt fails with that text. Either way no credential is stored, the server stays `needs_auth`, and no event reaches plugins, so status can't tell a refused client from a sign-in not yet made. The host test reproduces both with a fake authorization server on each tested release. | [`mcp/oauth.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/mcp/oauth.ts) |
+| Credential status | A status set with `integration.connection.status` is not on what `connection.active` returns; `integration.get` projects it as `connections[].status`. A 401 whose token refresh fails with no refresh token leaves the credential in place, so the `/connect` mark is only observable then. The host test signs in through the loopback callback and the token endpoint, then challenges, and asserts the mark is set and cleared. | The host test, on 2.2.3, 2.2.4 and 2.2.5 |
 | UI part options | The UI part of a plugin listed in `opencode.json` gets no plugin options. | Observed on stock 2.2.3, 2.2.4 and 2.2.5 |
 | Tool executors | `ctx.tool.list()` returns each MCP tool with a callable `execute`, which checks `<server>_<tool>` with the agent's and the session's rules and saved approvals, and gives the `evaluate` hook the call's `source`. A deny is a `Tool.Error` with a cause; the server's `isError` is one without. `execute.before` and `execute.after` hooks do not run for it. Not documented as an entry point: the package test checks it on stock 2.2.3, 2.2.4 and 2.2.5. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/tool/mcp.ts) |
 | RPC input | An RPC input given as a Standard Schema is validated with it; a plain JSON Schema is decoded with Effect, which drops unknown keys of an object that has properties. The package test checks the envelope on stock 2.2.3, 2.2.4 and 2.2.5. | `@opencode/core` 2.2.3, the RPC service's `parse` |

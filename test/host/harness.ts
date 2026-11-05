@@ -11,7 +11,7 @@ import type { OpenCodeClient } from "@opencode/client"
 import { Plugin } from "@opencode/plugin"
 import { createAffinityPlugin } from "../../src/plugin.js"
 import { SKILL_NAMES } from "../../src/skills.js"
-import { startFakeMcp } from "./fake-mcp.js"
+import { startFakeMcp, type FakeMcpOptions } from "./fake-mcp.js"
 
 export type Rule = { action: string; resource: string; effect: "allow" | "ask" | "deny" }
 
@@ -56,6 +56,8 @@ export interface HostInput {
   readonly oauth?: true
   /** The fake answers every MCP request with Affinity's 401 challenge from the start: nobody has signed in. */
   readonly challenge?: true
+  /** What the fake MCP and sign-in server answers, such as a token without a refresh token. */
+  readonly fake?: FakeMcpOptions
 }
 
 let hosts = 0
@@ -64,7 +66,7 @@ export async function startHost(input: HostInput = {}) {
   const base = join(root, `host-${++hosts}`)
   const work = join(base, "work")
   mkdirSync(work, { recursive: true })
-  const fake = await startFakeMcp()
+  const fake = await startFakeMcp(input.fake)
   fake.challenge = input.challenge ?? false
   const affinity = createAffinityPlugin({ endpoint: fake.url, ...(input.oauth ? {} : { oauth: false as const }), skillsDir })
   const withOptions = Plugin.define({ id: affinity.id, setup: (ctx) => affinity.setup({ ...ctx, options: input.options ?? {} }) })
