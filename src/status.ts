@@ -39,6 +39,8 @@ export interface StatusFacts {
    * yet means "still listing", not "none for this account".
    */
   readonly settling?: boolean
+  /** True once this `affinity` server has connected since OpenCode started: a later sign-in is a renewal, not a first. */
+  readonly everConnected?: boolean
   readonly agents?: readonly { readonly id: string; readonly permissions: readonly Rule[] }[]
   readonly problems?: readonly string[]
   /** The plugin's own skills, and the skills OpenCode lists; the listed one wins when both have an id. */
@@ -61,14 +63,17 @@ export interface Status {
   /** What the sign-in allows, from the same read: `read-only` means Affinity refuses every change. */
   readonly grant: "read-write" | "read-only" | "api-key" | null
   /**
-   * While a sign-in is required: what to do when Affinity shows an error page instead of asking for access, because
-   * the organisation has not added OpenCode's client URL. OpenCode tells the plugin nothing about a refused sign-in, so
-   * status can't confirm it: this is the step to take if it happened. Null otherwise.
+   * While a sign-in is required that is not a renewal: the step to take when Affinity shows an error page instead of
+   * asking for access, because the organisation has never added OpenCode's client URL. OpenCode tells the plugin nothing
+   * about a refused sign-in, so this is advice for a first sign-in, not a finding; a sign-in that worked before and now
+   * needs one again is an expiry, and carries no step. Null otherwise.
    */
   readonly adminStep: string | null
+  /** True once this `affinity` server has connected since OpenCode started: a later sign-in is a renewal, not a first. */
+  readonly everConnected: boolean
   /** How many Affinity tools OpenCode lists and the default rules let run or ask: the listed ones that are not denied. */
   readonly tools: number
-  /** The listed tools that the default rules deny, such as submit_feedback; a later rule of the user's can turn one on. */
+  /** The listed tools that the default rules deny, such as send_feedback; an agent's later ask rule can turn one on. */
   readonly deniedTools: readonly string[]
   /** True while a server that just connected may still be listing its tools. */
   readonly listing: boolean
@@ -91,13 +96,17 @@ export interface Status {
  * the organisation; until then it shows its own error page and never returns to OpenCode, so the second half says what
  * to do then.
  */
-export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically); if Affinity shows an error page instead of asking for access, ask your Affinity admin to add OpenCode's client URL, as the Organisation setup row says.`
+export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`
 
 /**
- * The admin step for a refused sign-in, with its code: the Organisation setup row while a sign-in is required. It holds
- * no "Next step", because the status has exactly one.
+ * The advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode: the
+ * `Organisation setup` row while a sign-in is required and this server has not connected yet. It names no error code,
+ * because nothing detects it, and holds no "Next step", because the status has exactly one.
  */
-export const CLIENT_NOT_ALLOWED = `If Affinity shows an error page instead of asking for access (CLIENT_NOT_ALLOWED), OpenCode is not yet allowed in your Affinity organisation: ask an Affinity admin to add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
+export const ADMIN_STEP = `If you have never signed in to Affinity from this machine, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
+
+/** For a user's own entry, which may use the organisation's own OAuth app instead of OpenCode's client URL. */
+const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
 
 /** The default rules to paste into an agent's own permissions, one rule a line, as a JSON array body. */
 const AGENT_RULES = defaultRules()
@@ -140,7 +149,8 @@ export function buildStatus(facts: StatusFacts): Status {
     ...(facts.source ? { source: facts.source } : {}),
     organisation: facts.account?.organisation ?? null,
     grant: facts.account?.grant ?? null,
-    adminStep: state === "sign_in_required" ? CLIENT_NOT_ALLOWED : null,
+    adminStep: state === "sign_in_required" && facts.everConnected !== true ? `${ADMIN_STEP}${facts.source?.type === "adopted" ? ADMIN_STEP_OWN : ""}` : null,
+    everConnected: facts.everConnected === true,
     tools: listed.length - denied.length,
     deniedTools: denied,
     listing: state === "connected" && listed.length === 0 && facts.settling === true,
@@ -240,10 +250,12 @@ function accessText({ grant, problems, unguardedAgents }: Status) {
  * required this row gives the admin step to take if Affinity showed an error page; once connected through OAuth, the
  * organisation has allowed it.
  */
-function organisationText({ state, source, adminStep }: Status) {
+function organisationText({ state, source, adminStep, everConnected }: Status) {
   if (adminStep) return adminStep
   if (source?.type === "adopted" && source.signIn === "own") return "not needed: your own entry signs in with an API key"
-  if (state === "connected") return "done: this Affinity organisation lets OpenCode sign in"
+  if (state === "connected" || everConnected) {
+    return state === "connected" ? "done: this Affinity organisation lets OpenCode sign in" : "done earlier: the sign-in has expired, so run /connect again"
+  }
   return `once per Affinity organisation, an admin adds OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps`
 }
 
@@ -287,6 +299,8 @@ interface AccountState {
   readonly forget: () => void
   /** When the server's status last changed, or the watcher started, in milliseconds since the epoch. */
   readonly changedAt: () => number
+  /** True once this server has connected since OpenCode started. */
+  readonly everConnected: () => boolean
 }
 
 /** How long after a status change no tools still means "listing". */
@@ -313,12 +327,14 @@ export async function readStatus(
   const account = facts.account?.current()
   const { skills: own, account: watched, ...rest } = facts
   const settling = watched !== undefined && Date.now() - watched.changedAt() < LISTING_MS
+  const everConnected = watched !== undefined && (watched.everConnected() || server?.status.status === "connected")
   return buildStatus({
     ...rest,
     ...(server ? { server: server.status } : {}),
     ...(account ? { account } : {}),
     tools: tools.filter((tool) => tool.options?.namespace === SERVER_NAME).map((tool) => tool.name),
     settling,
+    everConnected,
     agents: agents.data,
     ...(own && listed ? { skills: { own, listed } } : {}),
   })
@@ -348,7 +364,7 @@ export const StatusRpc = {
       input: { type: "object" },
       output: {
         type: "object",
-        required: ["version", "state", "organisation", "grant", "adminStep", "tools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
+        required: ["version", "state", "organisation", "grant", "adminStep", "everConnected", "tools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
         properties: {
           version: { type: "string" },
           state: { enum: ["connected", "sign_in_required", "connecting", "disabled", "failed", "not_configured", "conflict"] },
@@ -361,6 +377,7 @@ export const StatusRpc = {
           organisation: nullableString,
           grant: { enum: ["read-write", "read-only", "api-key", null] },
           adminStep: nullableString,
+          everConnected: { type: "boolean" },
           tools: count,
           deniedTools: strings,
           listing: { type: "boolean" },

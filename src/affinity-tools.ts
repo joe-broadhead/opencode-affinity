@@ -73,7 +73,8 @@ export const READ_TOOLS: readonly string[] = [
 
 /**
  * Affinity's workflow playbooks, a subset of READ_TOOLS. Their text tells the model which tools to call next, and some
- * suggest web searches or changes; the affinity skill's rules win over it.
+ * suggest web searches or changes; the affinity skill's rules win over it. This is also the one record of the twelve,
+ * which the namespace text, OpenCode's `/affinity:<name>` commands and the tests all refer to.
  */
 export const WORKFLOW_TOOLS: readonly string[] = [
   "affinity_data_migration",

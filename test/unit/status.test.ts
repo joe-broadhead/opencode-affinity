@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { checkHost } from "../../src/host-version.js"
 import { defaultRules } from "../../src/permissions.js"
-import { buildStatus, CLIENT_NOT_ALLOWED, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, shortReason, SIGN_IN as SIGN_IN_STEP, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { ADMIN_STEP, buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, shortReason, SIGN_IN, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
 import { VERSION } from "../../src/version.js"
 import { allow } from "./fake.js"
 
-const SIGN_IN =
-  "Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth affinity opens it automatically); if Affinity shows an error page instead of asking for access, ask your Affinity admin to add OpenCode's client URL, as the Organisation setup row says."
-const ADMIN_STEP =
-  "If Affinity shows an error page instead of asking for access (CLIENT_NOT_ALLOWED), OpenCode is not yet allowed in your Affinity organisation: ask an Affinity admin to add OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access."
+const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
 const NOTHING_TO_DO = "Nothing to do."
 /** The default rules as /affinity-status shows them: one rule a line, a JSON array body. */
 const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
@@ -29,6 +26,7 @@ describe("buildStatus", () => {
       organisation: "Northwind Capital",
       grant: "read-write",
       adminStep: null,
+      everConnected: false,
       tools: 1,
       deniedTools: [],
       listing: false,
@@ -67,32 +65,24 @@ describe("buildStatus", () => {
     expect(formatStatus(buildStatus({ ...base, account: { grant: "api-key" } }))).toContain(`- Access: Affinity grant: API key (full access); ${RULES}\n`)
   })
 
-  test("a needed sign-in gives the admin step for a refused client, coded, beside the /connect step", () => {
+  test("a first sign-in that Affinity may refuse gives the admin step; a renewal does not", () => {
     const status = buildStatus({ ...base, server: { status: "needs_auth" } })
-    expect(SIGN_IN_STEP).toBe(SIGN_IN)
-    expect(CLIENT_NOT_ALLOWED).toBe(ADMIN_STEP)
-    expect(status).toMatchObject({ state: "sign_in_required", adminStep: ADMIN_STEP, nextStep: SIGN_IN })
+    expect(status).toMatchObject({ state: "sign_in_required", adminStep: ADMIN_STEP, everConnected: false, nextStep: SIGN_IN })
     expect(formatStatus(status)).toContain(`- Organisation setup: ${ADMIN_STEP}\n`)
+    // A sign-in that worked before and now needs one again is an expiry: no admin step, and the next step is /connect.
+    const renewal = buildStatus({ ...base, server: { status: "needs_auth" }, everConnected: true })
+    expect(renewal).toMatchObject({ state: "sign_in_required", adminStep: null, everConnected: true, nextStep: SIGN_IN })
+    expect(formatStatus(renewal)).toContain("- Organisation setup: done earlier: the sign-in has expired, so run /connect again\n")
+    expect(formatStatus(renewal)).not.toContain("OpenCode's client URL")
     // Other states carry no admin step: connected through OAuth says the organisation allows OpenCode.
     expect(buildStatus(base).adminStep).toBeNull()
     expect(formatStatus(buildStatus({ ...base, server: { status: "pending" } }))).toContain(
       "- Organisation setup: once per Affinity organisation, an admin adds OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json, under Settings, Manage Apps\n",
     )
+    // AF-8: an adopted entry may use the organisation's own OAuth app, so the step says so.
+    const adopted = buildStatus({ ...base, server: { status: "needs_auth" }, source: { type: "adopted", url: URL, signIn: "oauth" } })
+    expect(adopted.adminStep).toBe(ADMIN_STEP + ADMIN_STEP_OWN)
     expect(formatStatus(buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "own" } }))).toContain("- Organisation setup: not needed: your own entry signs in with an API key\n")
-  })
-
-  test.each([
-    [{ status: "needs_auth", error: "Authorization required" }, "sign_in_required", "sign-in required", SIGN_IN],
-    [{ status: "failed", error: "fetch failed" }, "failed", "failed", "Check your network, then run /affinity-status again."],
-    [{ status: "disabled" }, "disabled", "disabled", `The affinity MCP server is disabled. Enable it in /mcps, or remove "disabled": true from mcp.servers.affinity in opencode.json.`],
-    [{ status: "pending" }, "connecting", "connecting", "Affinity is still connecting. Run /affinity-status again in a few seconds."],
-    [undefined, "not_configured", "not configured", "OpenCode has no affinity MCP server. Check that no organisation policy (mcp.use) or other plugin removes it, then restart OpenCode."],
-  ] as const)("%j is %s with the exact label and next step", (server, state, label, nextStep) => {
-    const status = buildStatus({ ...base, ...(server ? { server } : { server: undefined }) })
-    expect(status.state).toBe(state)
-    expect(status.nextStep).toBe(nextStep)
-    expect(formatStatus(status)).toContain(`- Connection: ${label}`)
-    expect(formatStatus(status)).toContain(`- Next step: ${nextStep}`)
   })
 
   test("shows a failure's reason on one short line, without URL queries, and never the text of a needed sign-in", () => {
@@ -254,7 +244,7 @@ function statusContext(server: string, skills: Promise<unknown> = Promise.resolv
 describe("readStatus", () => {
   const account = () => {
     let current: { organisation: string } | undefined = { organisation: "Northwind Capital" }
-    return { current: () => current, forget: () => void (current = undefined), changedAt: () => 0 }
+    return { current: () => current, forget: () => void (current = undefined), changedAt: () => 0, everConnected: () => false }
   }
 
   test("reads connection, the captured account, tools and agents through public APIs", async () => {

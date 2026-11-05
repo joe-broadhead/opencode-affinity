@@ -150,6 +150,14 @@ describe("watchAccount", () => {
     expect(foreign.current()).toBeUndefined()
   })
 
+  test("remembers that the server connected since OpenCode started, so status tells a renewal from a first sign-in", async () => {
+    const { account, stream } = await watch()
+    expect(account.everConnected()).toBe(false)
+    stream.emit("mcp.status.changed", { server: "affinity" })
+    await tick()
+    expect(account.everConnected()).toBe(true)
+  })
+
   test("notes when the server's status last changed, for status's listing check", async () => {
     const { account, stream } = await watch()
     const started = account.changedAt()

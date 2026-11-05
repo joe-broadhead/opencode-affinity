@@ -98,7 +98,8 @@ const RESUBSCRIBE_MS = 5_000
 /**
  * Captures the account from the model's `get_current_user` calls and the tools RPC's, and forgets it when the user
  * signs out or switches accounts. Also notes when the server's status last changed, so status can tell a server that
- * is still listing its tools from one that lists none. Returns the current account and a cleanup.
+ * is still listing its tools from one that lists none, and remembers whether this server has connected since OpenCode
+ * started, so status tells a first sign-in from an expired one. Returns the current account and a cleanup.
  */
 export async function watchAccount(
   ctx: {
@@ -111,6 +112,7 @@ export async function watchAccount(
 ) {
   let account: Account | undefined
   let changedAt = Date.now()
+  let everConnected = false
   const capture = (result: AccountResult) => void (account = accountOf(result) ?? account)
   const hook = await ctx.tool.hook("execute.after", async (event) => {
     if (event.tool === `${SERVER_NAME}_${ACCOUNT_TOOL}` && event.status === "completed" && owned()) capture(event.result)
@@ -122,6 +124,7 @@ export async function watchAccount(
   // Signed out (the server needs a sign-in again) or another account: what was read no longer holds.
   const check = async () => {
     const server = (await ctx.mcp.list()).data.find((item) => item.name === SERVER_NAME)
+    if (server?.status.status === "connected") everConnected = true
     if (server?.status.status !== "connected" && server?.status.status !== "pending") account = undefined
   }
   const watching = (async () => {
@@ -147,6 +150,7 @@ export async function watchAccount(
     /** Forgets the account, for a status read that finds the server signed out. */
     forget: () => void (account = undefined),
     changedAt: () => changedAt,
+    everConnected: () => everConnected,
     stop: async () => {
       stopped.abort()
       captures.delete(entry)
