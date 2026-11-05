@@ -5,6 +5,9 @@ through Affinity's official MCP server.
 
 Unofficial; not affiliated with Affinity.
 
+This is Affinity CRM ([affinity.co](https://www.affinity.co)), the relationship-intelligence CRM for deal teams: not
+Affinity Photo, Designer or Publisher, Canva's design apps.
+
 ## Requirements
 
 - OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Outside that range the plugin does not start, unless
@@ -45,12 +48,14 @@ to Affinity's sign-in page in your browser, choose your organisation and sign in
 From a terminal, run `opencode mcp auth affinity` instead; it opens the link automatically. `/mcps` also offers the
 same sign-in.
 
-Affinity's consent screen lists three scopes, all ticked. **Untick the first one for a read-only connection**: reads
-work, and Affinity refuses every change. Sign in again with it ticked to allow changes.
+Affinity's consent screen lists three scopes, all ticked. **Untick `mcp` (changes) for a read-only connection**, and
+keep `offline_access`: reads work, Affinity refuses every change, and without `offline_access` the sign-in expires after
+a day. Sign in again with `mcp` ticked to allow changes.
 
 If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet: ask an
-Affinity admin to follow [Organisation rollout](#organisation-rollout). OpenCode's sign-in waits for an answer that
-never comes; close it after the admin step, and sign in again.
+Affinity admin to follow [Organisation rollout](#organisation-rollout), then sign in again. We expect OpenCode's
+sign-in to wait for an answer that never comes; that, and what Affinity's page shows, has been reproduced only against a
+simulated Affinity server, and the first live sign-in confirms it.
 
 When the sign-in expires and cannot be renewed, `/connect` marks the Affinity account as needing a new sign-in, and
 OpenCode shows its "MCP server needs authentication" notice.
@@ -70,6 +75,8 @@ Ask, for example:
 - "Which deals in our pipeline have had no activity for 30 days, by stage?"
 - "Summarise our notes on Northwind Capital this quarter."
 - "Move Acme Robotics to Due Diligence." (asks first)
+- "Run a backchannel on the CTO candidate at our portfolio company Acme Robotics."
+- "Build a market map of climate-tech startups and flag the ones we know."
 
 Contact details, relationship scores and inferred connections are other people's personal data: the model reads them
 only for your question, labels Affinity's scores and AI Notetaker summaries as Affinity's, and keeps CRM data out of
@@ -103,7 +110,13 @@ opencode api post /api/rpc/affinity.crm.tools/get_lists \
   -d '{"input":{"sessionID":"ses_…","input":{"term":"Pipeline"}}}'
 ```
 
-See [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md).
+OpenCode also lists Affinity's twelve workflow playbooks as `/affinity:<name>` commands, such as
+`/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. Running one sends Affinity's playbook text to the model as
+your own message: the plugin's skills and rules still decide what may be done with it, and a change it suggests still
+needs your request and its own permission prompt.
+
+A script's reads run under the rules of the location it calls, not of a session's own location (a limit of the shared
+tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md).
 
 ## Permissions
 
@@ -205,7 +218,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | Status or error | What to do |
 | --- | --- |
 | Connection: sign-in required | Run `/connect` and choose Affinity, then press `o` or Enter to open the link. In a terminal, `opencode mcp auth affinity` opens it automatically. |
-| `CLIENT_NOT_ALLOWED` (Organisation setup row): Affinity shows an error page instead of asking for access | Your Affinity organisation has not added OpenCode yet, and OpenCode's sign-in waits without an answer. Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL, as [Organisation rollout](#organisation-rollout) shows, then sign in again. |
+| Organisation setup row: Affinity shows an error page instead of asking for access | This is a first sign-in, and your organisation has not added OpenCode yet. Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL, as [Organisation rollout](#organisation-rollout) shows, then sign in again. A sign-in that worked before and now needs one again is an expiry: run `/connect` again. |
 | The sign-in fails with `invalid_scope` | Your organisation allows OpenCode only the read-only scope. Use the read-only entry in Configuration, or ask the admin to allow `mcp` too. |
 | Connection: connecting | Wait a few seconds, then run `/affinity-status` again. |
 | Connection: failed | Check your network, then run `/affinity-status` again. With your own entry that sends an API key, check the key (Affinity: Settings, Manage Apps). |
@@ -216,7 +229,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | Tools: off by default | The tools the default rules deny, listed by name. See [Permissions](#permissions) to turn them on, as an ask, in one agent. |
 | Tools: unknown | Affinity added tools the plugin does not know yet. They ask before they run. |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
-| Access: Affinity grant: read-only | You unticked the first scope at sign-in, so Affinity refuses changes with `Insufficient scope`. To allow changes, sign out (`opencode mcp logout affinity`) and sign in again with it ticked. |
+| Access: Affinity grant: read-only | You unticked `mcp` (changes) at sign-in, so Affinity refuses changes with `Insufficient scope`. To allow changes, sign out (`opencode mcp logout affinity`) and sign in again with `mcp` ticked. |
 | Note or file search returns an error about Deal Assist | Your organisation doesn't have Deal Assist. Ask your Affinity admin; other reads still work. |
 | Meetings return an access error about unified events | Your organisation hasn't finished Affinity's unified events onboarding. Ask your Affinity admin. |
 | `429` or `Rate limit exceeded` | Your organisation's monthly API quota, or a short burst limit, is used up. Affinity shows usage in Settings; the quota is shared by the whole firm. |
@@ -236,6 +249,17 @@ Run `/affinity-status` first. Its last line is the next step.
 
 A script's errors from the tools RPC have their own codes, listed in
 [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md#errors).
+
+## Known limits
+
+- Affinity's tool names, parameters and playbook text here come from Affinity's own server package, `affinity-mcp`, read without running it.
+  Affinity ships changes often, so a tool it adds asks until a release of this plugin lists it, and is not a method of
+  the tools RPC. The first live sign-in reconciles them.
+- The relationship facts in status, and what Affinity's page shows for a refused sign-in, are confirmed at the first
+  live sign-in.
+- Whether the model writes its sentence on whom a change reaches before a call depends on the model: the rules cannot
+  make it. A script's reads follow the location it calls, not the session's location (a limit of the shared tools
+  module).
 
 ## Uninstall
 

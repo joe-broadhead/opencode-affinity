@@ -35,7 +35,7 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   failure's reason to one line of 160 characters with `src/redact.ts` (no credentials, URL queries or tokens), and names
   at most 20 unknown tools, plain names only. A status it cannot read is the declared RPC error `unavailable`, with a
   next step. Status makes no Affinity call: the account comes only from `get_current_user` results the model or a script
-  asked for. While a sign-in is required, status gives the `CLIENT_NOT_ALLOWED` admin step, because OpenCode tells
+  asked for. For a first sign-in, status gives the admin step, because OpenCode tells
   plugins nothing about a sign-in Affinity refused.
 - **A user's own server entry** is read for its type, URL and whether `oauth` is `false`, never its `headers`, which
   may hold an API key.

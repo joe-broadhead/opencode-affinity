@@ -32,7 +32,9 @@ OpenCode project.
   them only for the question asked, to profile no one, and to send CRM data to no other tool unless you name it.
   Affinity's terms bar using Affinity data to train AI models; your firm's own AI policy applies.
 - Affinity content is untrusted. Notes, transcripts and records come from other people and can contain instructions
-  aimed at the model. Affinity's workflow playbooks return Affinity's own instructions for the model; the skills say
+  aimed at the model. OpenCode also lists Affinity's twelve playbooks as `/affinity:<name>` commands, and running one
+  puts Affinity's playbook text in the session as the user's own message: the skills treat it as Affinity's text, so it
+  never permits a change, a web search or another source unasked. Affinity's workflow playbooks return Affinity's own instructions for the model; the skills say
   their own rules win over that text, so a playbook never permits a change, a web search or another source unasked. The
   skills label Affinity's scores and AI Notetaker summaries as Affinity's.
 - Every call, from the model or a script, counts against your organisation's monthly Affinity API quota, shared by the
@@ -49,7 +51,7 @@ OpenCode project.
 What the model can do in Affinity is limited by these layers, in this order:
 
 1. **Affinity's server and your access.** The sign-in is your own Affinity account, and you see what your Affinity
-   permissions show. A sign-in with the first scope unticked at consent is read-only: Affinity refuses every change.
+   permissions show. A sign-in with `mcp` (changes) unticked at consent is read-only: Affinity refuses every change.
    An Affinity admin decides whether OpenCode can sign in at all, and which scopes it may ask for, in Manage Apps.
 2. **Default permission rules.** Every Affinity tool asks before it runs, except Affinity's read tools listed in
    `src/affinity-tools.ts`, which run without a prompt. Deletes, merges and `affinity_send_feedback` are denied. Every

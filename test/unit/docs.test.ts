@@ -108,12 +108,48 @@ describe("docs", () => {
 
   // Every code the plugin's own code raises (the tools RPC's are in docs/scripting.md) has no service prefix and a row
   // in the configuration guide's Errors table.
-  test("CLIENT_NOT_ALLOWED, which status gives while a sign-in is required, has its rows in both guides", () => {
+  test("the admin step is advice beside the status, not an error code: it is in no error list, and both guides keep it", () => {
     const errors = /## Errors(.*?)## /.exec(text("docs/configuration.md"))?.[1] ?? ""
     const troubleshooting = /## Troubleshooting(.*?)## /.exec(text("README.md"))?.[1] ?? ""
-    expect(errors).toContain("| `CLIENT_NOT_ALLOWED` |")
-    expect(troubleshooting).toContain("| `CLIENT_NOT_ALLOWED` (Organisation setup row): Affinity shows an error page instead of asking for access |")
-    for (const guide of [errors, troubleshooting]) expect(guide).toContain("https://opencode.ai/oauth/opencode/client.json")
+    expect(errors).not.toContain("CLIENT_NOT_ALLOWED")
+    for (const file of FILES) expect(text(file)).not.toContain("CLIENT_NOT_ALLOWED")
+    expect(troubleshooting).toContain("| Organisation setup row: Affinity shows an error page instead of asking for access |")
+    expect(troubleshooting).toContain("https://opencode.ai/oauth/opencode/client.json")
+    expect(text("docs/configuration.md")).toContain("https://opencode.ai/oauth/opencode/client.json")
+    // It is worded for a first sign-in, because status cannot tell a refusal from an expiry.
+    expect(text("docs/configuration.md")).toContain("If you have never signed in to Affinity from this machine")
+    expect(text("README.md")).toContain("A sign-in that worked before and now needs one again is an expiry")
+  })
+
+  test("the guides mark the refused sign-in as expected, confirmed at the first live sign-in", () => {
+    expect(text("README.md")).toContain("has been reproduced only against a simulated Affinity server, and the first live sign-in confirms it")
+    expect(text("docs/configuration.md")).toContain("is known only from a simulated server so far; the first live sign-in confirms it")
+  })
+
+  test("the guides name Affinity CRM apart from Canva's design apps, and document the playbook commands", () => {
+    const readme = text("README.md")
+    expect(readme).toContain("This is Affinity CRM ([affinity.co](https://www.affinity.co)), the relationship-intelligence CRM for deal teams: not Affinity Photo, Designer or Publisher, Canva's design apps")
+    for (const guide of [readme, text("docs/configuration.md")]) {
+      expect(guide).toContain("/affinity:<name>")
+      expect(guide).toContain("sends Affinity's playbook text to the model as your own message")
+      expect(guide).toContain("/affinity:affinity-meeting-prep")
+    }
+    expect(text("SECURITY.md")).toMatch(/running one puts Affinity's playbook text in the session as the user's own message/)
+  })
+
+  test("the guides name the scope to untick, not its position on the consent screen", () => {
+    for (const file of ["README.md", "docs/configuration.md", "SECURITY.md", "skills/affinity/SKILL.md"]) {
+      expect(text(file)).toMatch(/untick(?:ing)? `mcp`|with `mcp` \(changes\) unticked/i)
+      expect(text(file)).not.toMatch(/untick the first scope|Unticking the first scope/)
+    }
+    expect(text("README.md")).toContain("keep `offline_access`")
+  })
+
+  test("the scripting guide qualifies what a script's rules are, across locations", () => {
+    const guide = text("docs/scripting.md")
+    expect(guide).toContain("the rules of that location's agents, not of a session created in another project")
+    expect(guide).toContain("A session created in another directory does not carry its own location's rules")
+    expect(guide).not.toMatch(/exactly the\s+access its model would have/)
   })
 
   test("the configuration guide documents every error code the plugin raises, none with a service prefix", () => {
@@ -166,7 +202,7 @@ describe("docs", () => {
     const readme = text("README.md")
     expect(readme).toContain("Every call counts against your organisation's monthly Affinity API quota, which the whole firm shares")
     expect(readme).toContain("Settings → Manage Apps → New App → **Client URL**")
-    expect(readme).toContain("**Untick the first one for a read-only connection**")
+    expect(readme).toContain("**Untick `mcp` (changes) for a read-only connection**")
     expect(readme).toContain("Unofficial; not affiliated with Affinity.")
   })
 })

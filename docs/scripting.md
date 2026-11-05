@@ -27,8 +27,9 @@ it.
 
 ## A script runs as a session
 
-Every call names a session, and the session must name an agent. The script runs as that agent, with exactly the
-access its model would have:
+Every call names a session, and the session must name an agent. The script runs as that agent, with the access its
+model would have in the location you call: the rules of that location's agents, not of a session created in another
+project (a limit of the shared tools module). Within that location:
 
 - A tool that the agent's rules or the session's rules hide from the model is refused. OpenCode hides a tool when the
   last rule that matches its permission name, such as `affinity_search_persons`, on resource `*` is a `deny`.
@@ -85,9 +86,10 @@ the model's call does, unless a project uses its own `mcp.servers.affinity` with
 person's account, so a script's read then updates no status.
 
 `opencode api` calls run in the OpenCode service's default location, your home directory, whatever directory you run
-them from. They use that location's plugin options, from your global config, and its `affinity` connection. To call a
-project whose own config sets other options, call the HTTP API with `?location[directory]=<dir>`. The session may
-belong to another directory.
+them from. They use that location's plugin options, from your global config, its `affinity` connection and its agents'
+rules. To call a project whose own config sets other options or stricter agents, call the HTTP API with
+`?location[directory]=<dir>`, and create the session there. A session created in another directory does not carry its
+own location's rules: the call uses the location you call.
 
 ## Errors
 

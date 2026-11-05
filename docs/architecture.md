@@ -79,7 +79,7 @@ sign-in is required. It clears only its own report, once the server is connected
 `affinity`), every agent's rules (`ctx.agent.list()`) and the skills OpenCode lists (`ctx.skill.list()`), and takes the
 captured account. `buildStatus` turns them into one model, and `formatStatus` renders it in a fixed order: Connection
 (state and server), Account (the organisation), Access (the grant, and what the default rules let run), Organisation
-setup (whether the organisation lets OpenCode sign in, and while a sign-in is required, the `CLIENT_NOT_ALLOWED` admin
+setup (whether the organisation lets OpenCode sign in, and for a first sign-in that Affinity may refuse, the admin
 step), Tools
 (counts and up to 20 unknown names), Agents without default rules (names, then the default rules to paste, one rule a
 line), OpenCode (version, tested or not, the supported range, and setup problems), and exactly one Next step,

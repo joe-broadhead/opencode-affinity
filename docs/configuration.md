@@ -69,8 +69,8 @@ set them only for your organisation's own OAuth app, below.
 
 ### Read-only for everyone
 
-Each person can untick the first scope on Affinity's consent screen for a read-only connection. To make read-only the
-default, or because your organisation allows OpenCode only the `mcp.read` scope (Affinity then refuses a sign-in that
+Each person can untick `mcp` (changes) on Affinity's consent screen for a read-only connection, keeping
+`offline_access`: without it, the sign-in expires after a day. To make read-only the default, or because your organisation allows OpenCode only the `mcp.read` scope (Affinity then refuses a sign-in that
 asks for more, with `invalid_scope`), ask for the read scope alone:
 
 ```json
@@ -326,6 +326,14 @@ own:
 
 Copy the full block from your own `/affinity-status` output; the lines in quotes above stand for it.
 
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/affinity-status` | Posts the status report into the session. |
+| `/affinity`, or "Affinity: Status" in the palette | Opens the same report in a dialog: `r` refreshes it, `Esc` closes it. |
+| `/affinity:<name>` | One per workflow playbook Affinity serves as an MCP prompt, such as `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. Running one sends Affinity's playbook text to the model as your own message. The plugin's skills still win: Affinity's text never permits a change, a web search or another source unasked, and a change it suggests still needs your request and its own permission prompt. |
+
 ## Errors
 
 Every error from the plugin reads `CODE: What happened. Next step: What to do.`
@@ -338,7 +346,6 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 | `SKILLS_INVALID` | Setup: a skill file is missing or broken. The plugin still starts; status shows the problem. | Reinstall the plugin. |
 | `SERVER_NOT_REGISTERED` | Setup: the `affinity` server could not be registered. Status shows the problem. | Restart OpenCode. |
 | `RULES_NOT_ADDED` | Setup: the default permission rules could not be added, so Affinity tools may run without asking. Status shows the problem. | Restart OpenCode. |
-| `CLIENT_NOT_ALLOWED` | Status, while a sign-in is required: the `Organisation setup` row, and the status RPC's `adminStep`. It applies when Affinity shows an error page instead of asking for access, because the organisation has not added OpenCode's client URL. OpenCode tells plugins nothing about a refused sign-in: its sign-in waits for an answer that never comes, so status gives this step beside the `/connect` one. | Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings, Manage Apps, New App, Client URL, with the scopes `mcp`, `mcp.read` and `offline_access`. |
 
 For example:
 
@@ -364,7 +371,8 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `source` | `type` (`plugin`, `adopted` or `conflict`), `url`, `signIn` (`oauth`, or `own` for your own entry with `"oauth": false`), and for a conflict the `expected` URL |
 | `organisation` | The Affinity organisation's name, or `null` until the first `get_current_user` call since OpenCode started |
 | `grant` | `read-write`, `read-only` (Affinity refuses every change), `api-key` (a personal key, with full access), or `null` until read |
-| `adminStep` | While a sign-in is required: the `CLIENT_NOT_ALLOWED` step for an organisation that has not added OpenCode yet; otherwise `null` |
+| `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. |
+| `everConnected` | True once this `affinity` server has connected since OpenCode started |
 | `tools` | How many Affinity tools OpenCode lists that the default rules let run or ask: the listed ones, without the denied ones |
 | `deniedTools` | The listed tools that the default rules deny, such as `send_feedback`. The `Tools` row shows them as "off by default"; an agent's own later `ask` rule may have turned one on. |
 | `listing` | True while a server that connected moments ago lists no tools yet. The next step is then to run `/affinity-status` again in a few seconds. |
@@ -374,6 +382,12 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4 and 2.2.5) |
 | `problems` | Setup problems, each `CODE: What happened. Next step: What to do.` |
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
+
+The `Organisation setup` row shows `adminStep` while a sign-in is required and nothing has connected yet:
+"If you have never signed in to Affinity from this machine, an Affinity admin must first add OpenCode's client URL."
+What Affinity
+shows for a client it refuses is known only from a simulated server so far; the first live sign-in confirms it. After a
+sign-in that worked, a later one is a renewal, and the row says so instead.
 
 The organisation and the grant come from `tenant.name`, `grant.type` and `grant.scopes` of a `get_current_user` result,
 made by the model or by a script, and are kept in memory only. Of the scopes, only `mcp`, `mcp.read`, `api` and

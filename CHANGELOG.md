@@ -21,14 +21,19 @@ All notable changes to this project are documented here. The format follows [Kee
 - `/affinity-status` and the `/affinity` dialog ("Affinity: Status" in the palette): connection, account, access,
   organisation setup, tools, agents without the default rules, the OpenCode check and one next step. The organisation
   and grant come from the first `get_current_user` call, kept in memory only. While a sign-in is required, status gives
-  the admin step for an organisation that has not added OpenCode (`CLIENT_NOT_ALLOWED`). A skill of yours with one of
+  the advice for a first sign-in in an organisation that has not added OpenCode. A skill of yours with one of
   the plugin's ids is named, with a next step.
 - The status RPC `affinity.crm/status`, with the fields this family of plugins shares.
 - The tools RPC `affinity.crm.tools`, which lets scripts call Affinity's read tools with no model, as a session and
   its agent.
-- Two skills: `affinity` (finding records, pipelines, relationships, notes, meetings and transcripts, Affinity's
-  playbooks under the skill's own rules, the shared API quota, and the rules for other people's data) and
-  `affinity-write` (whom each change reaches, said before the call, with OpenCode's permission prompt as the yes).
+- Two skills: `affinity` (finding records with the person, filter and date forms Affinity accepts, including each
+  local midnight converted to UTC; pipelines, relationships, notes, meetings and transcripts; Affinity's playbooks
+  under the skill's own rules; the shared API quota; and the rules for other people's data) and `affinity-write`
+  (whom each change reaches, said before the call, the full-replace and upsert shapes, and OpenCode's permission
+  prompt as the yes).
+- Affinity's twelve workflow playbooks are also `/affinity:<name>` commands, since OpenCode turns MCP prompts into
+  commands; running one sends Affinity's text to the model as your own message, and the skills' rules still decide
+  what it may do.
 - The option `allowUntestedHost`, and a host check for OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5.
 - A `jelly` declaration for Jelly: the tools with their default effects, the skills, the sign-in, a summary and an
   icon.
