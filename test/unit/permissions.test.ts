@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { DENIED_TOOLS, READ_TOOLS } from "../../src/affinity-tools.js"
+import { readFileSync } from "node:fs"
+import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
 import { agentEditor, allow, builtInAgents, transforms, type AgentEditor, type FakeAgent } from "./fake.js"
 
@@ -123,5 +124,50 @@ describe("unguardedAgents", () => {
     expect(unguardedAgents(agents)).toEqual(["reviewer", "block-before-base"])
     expect(hasDefaultRules(guarded)).toBe(true)
     expect(hasDefaultRules([...defaultRules()])).toBe(false)
+  })
+})
+
+// The reconcile is a drop-in: replacing test/unit/affinity-tools-list.json with the live `tools/list` and adding the names
+// to src/affinity-tools.ts must leave every tool decided by one rule, and every deny still hidden. A live name nobody
+// classified, or a read whose rule went missing, is caught here rather than by a prompt the firm did not expect.
+describe("a saved tool list drops in", () => {
+  const saved = JSON.parse(readFileSync(new URL("./affinity-tools-list.json", import.meta.url), "utf8")) as { tools: { name: string }[] }
+  const names = saved.tools.map((tool) => tool.name)
+  const wildcard = (pattern: string) => new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`)
+  /** The last rule that decides a tool, as the host evaluates it. */
+  const deciding = (name: string, rules: readonly Rule[]) => rules.findLast((rule) => wildcard(rule.action).test(`affinity_${name}`) && wildcard(rule.resource).test("*"))
+  /** The names with no list of their own: a live tool the plugin has never classified. */
+  const unclassified = (list: readonly string[]) => list.filter((name) => ![READ_TOOLS, WRITE_TOOLS, DENIED_TOOLS].some((known) => known.includes(name)))
+  /** Reads whose own allow rule went missing: they then fall to the catch-all ask. */
+  const unruledReads = (list: readonly string[], rules: readonly Rule[]) =>
+    list.filter((name) => READ_TOOLS.includes(name) && rules.filter((rule) => rule.action === `affinity_${name}` && rule.effect === "allow").length !== 1)
+
+  test("every tool in the saved list is classified, and one rule decides it as its class says", () => {
+    const rules = defaultRules()
+    expect(unclassified(names)).toEqual([])
+    for (const name of names) {
+      const effect = deciding(name, rules)?.effect
+      const expected = READ_TOOLS.includes(name) ? "allow" : WRITE_TOOLS.includes(name) ? "ask" : "deny"
+      expect({ name, effect }).toEqual({ name, effect: expected })
+      expect(evaluate([allow("*"), ...rules], `affinity_${name}`)).toBe(expected)
+    }
+  })
+
+  test("every deny is the last rule that matches it, so the tool stays hidden", () => {
+    const rules = defaultRules()
+    for (const name of DENIED_TOOLS) {
+      expect(rules.filter((rule) => rule.action === `affinity_${name}`).at(-1)?.effect).toBe("deny")
+      expect(deciding(name, rules)?.effect).toBe("deny")
+    }
+  })
+
+  test("the check fails on a tool with no rule of its own, or one nobody classified", () => {
+    // A live read added without its allow rule falls to the catch-all ask: caught.
+    expect(unruledReads(names, defaultRules().filter((rule) => rule.action !== "affinity_get_lists"))).toEqual(["get_lists"])
+    // A live name added to the fixture but never classified: caught.
+    expect(unclassified([...names, "a_tool_added_later"])).toEqual(["a_tool_added_later"])
+    // A deny reordered behind another rule no longer decides its tool: caught.
+    const reopened = [...defaultRules(), { action: "affinity_delete_company", resource: "*", effect: "allow" as const }]
+    expect(deciding("delete_company", reopened)?.effect).toBe("allow")
   })
 })

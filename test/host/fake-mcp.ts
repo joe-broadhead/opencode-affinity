@@ -34,12 +34,21 @@ export const ACCOUNT = {
   grant: { type: "access-token", scopes: ["mcp.read", "offline_access"], createdAt: "2026-01-01T00:00:00Z" },
 }
 
-/** The scopes Affinity's challenge asks for. */
+/** The scopes the plugin pins, which every token is issued for. */
 export const CHALLENGE_SCOPE = "mcp mcp.read offline_access"
+
+/**
+ * The wider list the fake advertises, as Affinity's own metadata and 401 do: `api`/`api.read` are in the metadata's
+ * `scopes_supported`, and the challenge asks for more than the pin. A plugin without `oauth.scope` would request this
+ * instead (OpenCode 2.2.x resolves `oauth?.scope ?? challenge.scope`), so the pin test fails without the pin.
+ */
+export const ADVERTISED_SCOPE = "mcp mcp.read mcp.write api api.read offline_access"
 
 export interface FakeMcpOptions {
   /** `affinity` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "affinity"
+  /** The scope the 401 challenge asks for; the wider list by default. */
+  readonly challengeScope?: string
   /**
    * Whether the token endpoint issues a refresh token. Without one, a 401 later needs a new sign-in and leaves the
    * credential in place, which is the `/connect` account the plugin marks.
@@ -79,6 +88,8 @@ export interface FakeMcp {
   readonly inputs: { readonly tool: string; readonly arguments: unknown }[]
   /** How the authorize endpoint answers: Affinity's own error page, a redirect with an `error`, or a sign-in. */
   refuse: "page" | "redirect" | "sign-in"
+  /** The scope the 401 challenge asks for, and the metadata advertises. */
+  challengeScope: string
   /** Each authorize request's query: client_id, scope, redirect_uri and the rest. */
   readonly authorizeRequests: Record<string, string>[]
   /** Each token request's form, in order. */
@@ -124,7 +135,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   }
   const model = { script: [] as ScriptedCall[], requests: [] as unknown[] }
   // Filled once the server listens; the request handler reads `challenge` and `origin` from it.
-  const fake = { challenge: false, refuse: "page", authorizeRequests: [] as Record<string, string>[], tokens: [] as Record<string, string>[] } as FakeMcp
+  const fake = { challenge: false, refuse: "page", challengeScope: options.challengeScope ?? ADVERTISED_SCOPE, authorizeRequests: [] as Record<string, string>[], tokens: [] as Record<string, string>[] } as FakeMcp
   let codes = 0
   /**
    * One streamed chat completion. A request that offers tools is an agent turn: after n tool results the model makes
@@ -153,7 +164,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     if (route === "/v1/chat/completions") return chat(response, await read(request))
     // The authorization server, as Affinity's: CIMD and the `none` auth method, no registration endpoint.
     if (route === "/.well-known/oauth-protected-resource/mcp" || route === "/.well-known/oauth-protected-resource") {
-      const metadata = { resource: fake.url, authorization_servers: [fake.origin], bearer_methods_supported: ["header"], scopes_supported: CHALLENGE_SCOPE.split(" ") }
+      const metadata = { resource: fake.url, authorization_servers: [fake.origin], bearer_methods_supported: ["header"], scopes_supported: fake.challengeScope.split(" ") }
       return void response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(metadata))
     }
     if (route === "/.well-known/oauth-authorization-server") {
@@ -165,7 +176,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         grant_types_supported: ["authorization_code", "refresh_token"],
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
-        scopes_supported: ["api", "api.read", ...CHALLENGE_SCOPE.split(" ")],
+        scopes_supported: [...new Set(["api", "api.read", ...fake.challengeScope.split(" ")])],
         client_id_metadata_document_supported: true,
       }
       return void response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(metadata))
@@ -203,7 +214,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     if (fake.challenge) {
       const metadata = `${fake.origin}/.well-known/oauth-protected-resource/mcp`
       return void response
-        .writeHead(401, { "content-type": "application/json", "www-authenticate": `Bearer resource_metadata="${metadata}", scope="${CHALLENGE_SCOPE}"` })
+        .writeHead(401, { "content-type": "application/json", "www-authenticate": `Bearer resource_metadata="${metadata}", scope="${fake.challengeScope}"` })
         .end(JSON.stringify({ error: "invalid_token" }))
     }
     if (request.method !== "POST") return void response.writeHead(405, { allow: "POST" }).end()

@@ -317,6 +317,16 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     await fake?.close()
   }, 60_000)
 
+  test("DR-4: the status RPC makes no Affinity call, however often the dialog refreshes", async () => {
+    const before = fake.calls.length
+    for (const expected of [1, 2, 3]) {
+      const output = await status()
+      expect(output.state).toBe("connected")
+      expect(fake.calls.length).toBe(before)
+      expect(expected).toBeGreaterThan(0)
+    }
+  })
+
   test("describes exactly the known reads, each available with its live schema", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)

@@ -15,7 +15,7 @@ import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { ADMIN_STEP, SIGN_IN, StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { MODEL_ID } from "./fake-mcp.js"
+import { ADVERTISED_SCOPE, MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
 const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
@@ -174,7 +174,13 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
 
   test("H5: /affinity-status reports the connection, new tools, the unguarded agent and its fix, before any account read", async () => {
     await affinityTools(host)
+    // DR-4: status, its RPC and the dialog's refresh make no Affinity call of their own: a firm's shared quota must not
+    // be spent by opening or refreshing the dialog.
+    const calls = host.fake.calls.length
     const text = await status(host, await session(host))
+    await statusRpc(host)
+    await statusRpc(host)
+    expect(host.fake.calls.length).toBe(calls)
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Account: not read yet")
     expect(text).toContain(`- Tools: 4 available, 1 unknown: shiny_new_tool (unknown tools ask before running); off by default: ${OFF}\n`)
@@ -530,8 +536,9 @@ describe("the documented own entries", () => {
     })
   })
 
-  // AF-6: an own OAuth app has a real client ID, which this test does not have. It tests the config shape and the
-  // status rows only: the entry is adopted, and OpenCode would ask with the entry's client ID rather than its CIMD one.
+  // AF-6 and DR-5: an own OAuth app has a real client ID, which this test does not have; the fake accepts any client, so
+  // what is proven here is the request OpenCode builds: the entry's client ID instead of its client URL, and the loopback
+  // redirect the guide tells the admin to register.
   describe("the organisation's own OAuth app", () => {
     const CLIENT_ID = "affinity-org-fake-client-0123456789"
     let host: Host
@@ -543,7 +550,17 @@ describe("the documented own entries", () => {
     })
     afterAll(() => host?.close())
 
-    test("is adopted unchanged, and status names it as the user's own entry", async () => {
+    test("DR-5: OpenCode asks with the entry's client ID, CIMD off, and its loopback redirect; status names the entry as the user's own", async () => {
+      const { integrationID, attempt, url } = await authorizeUrl(host)
+      expect(url.searchParams.get("client_id")).toBe(CLIENT_ID)
+      expect(url.searchParams.get("client_id")).not.toBe(CLIENT_URL)
+      // Affinity matches a loopback redirect URI by ignoring the port, which is why the guide says to register
+      // http://127.0.0.1/callback: OpenCode sends its own port.
+      const redirect = new URL(url.searchParams.get("redirect_uri")!)
+      expect({ protocol: redirect.protocol, hostname: redirect.hostname, pathname: redirect.pathname }).toEqual({ protocol: "http:", hostname: "127.0.0.1", pathname: "/callback" })
+      expect(redirect.port).toMatch(/^\d+$/)
+      expect(url.searchParams.get("scope")).toBe(OAUTH_SCOPE)
+      await oauth(host).cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
       const output = await statusRpc(host)
       expect(output).toMatchObject({ state: "sign_in_required", source: { type: "adopted", signIn: "oauth" } })
       const text = await status(host, await session(host))
@@ -568,6 +585,21 @@ describe("the /connect entry", () => {
     if (!integrationID) return undefined
     return (await host.client.integration.get({ integrationID, location: host.location })).data
   }
+
+  test("DR-1: a sign-in started while the server is connected still asks for the pinned scope, where no challenge asks for one", async () => {
+    const { data: servers } = await host.client.mcp.list({ location: host.location })
+    const integrationID = servers.find((server) => server.name === "affinity")!.integrationID!
+    const { data: integration } = await host.client.integration.get({ integrationID, location: host.location })
+    const oauth = host.client.integration.oauth as unknown as {
+      connect: (input: object) => Promise<{ data: { attemptID: string; url: string } }>
+      cancel: (input: object) => Promise<void>
+    }
+    const { data: attempt } = await oauth.connect({ integrationID, methodID: (integration.methods[0] as unknown as { id: string }).id, location: host.location })
+    // The server answers, so there is no 401 and no challenge scope: without the pin the request would carry none.
+    expect(host.fake.challenge).toBe(false)
+    expect(new URL(attempt.url).searchParams.get("scope")).toBe(OAUTH_SCOPE)
+    await oauth.cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
+  })
 
   test("is named Affinity, also after the host reloads its MCP servers", async () => {
     expect((await until("the entry is named Affinity", async () => ((await entry())?.name === "Affinity" ? entry() : undefined)))?.methods).toHaveLength(1)
@@ -690,11 +722,16 @@ describe("a sign-in that Affinity refuses, because the organisation has not adde
     expect(data.find((item) => item.name === "affinity")?.status.status).toBe("needs_auth")
   }
 
-  test("OpenCode asks with its client URL and the pinned scope, and no client_id of the plugin's", async () => {
+  test("DR-1: OpenCode asks with its client URL and exactly the pinned scope, not the wider one the challenge advertises", async () => {
+    // The fake's 401 and metadata advertise more than the pin, so OpenCode's own fallback (`oauth?.scope ?? challenge.scope`)
+    // would ask for this wider list, with `api` and `api.read` on the consent screen: only the pin keeps it off.
+    expect(host.fake.challengeScope).toBe(ADVERTISED_SCOPE)
+    expect(ADVERTISED_SCOPE.split(" ")).toEqual(expect.arrayContaining(["mcp.write", "api", "api.read"]))
     const { integrationID, attempt, url } = await signIn()
     expect(url.origin + url.pathname).toBe(`${host.fake.origin}/auth/oauth2/authorize`)
     expect(url.searchParams.get("client_id")).toBe(CLIENT_URL)
     expect(url.searchParams.get("scope")).toBe(OAUTH_SCOPE)
+    expect(url.searchParams.get("scope")).not.toBe(host.fake.challengeScope)
     await oauth().cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
   })
 
