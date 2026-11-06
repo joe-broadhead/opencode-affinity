@@ -20,8 +20,8 @@
  * hooks do on the model path.
  *
  * Shared module. Each plugin keeps its own copy, because each bundle is self-contained. Edit only the block between
- * the PLUGIN-SPECIFIC markers. Everything else is identical in every plugin: the plugin's `check-copies.mjs` fails
- * its check when it is not, so change it in every plugin at once.
+ * the PLUGIN-SPECIFIC markers. Everything else stays identical in every plugin: change it in the shared copy first,
+ * then sync each plugin's copy.
  */
 import { randomUUID } from "node:crypto"
 import type { Plugin } from "@opencode/plugin"
