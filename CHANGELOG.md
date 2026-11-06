@@ -37,3 +37,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - The option `allowUntestedHost`, and a host check for OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5.
 - A `jelly` declaration for Jelly: the tools with their default effects, the skills, the sign-in, a summary and an
   icon.
+- The family icon kit's mark and its 128 and 256 pixel rasters, declared in `opencode.icons` and exported from the
+  package, with `opencode.vendor` naming Affinity's domain: a display app may show Affinity's own logo from Affinity's
+  site, and the package carries no vendor marks.
