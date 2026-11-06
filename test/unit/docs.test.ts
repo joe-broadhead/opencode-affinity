@@ -108,6 +108,15 @@ describe("docs", () => {
 
   // Every code the plugin's own code raises (the tools RPC's are in docs/scripting.md) has no service prefix and a row
   // in the configuration guide's Errors table.
+  test("DR-6 to DR-8: the sign-in and sign-out commands carry the project-folder and cold-start caveat", () => {
+    const caveat = "Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Affinity**. If it answers `MCP server not found: affinity`, OpenCode is still opening that folder: wait a few seconds and run it again."
+    for (const file of ["README.md", "docs/configuration.md"]) expect({ file, caveat: text(file).includes(caveat) }).toEqual({ file, caveat: true })
+    expect(text("skills/affinity/SKILL.md")).toContain("from the project folder where the plugin is installed; if it says `MCP server not found`, wait a few seconds and run it again")
+    // And each troubleshooting row that names a command points back to it.
+    const troubleshooting = /## Troubleshooting(.*?)## /.exec(text("README.md"))?.[1] ?? ""
+    for (const row of troubleshooting.split("| Connection: sign-in required").slice(1)) expect(row).toContain("from the project folder")
+  })
+
   test("the admin step is advice beside the status, not an error code: it is in no error list, and both guides keep it", () => {
     const errors = /## Errors(.*?)## /.exec(text("docs/configuration.md"))?.[1] ?? ""
     const troubleshooting = /## Troubleshooting(.*?)## /.exec(text("README.md"))?.[1] ?? ""
@@ -117,13 +126,18 @@ describe("docs", () => {
     expect(troubleshooting).toContain("https://opencode.ai/oauth/opencode/client.json")
     expect(text("docs/configuration.md")).toContain("https://opencode.ai/oauth/opencode/client.json")
     // It is worded for a first sign-in, because status cannot tell a refusal from an expiry.
-    expect(text("docs/configuration.md")).toContain("If you have never signed in to Affinity from this machine")
+    expect(text("docs/configuration.md")).toContain("If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL")
     expect(text("README.md")).toContain("A sign-in that worked before and now needs one again is an expiry")
   })
 
-  test("the guides mark the refused sign-in as expected, confirmed at the first live sign-in", () => {
-    expect(text("README.md")).toContain("has been reproduced only against a simulated Affinity server, and the first live sign-in confirms it")
-    expect(text("docs/configuration.md")).toContain("is known only from a simulated server so far; the first live sign-in confirms it")
+  test("the guides state what happens, and claim no unverified or simulated flow", () => {
+    // DR-2: the sign-in is the section where a stranger decides to try the plugin, so it says what happens and stops.
+    // The tool table's reconcile note is the one live-sign-in sentence the README may keep, in Known limits.
+    for (const file of FILES) {
+      expect({ file, claim: /simulated|reproduced only against|known only from|first live sign-in confirms|confirmed at the first live sign-in|is still unverified|not yet verified/i.exec(text(file))?.[0] }).toEqual({ file, claim: undefined })
+    }
+    expect(text("README.md")).toContain("If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet")
+    expect(text("docs/configuration.md")).toContain("After a sign-in that worked, a later one is a renewal, and the row says so instead")
   })
 
   test("the guides name Affinity CRM apart from Canva's design apps, and document the playbook commands", () => {
@@ -131,10 +145,10 @@ describe("docs", () => {
     expect(readme).toContain("This is Affinity CRM ([affinity.co](https://www.affinity.co)), the relationship-intelligence CRM for deal teams: not Affinity Photo, Designer or Publisher, Canva's design apps")
     for (const guide of [readme, text("docs/configuration.md")]) {
       expect(guide).toContain("/affinity:<name>")
-      expect(guide).toContain("sends Affinity's playbook text to the model as your own message")
+      expect(guide).toContain("A run is your request for that routine; the text it adds is Affinity's, so its steps are guidance")
       expect(guide).toContain("/affinity:affinity-meeting-prep")
     }
-    expect(text("SECURITY.md")).toMatch(/running one puts Affinity's playbook text in the session as the user's own message/)
+    expect(text("SECURITY.md")).toContain("a run is your request for that routine, but the text it adds is Affinity's")
   })
 
   test("the guides name the scope to untick, not its position on the consent screen", () => {
@@ -143,6 +157,13 @@ describe("docs", () => {
       expect(text(file)).not.toMatch(/untick the first scope|Unticking the first scope/)
     }
     expect(text("README.md")).toContain("keep `offline_access`")
+  })
+
+  test("the own-OAuth-app recipe states the loopback redirect OpenCode sends", () => {
+    const guide = text("docs/configuration.md")
+    expect(guide).toContain("Affinity accepts a loopback redirect URI on any port, and OpenCode sends the port it listens on")
+    expect(guide).toContain("sends `http://127.0.0.1:<port>/callback` as the redirect")
+    expect(text("docs/architecture.md")).toContain("The fake advertises more than the pin, and the DR-1 host cases fail if the pin is removed")
   })
 
   test("the scripting guide qualifies what a script's rules are, across locations", () => {
@@ -196,6 +217,25 @@ describe("docs", () => {
     expect(guide).toContain("(`READ_TOOLS` in `src/affinity-tools.ts`)")
     expect(guide).toContain("counts against your organisation's monthly Affinity API quota")
     expect(guide).not.toContain("rationale")
+  })
+
+  test("DR-3 and DR-12: no doc or skill advises an allow for a write, and no recipe silences one", () => {
+    // A change reaches the firm's shared CRM, so it keeps its prompt: an allow for a write hands that gate away, and an
+    // unattended run has nobody to read the sentence on whom the change reaches.
+    const writes = new Set([...WRITE_TOOLS, ...DENIED_TOOLS])
+    for (const file of FILES) {
+      const raw = readFileSync(join(ROOT, file), "utf8")
+      for (const [, action] of raw.matchAll(/\{\s*"action":\s*"affinity_([a-z_]+)"[^}]*"effect":\s*"allow"/g)) {
+        expect({ file, action, write: writes.has(action!) }).toEqual({ file, action, write: false })
+      }
+      expect({ file, prose: /allow`? rule for (?:that|a)[^.]*\bwrite/i.exec(raw)?.[0] }).toEqual({ file, prose: undefined })
+    }
+    const readme = text("README.md")
+    expect(readme).toContain("A change needs an interactive session")
+    expect(readme).not.toContain("affinity_create_note")
+    expect(text("docs/configuration.md")).toContain("Answering \"Always allow\" at a prompt is the user's own choice")
+    expect(text("docs/configuration.md")).toContain("a note lands in the firm's shared CRM")
+    expect(text("docs/configuration.md")).toContain("No recipe here makes a change run without a prompt")
   })
 
   test("the README states the shared quota, the admin step and the read-only consent", () => {

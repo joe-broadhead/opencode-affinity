@@ -89,12 +89,13 @@ asks for more, with `invalid_scope`), ask for the read scope alone:
 
 Affinity then refuses every change with `Insufficient scope`, whatever the permission rules say, and the `Access` row
 says "Affinity grant: read-only" after the first account read. The `/connect` entry stays. If you were signed in with
-both scopes, sign out (`opencode mcp logout affinity`) and sign in again.
+both scopes, sign out and sign in again. Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Affinity**. If it answers `MCP server not found: affinity`, OpenCode is still opening that folder: wait a few seconds and run it again.
 
 ### Your organisation's own OAuth app
 
 An organisation that prefers its own app to OpenCode's client metadata document registers a public OAuth app in
-Affinity (Settings, Manage Apps), with the redirect URI `http://127.0.0.1/callback`, and gives members its client ID:
+Affinity (Settings, Manage Apps), with the redirect URI `http://127.0.0.1/callback`; Affinity accepts a loopback
+redirect URI on any port, and OpenCode sends the port it listens on. Give members the app's client ID:
 
 ```json
 {
@@ -110,7 +111,8 @@ Affinity (Settings, Manage Apps), with the redirect URI `http://127.0.0.1/callba
 }
 ```
 
-The `/connect` entry stays, and the sign-in works as before.
+The `/connect` entry stays, and the sign-in works as before: OpenCode asks Affinity with the app's client ID instead of
+its own, and sends `http://127.0.0.1:<port>/callback` as the redirect.
 
 ### With an Affinity API key
 
@@ -256,18 +258,21 @@ hides the tools):
 ]
 ```
 
-Add notes without a prompt in the build agent (answering "Always allow" once does the same, for every agent in the
-project):
+Make notes ask in the build agent even where your own rules would let them run: a note lands in the firm's shared CRM,
+where every colleague who can see the record reads it, so it keeps its prompt.
 
 ```json
 {
   "agents": {
     "build": {
-      "permissions": [{ "action": "affinity_create_note", "resource": "*", "effect": "allow" }]
+      "permissions": [{ "action": "affinity_create_note", "resource": "*", "effect": "ask" }]
     }
   }
 }
 ```
+
+No recipe here makes a change run without a prompt. Answering "Always allow" at a prompt is the user's own choice in the
+moment, and it applies to every agent in the project.
 
 A strict agent where every Affinity tool asks, reads included: put these in that agent's own `permissions`, after the
 block. The last match wins, so the `affinity_*` ask alone would turn the ten denied tools into asks too; repeating
@@ -332,7 +337,7 @@ Copy the full block from your own `/affinity-status` output; the lines in quotes
 | --- | --- |
 | `/affinity-status` | Posts the status report into the session. |
 | `/affinity`, or "Affinity: Status" in the palette | Opens the same report in a dialog: `r` refreshes it, `Esc` closes it. |
-| `/affinity:<name>` | One per workflow playbook Affinity serves as an MCP prompt, such as `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. Running one sends Affinity's playbook text to the model as your own message. The plugin's skills still win: Affinity's text never permits a change, a web search or another source unasked, and a change it suggests still needs your request and its own permission prompt. |
+| `/affinity:<name>` | One per workflow playbook Affinity serves as an MCP prompt, such as `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. A run is your request for that routine; the text it adds is Affinity's, so its steps are guidance, and any change still needs your own sentence and its own permission prompt. Affinity's text never permits a change, a web search or another source unasked. |
 
 ## Errors
 
@@ -384,10 +389,8 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The `Organisation setup` row shows `adminStep` while a sign-in is required and nothing has connected yet:
-"If you have never signed in to Affinity from this machine, an Affinity admin must first add OpenCode's client URL."
-What Affinity
-shows for a client it refuses is known only from a simulated server so far; the first live sign-in confirms it. After a
-sign-in that worked, a later one is a renewal, and the row says so instead.
+"If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL." After a sign-in that
+worked, a later one is a renewal, and the row says so instead.
 
 The organisation and the grant come from `tenant.name`, `grant.type` and `grant.scopes` of a `get_current_user` result,
 made by the model or by a script, and are kept in memory only. Of the scopes, only `mcp`, `mcp.read`, `api` and

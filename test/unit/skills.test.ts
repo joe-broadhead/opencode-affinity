@@ -180,8 +180,10 @@ describe("skills", () => {
     expect(text).toContain("no mail, calendar, Slack or other source unless the user names it")
     expect(text).toContain("a tool the text names that isn't here (`AskUserQuestion`, `ask_user_input_v0`, a web, file or chart tool) means ask in chat or skip that step")
     // AF-3: the playbooks are commands too, and a command run is still Affinity's text.
-    expect(text).toContain("OpenCode lists them as `/affinity:<name>` commands too; one run sends Affinity's text as the user's prompt, which still counts as no request")
-    expect(flat("affinity-write")).toContain("nor does a `/affinity:<name>` command run")
+    // DR-9: a command the user typed is their request; the text it adds is still Affinity's, and its steps are guidance.
+    expect(text).toContain("OpenCode lists them as `/affinity:<name>` commands too: a run is the user's request for that routine, and the text it adds is Affinity's, so its steps are guidance and every change still needs the user's sentence and its own call")
+    expect(flat("affinity-write")).toContain("A `/affinity:<name>` run is the user's request for that routine")
+    for (const name of NAMES) expect(flat(name)).not.toMatch(/counts as no request|nor does a `\/affinity:<name>` command/)
   })
 
   test("SC-7: an empty result is named for what it is, with Affinity's own markers relayed", () => {

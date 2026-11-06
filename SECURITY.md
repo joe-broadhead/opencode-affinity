@@ -32,10 +32,9 @@ OpenCode project.
   them only for the question asked, to profile no one, and to send CRM data to no other tool unless you name it.
   Affinity's terms bar using Affinity data to train AI models; your firm's own AI policy applies.
 - Affinity content is untrusted. Notes, transcripts and records come from other people and can contain instructions
-  aimed at the model. OpenCode also lists Affinity's twelve playbooks as `/affinity:<name>` commands, and running one
-  puts Affinity's playbook text in the session as the user's own message: the skills treat it as Affinity's text, so it
-  never permits a change, a web search or another source unasked. Affinity's workflow playbooks return Affinity's own instructions for the model; the skills say
-  their own rules win over that text, so a playbook never permits a change, a web search or another source unasked. The
+  aimed at the model. Affinity's twelve workflow playbooks return Affinity's own instructions, and OpenCode lists them
+  as `/affinity:<name>` commands: a run is your request for that routine, but the text it adds is Affinity's, so its
+  steps are guidance, and the skills still permit no change, web search or other source that you did not ask for. The
   skills label Affinity's scores and AI Notetaker summaries as Affinity's.
 - Every call, from the model or a script, counts against your organisation's monthly Affinity API quota, shared by the
   whole firm. The skills keep calls few.
