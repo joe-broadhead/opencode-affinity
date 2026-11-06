@@ -76,9 +76,15 @@ describe("buildStatus", () => {
     expect(formatStatus(renewal)).not.toContain("OpenCode's client URL")
     // Other states carry no admin step: connected through OAuth says the organisation allows OpenCode.
     expect(buildStatus(base).adminStep).toBeNull()
-    expect(formatStatus(buildStatus({ ...base, server: { status: "pending" } }))).toContain(
-      "- Organisation setup: once per Affinity organisation, an admin adds OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json, under Settings, Manage Apps\n",
-    )
+    // DR-13: a server that has not reached a sign-in carries no first-sign-in advice, and a failed or conflicting one
+    // least of all.
+    for (const server of [{ status: "pending" }, { status: "disabled" }, { status: "failed", error: "x" }] as const) {
+      const row = formatStatus(buildStatus({ ...base, server }))
+      expect(row).toContain("- Organisation setup: not reached yet\n")
+      expect(row).not.toContain("client URL")
+    }
+    const conflict = buildStatus({ ...base, source: { type: "conflict", url: "https://other.example/mcp", expected: URL } })
+    expect(formatStatus(conflict)).toContain("- Organisation setup: not reached yet\n")
     // AF-8: an adopted entry may use the organisation's own OAuth app, so the step says so.
     const adopted = buildStatus({ ...base, server: { status: "needs_auth" }, source: { type: "adopted", url: URL, signIn: "oauth" } })
     expect(adopted.adminStep).toBe(ADMIN_STEP + ADMIN_STEP_OWN)

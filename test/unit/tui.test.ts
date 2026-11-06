@@ -5,7 +5,8 @@ import { checkHost } from "../../src/host-version.js"
 import { buildStatus, formatStatus, StatusRpc, type Status } from "../../src/status.js"
 import tui, { setupView, viewMessage, type ViewContext } from "../../src/tui.js"
 
-const SIGN_IN = "Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth affinity opens it automatically)."
+const SIGN_IN =
+  "Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth affinity opens it automatically, from the project folder where the plugin is installed)."
 
 const status = (overrides: Partial<Parameters<typeof buildStatus>[0]> = {}): Status =>
   buildStatus({ server: { status: "connected" }, source: { type: "plugin", url: "https://mcp.affinity.co/mcp", signIn: "oauth" }, tools: ["search_persons"], host: checkHost("2.2.3", false), ...overrides })

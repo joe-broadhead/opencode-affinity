@@ -96,14 +96,14 @@ export interface Status {
  * the organisation; until then it shows its own error page and never returns to OpenCode, so the second half says what
  * to do then.
  */
-export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`
+export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically, from the project folder where the plugin is installed).`
 
 /**
  * The advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode: the
  * `Organisation setup` row while a sign-in is required and this server has not connected yet. It names no error code,
  * because nothing detects it, and holds no "Next step", because the status has exactly one.
  */
-export const ADMIN_STEP = `If you have never signed in to Affinity from this machine, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
+export const ADMIN_STEP = `If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
 
 /** For a user's own entry, which may use the organisation's own OAuth app instead of OpenCode's client URL. */
 const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
@@ -253,10 +253,15 @@ function accessText({ grant, problems, unguardedAgents }: Status) {
 function organisationText({ state, source, adminStep, everConnected }: Status) {
   if (adminStep) return adminStep
   if (source?.type === "adopted" && source.signIn === "own") return "not needed: your own entry signs in with an API key"
-  if (state === "connected" || everConnected) {
-    return state === "connected" ? "done: this Affinity organisation lets OpenCode sign in" : "done earlier: the sign-in has expired, so run /connect again"
+  if (state === "connected") return "done: this Affinity organisation lets OpenCode sign in"
+  // DR-13: only the two states where a sign-in is the subject carry advice; a conflict, a disabled or a connecting
+  // server has not reached the organisation at all, and the first-sign-in advice would be noise there.
+  if (state === "sign_in_required") {
+    return everConnected
+      ? "done earlier: the sign-in has expired, so run /connect again"
+      : `once per Affinity organisation, an admin adds OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps`
   }
-  return `once per Affinity organisation, an admin adds OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps`
+  return "not reached yet"
 }
 
 /** The OpenCode row: the version, whether it is tested, the supported range, then any setup problems. */
