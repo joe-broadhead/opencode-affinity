@@ -5,7 +5,7 @@
 // installed with npm, once per run. Every temp folder is a git repository under the system's /tmp, never under TMPDIR
 // or HOME, so OpenCode's upward search for `.opencode` folders never reaches the agents of whoever runs the test.
 // PACK_TARBALL names a tarball that was already packed, such as the one the release publishes, to test it instead.
-// On each release a script also calls Affinity's known reads through the tools RPC, against a loopback fake Affinity.
+// On each release a script also calls every known Affinity tool through the tools RPC, against a loopback fake Affinity.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { spawn, spawnSync } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
@@ -16,7 +16,7 @@ import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DENIED_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
@@ -327,10 +327,11 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     }
   })
 
-  test("describes exactly the known reads, each available with its live schema", async () => {
+  test("describes every known tool with its class, each available with its live schema", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...READ_TOOLS])
+    expect(value.locationHint).toContain("x-opencode-directory")
+    expect([...value.methods.map((method: { name: string }) => method.name)].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS].sort())
     for (const method of value.methods) {
       expect({ name: method.name, kind: method.kind, action: method.action, available: method.available }).toEqual({
         name: method.name,
@@ -338,8 +339,18 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
         action: `affinity_${method.name}`,
         available: true,
       })
+      expect(method.class).toBe(DENIED_TOOLS.includes(method.name) ? "destructive" : WRITE_TOOLS.includes(method.name) ? "write" : WORKFLOW_TOOLS.includes(method.name) ? "send" : "read")
       expect(method.input).toEqual({ type: "object", properties: { query: { type: "string" }, term: { type: "string" } } })
     }
+  })
+
+  test("with a session, describe reports each method's permission: reads allow, writes ask, the denied tools deny", async () => {
+    const { value } = await script("describe", { sessionID: sessions.build })
+    const permission = Object.fromEntries(value.methods.map((method: { name: string; permission: string }) => [method.name, method.permission]))
+    for (const name of READ_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "allow" })
+    for (const name of WRITE_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "ask" })
+    for (const name of DENIED_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "deny" })
+    expect(value.unclassified).toEqual([NEW_TOOL.name])
   })
 
   test("runs a known read as the session's agent, with no model turn", async () => {
@@ -363,13 +374,29 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(JSON.stringify(output)).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane/)
   })
 
-  test("never makes a known write, a delete, a merge, send_feedback or an unknown tool a method, though OpenCode lists them all", async () => {
+  test("a write that would ask is refused before dispatch; a denied tool likewise; an unknown tool is no method", async () => {
     const from = fake.calls.length
-    for (const name of [...WRITE_TOOLS, ...DENIED_TOOLS, NEW_TOOL.name]) {
+    for (const name of WRITE_TOOLS) {
       const result = await call("build", name, { query: "q" })
-      expect({ name, type: result.type }).toEqual({ name, type: "rpc.method_not_found" })
+      expect({ name, type: result.type, code: result.code }).toEqual({ name, type: "failed", code: "PERMISSION_DENIED" })
+      expect(result.message).toContain("would ask")
     }
+    for (const name of DENIED_TOOLS) {
+      const result = await call("build", name, { query: "q" })
+      expect({ name, type: result.type, code: result.code }).toEqual({ name, type: "failed", code: "PERMISSION_DENIED" })
+    }
+    expect(await call("build", NEW_TOOL.name, { query: "q" })).toMatchObject({ type: "rpc.method_not_found" })
     expect(toolCalls(from)).toEqual([])
+  })
+
+  test("runs a write in a session that names an allow for it, and nowhere else", async () => {
+    const write = WRITE_TOOLS[0]!
+    const created = await host.api<Record<string, any>>("POST", "/api/session", { agent: "build", permissions: [rule("affinity_*", "deny"), rule(`affinity_${write}`, "allow")] })
+    const granted = (created.id ?? created.data?.id) as string
+    const from = fake.called.length
+    expect((await call(granted, write, { query: "q" })).value).toMatchObject({ output: { tool: write } })
+    expect(fake.called.slice(from)).toEqual([{ tool: write, path: "/mcp" }])
+    expect(await call("build", write, { query: "q" })).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
   })
 
   test("refuses a session whose agent denies Affinity, before Affinity is called", async () => {
@@ -382,7 +409,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const from = fake.calls.length
     const result = await call("careful", READ_A, { query: "q" })
     expect(result).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
-    expect(result.message).toMatch(/cannot answer an approval prompt/)
+    expect(result.message).toMatch(/cannot answer/)
     const { data: pending } = await host.api<{ data: unknown[] }>("GET", "/api/permission/request")
     expect(pending.filter((request) => JSON.stringify(request).includes(sessions.careful!))).toEqual([])
     expect(toolCalls(from)).toEqual([])

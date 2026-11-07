@@ -100,12 +100,16 @@ Two skills teach the model to use Affinity well:
 
 ### Scripts
 
-A script or a cron job can call Affinity's read tools with no model, through `opencode api`. It runs as a session and
-its agent, under that agent's permission rules and the session's own. Write tools are never available to scripts, and
-every call counts against the firm's quota:
+A script or a cron job can call every known Affinity tool with no model, through `opencode api`. It runs as a session
+and its agent, under that agent's permission rules and the session's own. Only a rule that resolves to `allow` runs: a
+write, whose default rule asks, needs an explicit `allow` in the session's or the agent's rules, and the ten denied
+tools need their deny removed. An `ask` is refused before anything reaches Affinity, and a saved "Always allow" does
+not authorise a script. A change needs an interactive session, where the prompt is the yes. Every call counts against
+the firm's quota:
 
 ```sh
 opencode api post /api/rpc/affinity.crm.tools/get_lists \
+  -H "x-opencode-directory:$PWD" \
   -d '{"input":{"sessionID":"ses_…","input":{"term":"Pipeline"}}}'
 ```
 
