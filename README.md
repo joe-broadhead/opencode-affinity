@@ -542,7 +542,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | Connection: conflict | Your config has an `mcp.servers.affinity` entry with a URL other than `https://mcp.affinity.co/mcp`. Point it at `https://mcp.affinity.co/mcp` or remove it, then restart OpenCode. |
 | Tools: none listed yet | Affinity connected moments ago and is still listing its tools. Run `/affinity-status` again, or press `r` in the dialog, in a few seconds. |
 | Tools: a tool Affinity adds | Every tool is allowed by default, so it runs at once. See [Permissions](#permissions) to restrict it. |
-| Tools: unknown | Affinity added tools the plugin does not know yet. They ask before they run. |
+| Tools: unknown | Affinity added tools the plugin does not know yet. They follow `access`: allowed at `"all"`, asked for at `"ask-changes"`, denied at `"read-only"`. |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
 | Access: Affinity grant: read-only | You unticked `mcp` (changes) at sign-in, so Affinity refuses changes with `Insufficient scope`. To allow changes, sign out (`opencode mcp logout affinity`, from the project folder; see [Sign in](#sign-in)) and sign in again with `mcp` ticked. |
 | Note or file search returns an error about Deal Assist | Your organisation doesn't have Deal Assist. Ask your Affinity admin; other reads still work. |
