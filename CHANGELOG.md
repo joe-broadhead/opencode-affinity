@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Default permission rules after each agent's base allow: every tool is allowed, reads and changes alike, so an agent
+  can create a note, rewrite a deal's field values, merge two companies or delete a reminder without a prompt. The
+  option `access` restricts them: `ask-changes` asks for every change, and `read-only` denies every change. The README
+  prints the block each value generates, and three ways to restrict a single agent or tool.
 - The tools RPC is v2: every known tool is scriptable under a prior explicit allow, each method carries its class,
   `describe` takes a session and reports each method's permission, and `shapeInput` runs beside `shapeResult` so a
   script's call reaches Affinity with the model path's arguments. A saved "Always allow" no longer authorises an
@@ -21,10 +25,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - Adopts your own `mcp.servers.affinity` at Affinity's URL unchanged, including a read-only sign-in, your
   organisation's own OAuth app, or an Affinity API key in its headers. The plugin never reads those headers. Any other
   URL, or a local command, is a conflict that status explains.
-- Default permission rules after each agent's base allow: every tool is allowed, reads and changes alike, so an agent
-  can create a note, rewrite a deal's field values, merge two companies or delete a reminder without a prompt. The
-  option `access` restricts them: `ask-changes` asks for every change, and `read-only` denies every change. The README
-  prints the block each value generates, and three ways to restrict a single agent or tool.
 - `/affinity-status` and the `/affinity` dialog ("Affinity: Status" in the palette): connection, account, access,
   organisation setup, tools, agents without the default rules, the OpenCode check and one next step. The organisation
   and grant come from the first `get_current_user` call, kept in memory only. While a sign-in is required, status gives
