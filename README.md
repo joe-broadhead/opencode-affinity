@@ -95,8 +95,8 @@ Two skills teach the model to use Affinity well:
   notes, meetings and transcripts, Affinity's own workflow playbooks (whose text never overrides the skill's rules),
   the quota, and the rules for other people's data.
 - `affinity-write`: whom each change reaches (the whole firm's CRM, a colleague, everyone in the organisation), reading
-  first, the updates that replace a whole set, saying what a change does before the call, and leaving the yes to
-  OpenCode's permission prompt.
+  first, the updates that replace a whole set, and saying what a change does before the call: at the default
+  `access` it runs without a prompt, and `ask-changes` makes OpenCode's prompt the yes.
 
 ### Scripts
 
@@ -115,7 +115,8 @@ opencode api post /api/rpc/affinity.crm.tools/get_lists \
 
 OpenCode also lists Affinity's twelve workflow playbooks as `/affinity:<name>` commands, such as
 `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. A run is your request for that routine; the text it adds
-is Affinity's, so its steps are guidance, and any change still needs your own sentence and its own permission prompt.
+is Affinity's, so its steps are guidance, and any change still needs your own sentence; at `ask-changes` it also needs
+OpenCode's permission prompt.
 
 A script's reads run under the rules of the location it calls, not of a session's own location (a limit of the shared
 tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md).

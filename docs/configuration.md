@@ -231,7 +231,8 @@ agent, Explore included. This agent reads, creates and updates notes, and asks b
 
 To let that agent report a problem to Affinity, add `{ "action": "affinity_send_feedback", "resource": "*", "effect":
 "ask" }` to the same agent's own `permissions`. In that agent, the model first calls a delete or merge without
-`confirm`, shows you Affinity's warning, then makes the confirmed call; its permission prompt is your yes.
+`confirm`, shows you Affinity's warning, then makes the confirmed call; in that agent its permission prompt is your yes,
+because the rule you added asks.
 
 Don't put these rules in the top-level `permissions`: a top-level rule comes after every agent's own rules, so it would
 reach every agent, Explore included, which otherwise can't use Affinity.

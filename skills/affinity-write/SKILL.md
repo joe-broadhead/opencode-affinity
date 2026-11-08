@@ -8,7 +8,8 @@ description: Load before any Affinity CRM change - creating or updating companie
 Make a change only when the user asked for it, and only to the records they named: never a batch they haven't seen.
 Before each write call, write one sentence in your reply on what the call does and **whom it reaches** (a deal's
 stage: everyone at the firm who can see that list), then make the call in the same turn. That sentence is chat text,
-not a question: the permission prompt shows only the tool input and is the user's yes. Ask in chat first only when
+not a question: by default the call runs at once, and with `access: "ask-changes"` the permission prompt shows only
+the tool input and is the user's yes. Ask in chat first only when
 something must be chosen: which record, list, stage or owner. Declined: say nothing changed and whom it would have
 reached, then offer your drafted text or a retry, never a workaround. A read-only sign-in (`Insufficient scope`) refuses
 every change: say so, and that signing in again with `mcp` ticked allows changes.
