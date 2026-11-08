@@ -118,38 +118,41 @@ names, as below.
 ### Drift check
 
 The drift check is a manual maintainer check. It is not part of `npm run check` or CI, nothing at runtime depends on
-it, and it never calls Affinity or reads a credential. Save the tool list first, by any of these:
+it, and it never calls Affinity or reads a credential.
 
-- in an OpenCode project signed in to Affinity, a throwaway local plugin that writes `ctx.tool.list()`'s `affinity`
-  tools (`id`, `name`, `description`, `inputSchema`) as `{ "tools": [...] }` to a file;
-- an MCP client's `tools/list` result for `https://mcp.affinity.co/mcp`, saved as JSON, which also carries Affinity's
-  annotations;
-- with no Affinity account: download the newest `affinity-mcp` wheel into a new, empty folder, read the
-  package's `tools/__init__.py`, `registration.py` and `skills/` without importing or running them, and write the
-  research form, `{ "tools": [{ "name", "annotations", "inputs": ["name*:type", …] }] }`.
+**One form, one command.** A saved list is the server's own `tools/list` response: `{ "tools": [ { "name",
+"description", "inputSchema"?, "annotations"? } ] }`, exactly as an MCP client prints it. Save it with the MCP
+Inspector's CLI, which is the command this file names:
 
+```sh
+npx -y @modelcontextprotocol/inspector --cli https://mcp.affinity.co/mcp \
+  --method tools/list --header "Authorization: Bearer $AFFINITY_TOKEN" > tools-list.json
+```
+
+A list written from an OpenCode project signed in to Affinity, `ctx.tool.list()`'s `affinity` tools, is the same form.
 Then:
 
 ```sh
-npm run drift -- <tools.json>
-npm run drift -- <tools.json> --strict
+npm run drift -- tools-list.json
+npm run drift -- tools-list.json --strict
 ```
 
 - It needs Node.js 22.18 or later, which loads `src/affinity-tools.ts` by stripping its types. Keep that file free of
   runtime imports.
-- Some of Affinity's tool names start with `affinity_`, such as `affinity_meeting_prep`, so the script takes the name
-  without the server prefix from a tool's `id`, and never cuts a bare name.
+- Some of Affinity's own tool names start with `affinity_`, such as `affinity_meeting_prep`, so the script takes the
+  name without the server prefix from a tool's `id`, and never cuts a bare name. A saved `tools/list` carries the bare
+  name, so it needs no cut.
 - It prints only tool names, parameter names and types, and annotations, grouped as added (listed, but in no list),
-  removed (in a list, but not in the file), possibly renamed (a removed and an added tool that take mostly the same
-  parameters), parameters changed (added, removed, now required or optional, a new type, or a type the record lacks),
-  change wording (a known read's description has a sentence in which the tool itself creates, changes or sends
-  something; nouns, enum values, other tools' names and instructions to call another tool don't count), and, when the
-  file has annotations, reclassified (the lists disagree with `readOnlyHint` or `destructiveHint`).
-- What it can't see: OpenCode's tool list carries no annotations, so a tool that starts changing data shows only if
-  its description says so. Read each new or changed description yourself, and the server's instructions and each
-  playbook's text, which can change what the model is told to do.
+  removed (in a list, but not in the file), possibly renamed, parameters changed, parameters to record, change wording,
+  and, when the file has annotations, reclassified.
 - Exit codes: `0` for no drift, or drift without `--strict`; `1` for drift with `--strict`; `2` for a usage or file
   error.
+
+`test/unit/affinity-tools-list.json` is the same form. The reconcile is one step — save the response over that file,
+run `npm run check` — and the failure names each difference: a name with no list (`unclassified`), a known tool the
+list no longer has (`unlisted`), a name in two lists or none (`misplaced`), a rule that resolves to the wrong effect
+(`wrongEffect`), and a deny that is not hidden (`notHidden`). Fix each in `src/affinity-tools.ts`, then `PARAMETERS`,
+`jelly.tools` and the skills.
 
 ### Updating the tool lists
 

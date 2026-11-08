@@ -24,9 +24,48 @@ export const SUPPORTED_HOST = ">=2.2.3 <2.3.0"
 /** The OpenCode releases every check runs on: the one list. Status calls only these "tested". */
 export const TESTED_HOSTS: readonly string[] = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"]
 
-/** The one error shape: `CODE: What happened. Next step: What to do.` Both parts are sentences. */
-export const errorText = (code: string, message: string, nextStep: string) => `${code}: ${message} Next step: ${nextStep}`
+/** A release outside the supported range, used in examples of the refusal. */
+export const UNTESTED_EXAMPLE = "2.2.99"
 
-export function affinityError(code: string, message: string, nextStep: string) {
+/**
+ * Every code this plugin can raise, and where it appears: the one table the README and the guides are checked against.
+ * - `setup`: the plugin refuses a bad option, a host outside the range, or reports a failed registration or rule insert;
+ * - `status`: `/affinity-status`, the `/affinity` dialog and the status RPC;
+ * - `rpc`: a refusal from the tools RPC for scripts, which `docs/scripting.md` tables.
+ *
+ * The status RPC's own error name is `unavailable`, not a code. A code is never invented at a call site: `affinityError`
+ * and `errorText` take `PluginCode`, so a code outside this table does not compile.
+ */
+export const CODES = {
+  HOST_UNTESTED: { surface: "setup", when: "OpenCode is outside the supported range and `allowUntestedHost` is not set." },
+  OPTIONS_INVALID: { surface: "setup", when: "An option is unknown or has a wrong value." },
+  SKILLS_INVALID: { surface: "setup", when: "A skill file is missing or broken; the plugin still starts." },
+  SERVER_NOT_REGISTERED: { surface: "setup", when: "The `affinity` server could not be registered." },
+  RULES_NOT_ADDED: { surface: "setup", when: "The default permission rules could not be added." },
+  STATUS_UNAVAILABLE: { surface: "status", when: "The status could not be read, or the plugin is not running." },
+  SESSION_UNKNOWN: { surface: "rpc", when: "The session does not exist in this location." },
+  SESSION_AGENT_REQUIRED: { surface: "rpc", when: "The session names no agent, or one that does not exist." },
+  PERMISSION_DENIED: { surface: "rpc", when: "The last matching rule is an `ask` or a `deny`; refused before dispatch." },
+  SERVER_CONFLICT: { surface: "rpc", when: "`mcp.servers.affinity` is defined at another URL." },
+  AUTH_REQUIRED: { surface: "rpc", when: "The `affinity` server needs a sign-in." },
+  CONNECTING: { surface: "rpc", when: "The `affinity` server is still connecting." },
+  CONNECTION_FAILED: { surface: "rpc", when: "The `affinity` server could not connect." },
+  DISABLED: { surface: "rpc", when: "The `affinity` server is disabled." },
+  NOT_REGISTERED: { surface: "rpc", when: "The `affinity` server is not registered." },
+  TOOL_UNAVAILABLE: { surface: "rpc", when: "The server is connected but OpenCode does not list the tool." },
+  UPSTREAM_ERROR: { surface: "rpc", when: "Affinity answered with an error, such as an invalid input or a rate limit." },
+  CANCELLED: { surface: "rpc", when: "The request was cancelled." },
+} as const
+
+/** One code from {@link CODES}. */
+export type PluginCode = keyof typeof CODES
+
+/** The one error shape: `CODE: What happened. Next step: What to do.` Both parts are sentences. */
+export const errorText = (code: PluginCode, message: string, nextStep: string) => `${code}: ${message} Next step: ${nextStep}`
+
+/** `CODE: What happened.`, for a surface that carries the next step beside the message, such as an RPC error's data. */
+export const codeText = (code: PluginCode, message: string) => `${code}: ${message}`
+
+export function affinityError(code: PluginCode, message: string, nextStep: string) {
   return Object.assign(new Error(errorText(code, message, nextStep)), { code, nextStep })
 }

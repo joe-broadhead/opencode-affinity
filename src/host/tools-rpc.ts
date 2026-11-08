@@ -34,22 +34,21 @@ import { Rpc } from "@opencode/plugin/rpc"
 // >>> PLUGIN-SPECIFIC >>>
 import { ACCOUNT_TOOL, captureAccount } from "../account.js"
 import { PLUGIN_ID as AFFINITY_PLUGIN_ID, SERVER_NAME } from "../constants.js"
-import { DENIED_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../affinity-tools.js"
 
 /** The plugin's id. The RPC id is `<PLUGIN_ID>.tools`. */
 export const PLUGIN_ID = AFFINITY_PLUGIN_ID
 
 /**
- * Every known Affinity tool, by exact name, from the plugin's one table: the reads, the workflow playbooks (class
- * `send`, because each can act in bulk through the tools it names), the writes that ask, and the ten tools the default
- * rules deny. A tool Affinity adds later is never a method until it is classified in `src/affinity-tools.ts`; `describe`
+ * Every known Affinity tool, by exact name, from the plugin's one table: the reads, the workflow playbooks with them
+ * (class `read`: each only returns text, and what it can drive is the caller's decision under the caller's rules), the
+ * writes, and the ten of the destructive class. A tool Affinity adds later is never a method until it is classified in `src/affinity-tools.ts`; `describe`
  * lists it as unclassified. The class never decides whether a call runs: the rules do.
  */
 export const METHODS: readonly MethodSpec[] = [
-  ...READ_TOOLS.filter((name) => !WORKFLOW_TOOLS.includes(name)).map((name): MethodSpec => ({ kind: "mcp", name, class: "read" })),
-  ...WORKFLOW_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "send" })),
+  ...READ_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "read" })),
   ...WRITE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "write" })),
-  ...DENIED_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
+  ...DESTRUCTIVE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
 ]
 
 /** What the model path's `execute.before` hooks do to an MCP call's arguments. Affinity has no such hook. */

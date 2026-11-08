@@ -10,7 +10,7 @@
 // Some of Affinity's own tool names start with `affinity_` (affinity_meeting_prep), so a name is unprefixed from its
 // `id`, or when it starts with the prefix twice; a bare name is never cut.
 // The script reads that file only: it never reads a credential and never calls Affinity. It compares the list with
-// READ_TOOLS, WRITE_TOOLS, DENIED_TOOLS and PARAMETERS in src/affinity-tools.ts, and prints only tool names, parameter
+// READ_TOOLS, WRITE_TOOLS, DESTRUCTIVE_TOOLS and PARAMETERS in src/affinity-tools.ts, and prints only tool names, parameter
 // names and types, and Affinity's readOnlyHint and destructiveHint annotations. Affinity lists the same tools to every
 // caller, so a known tool missing from the list was removed by a release, and counts as drift.
 // Exit codes: 0 no drift, or drift without --strict; 1 drift with --strict; 2 usage or file error.
@@ -85,7 +85,7 @@ const changeWording = [...live]
   .sort()
 
 const count = (kind) => [...live.keys()].filter((name) => known.classOf.get(name) === kind).length
-console.log(`The list holds ${live.size} tools: ${count("read")} read, ${count("write")} write, ${count("denied")} denied, ${added.length} unclassified.`)
+console.log(`The list holds ${live.size} tools: ${count("read")} read, ${count("write")} write, ${count("destructive")} destructive, ${added.length} unclassified.`)
 section("Added: listed by Affinity, in no list of src/affinity-tools.ts", added, true)
 section("Removed: in src/affinity-tools.ts, not in this list (Affinity lists the same tools to everyone, so a release removed them)", removed, false)
 section("Possibly renamed: a removed tool and an added one take mostly the same parameters", renamed, false)
@@ -220,7 +220,7 @@ async function loadKnown() {
     fail(`cannot load src/affinity-tools.ts (${error?.code ?? error?.message ?? error}). Keep it free of runtime imports so Node can strip its types.`)
   }
   const classOf = new Map()
-  for (const [list, kind] of [["READ_TOOLS", "read"], ["WRITE_TOOLS", "write"], ["DENIED_TOOLS", "denied"]]) {
+  for (const [list, kind] of [["READ_TOOLS", "read"], ["WRITE_TOOLS", "write"], ["DESTRUCTIVE_TOOLS", "destructive"]]) {
     if (!Array.isArray(module[list])) fail(`src/affinity-tools.ts must export ${list} as an array of tool names.`)
     for (const name of module[list]) classOf.set(name, kind)
   }

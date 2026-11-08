@@ -408,181 +408,181 @@
       {
         "name": "affinity.create_company",
         "permission": "affinity_create_company",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_field",
         "permission": "affinity_create_field",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_list_field_dropdown_option",
         "permission": "affinity_create_list_field_dropdown_option",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_interaction",
         "permission": "affinity_create_interaction",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_list",
         "permission": "affinity_create_list",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_list_entry",
         "permission": "affinity_create_list_entry",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_note",
         "permission": "affinity_create_note",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_opportunity",
         "permission": "affinity_create_opportunity",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_person",
         "permission": "affinity_create_person",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.create_reminder",
         "permission": "affinity_create_reminder",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.issue_entity_files_upload_token",
         "permission": "affinity_issue_entity_files_upload_token",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.issue_entity_files_download_token",
         "permission": "affinity_issue_entity_files_download_token",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_company",
         "permission": "affinity_update_company",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_list_field_dropdown_option",
         "permission": "affinity_update_list_field_dropdown_option",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.upsert_entity_field_values",
         "permission": "affinity_upsert_entity_field_values",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.upsert_list_entry_field_values",
         "permission": "affinity_upsert_list_entry_field_values",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_note",
         "permission": "affinity_update_note",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_opportunity",
         "permission": "affinity_update_opportunity",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_person",
         "permission": "affinity_update_person",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.update_reminder",
         "permission": "affinity_update_reminder",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_company",
         "permission": "affinity_delete_company",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_person",
         "permission": "affinity_delete_person",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_opportunity",
         "permission": "affinity_delete_opportunity",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_note",
         "permission": "affinity_delete_note",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_list_entries",
         "permission": "affinity_delete_list_entries",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_list_field_dropdown_option",
         "permission": "affinity_delete_list_field_dropdown_option",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.delete_reminder",
         "permission": "affinity_delete_reminder",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.merge_companies",
         "permission": "affinity_merge_companies",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.merge_persons",
         "permission": "affinity_merge_persons",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "affinity.send_feedback",
         "permission": "affinity_send_feedback",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       }
     ],

@@ -30,20 +30,20 @@ family's own drawing, not Affinity's logo, shape or brand colour.
 Every tool in `src/affinity-tools.ts` is declared: each read tool, Affinity's workflow playbooks included, as
 read-only with `allow`, each write tool with `ask`, and each denied tool with `deny`. Jelly's agents have no base
 "allow everything" rule, so this plugin's own default rules, which it puts after that rule, never reach them. Jelly
-writes each declared `ask` or `deny` as that tool's default instead (the person's own choice replaces it), and denies
-a read-only helper every tool not marked `readOnly`. A declared `allow` changes nothing in Jelly.
+writes each declared effect as that tool's default (the person's own choice replaces it). Every tool is declared
+`allow`, the family's default, so a Jelly agent can create a note, upsert a deal's field values, merge two companies or
+delete a reminder without a prompt. A Jelly admin restricts one tool by setting its effect to `ask` or `deny` in the
+card.
 
-- Ask: every write tool (`WRITE_TOOLS`), each of which changes the firm's shared CRM, such as
-  `affinity_upsert_list_entry_field_values` (a deal's stage), or issues a file link, such as
-  `affinity_issue_entity_files_download_token`.
-- Off: the deletes `affinity_delete_company`, `affinity_delete_person`, `affinity_delete_opportunity`,
-  `affinity_delete_note`, `affinity_delete_list_entries`, `affinity_delete_list_field_dropdown_option` and
-  `affinity_delete_reminder`, the merges `affinity_merge_companies` and `affinity_merge_persons`, and
-  `affinity_send_feedback` (text sent to Affinity's team).
-- Everything else runs, as the plugin's own rules let it.
+- The seven deletes remove CRM data for good: `affinity_delete_company`, `affinity_delete_person`,
+  `affinity_delete_opportunity`, `affinity_delete_note`, `affinity_delete_list_entries`,
+  `affinity_delete_list_field_dropdown_option` and `affinity_delete_reminder`.
+- The two merges delete the duplicate: `affinity_merge_companies` and `affinity_merge_persons`.
+- `affinity_send_feedback` sends text to Affinity's team.
+- `affinity_issue_entity_files_download_token` returns a single-use download credential.
 
-A tool the upstream server adds later is not declared, so in Jelly it runs without asking, even if it changes
-something, such as a new write to the CRM, until a new version of this plugin declares it. Affinity ships changes to
+A tool the upstream server adds later is not declared, so in Jelly it runs with the plugin's own default: allowed, even
+if it changes something, such as a new write to the CRM, until a new version of this plugin declares it. Affinity ships changes to
 its server often, so this can happen between releases of the plugin. A Jelly admin can set such a tool to ask. Keep
 `jelly.tools` in step with `src/affinity-tools.ts`; `test/unit/jelly.test.ts` checks the list against it, and each
 declared effect against the plugin's own default rules.

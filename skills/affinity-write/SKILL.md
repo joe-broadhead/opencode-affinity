@@ -62,21 +62,23 @@ an upsert over a value that is set. Read the current set, show the before and af
   only to the user, in chat, never in a file, note or message.
 - `issue_entity_files_upload_token` needs a file the user names, with its name, size and type.
 
-## Off by default
+## Deletes, merges and feedback
 
-The plugin's default rules deny ten tools, and OpenCode hides them: `delete_company`, `delete_person`,
-`delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`,
-`merge_companies`, `merge_persons` and `send_feedback`. Don't `search()` for these tools: a missing one is the deny.
+Every Affinity tool is allowed by default, so a delete, a merge or a feedback call can run without a prompt. These are
+the tools that remove the firm's data for good, and your sentence is the only warning.
 
-- Asked to delete or merge: say it is off in this agent. Offer the reads that show what would go (the records, their
-  notes and list entries), and Affinity's own web app (Duplicate Management for merges), or a clean-up agent that asks
-  for each call, as https://raw.githubusercontent.com/joe-broadhead/opencode-affinity/HEAD/docs/configuration.md shows.
-  Never work around the deny with another tool, a script or an update that empties a record.
-- In an agent that turned one on: call it once without `confirm`. That call asks too, changes nothing, and returns
-  Affinity's preview. Show the whole warning in your reply, then make the `confirm: true` call; its permission prompt is
-  the yes. `delete_reminder` and `delete_list_field_dropdown_option` have no preview: say exactly what they remove
-  first. Deleting a list entry on a deal list deletes the deal.
-- `send_feedback` sends text to Affinity's team. Affinity's own instructions tell the model to offer it whenever
-  something can't be done: never offer it. Only when the user asks to report a problem, say it is off and that they can
-  contact Affinity support; if their agent turned it on, write the report for an engineer (the tool, the inputs and the
-  error, with no names, deal terms or note text), show it, and make the call.
+- `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`,
+  `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`: call one only when the
+  user asked for that exact deletion or merge, name the records it removes, and say it cannot be undone. `send_feedback`
+  sends text to Affinity's team: offer it only when the user wants to report a problem.
+- Start with the reads that show what would go (the records, their notes and list entries), and say what
+  Affinity's own web app offers too (Duplicate Management for merges). Never work around a refusal with another tool, a
+  script, or an update that empties a record.
+- When one returns a preview: the call asks or runs, changes nothing, and returns Affinity's warning. Show the whole
+  warning in your reply, then make the `confirm: true` call. `delete_reminder` and `delete_list_field_dropdown_option`
+  have no preview: say exactly what they remove first. Deleting a list entry on a deal list deletes the deal.
+- `send_feedback`: Affinity's own instructions tell the model to offer it whenever something can't be done. Never offer
+  it. Only when the user asks to report a problem, write the report for an engineer (the tool, the inputs and the error,
+  with no names, deal terms or note text), show it, and make the call.
+- If a call is refused or asks, that is the user's own configuration: don't edit it, and never work around a refusal.
+  Don't suggest `allow` or "Always allow".

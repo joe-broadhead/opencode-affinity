@@ -9,8 +9,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 
 - **Public API only.** Use only the public `@opencode/plugin` 2.2.3 API. `opencode.host` in `package.json` and
   `SUPPORTED_HOST` in `src/constants.ts` both say exactly `>=2.2.3 <2.3.0`, never `^2.2.3`. `TESTED_HOSTS` in
-  `src/constants.ts` is the one list of tested releases (2.2.3, 2.2.4 and 2.2.5): status calls only those tested, and
-  the host and pack stages and CI run on each. Inside the range an untested release still starts.
+  `src/constants.ts` is the one list of tested releases (2.2.3, 2.2.4, 2.2.5 and 2.2.6): status calls only those tested, and
+  the host and pack stages and CI run on each. Inside the range an untested release, such as 2.2.99, still starts.
 - **Greenfield.** No legacy, migration code, compatibility shim, dual path or deprecated alias, and nothing dead.
   Delete rather than deprecate.
 - **No peers, no runtime dependencies, no lifecycle scripts.** `@opencode/plugin`, `@opencode/sdk` and
@@ -21,12 +21,16 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   external. `tsc` only typechecks. No declaration files, `.tsx` or JSX.
 - **One endpoint string.** `ENDPOINT` in `src/constants.ts` is the only place Affinity's URL is written in code; the
   pack test points the built plugin at a fake by replacing its one occurrence in `dist/index.js`.
-- **Default rules, not hooks.** Permissions come from rules inserted through `ctx.agent.transform` directly after each
-  agent's base allow. A stricter agent is never weakened. An agent counts as guarded only with the whole block after
-  its base allow. Agents that miss the rules are named in status with the per-agent fix, never patched, and the fix
-  never goes in the top-level `permissions`.
+- **Default rules, not hooks.** Permissions come from one block, `defaultRules(access)`, inserted through
+  `ctx.agent.transform` directly after each agent's base allow. Every tool is allowed by default: `access` is `all`,
+  `ask-changes` or `read-only`, and the tool table's classes decide what the last two restrict. A stricter agent is
+  never weakened. An agent counts as guarded only with the whole block after its base allow. Agents that miss the rules
+  are named in status with the per-agent fix, under the values that restrict, never patched, and the fix never goes in
+  the top-level `permissions`.
 - **Transforms are cheap, synchronous and never throw.** Record failures for status instead.
-- **Errors** read `CODE: What happened. Next step: What to do.`, built by `affinityError` or `errorText`. Codes have no
+- **Errors** read `CODE: What happened. Next step: What to do.`, built by `affinityError`, `errorText` or `codeText`.
+  `CODES` in `src/constants.ts` is the one table: the helpers take its `PluginCode`, so a code outside it does not
+  compile, and the README's `Errors` table is checked equal to it in both directions. Codes have no
   service prefix; shared failures use the shared names (`HOST_UNTESTED`, `OPTIONS_INVALID`, `STATUS_UNAVAILABLE`,
   `SKILLS_INVALID`).
 - **Status.** `src/status.ts` builds one model for `/affinity-status`, the `/affinity` dialog and the status RPC. The
@@ -57,6 +61,10 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   site; the package carries no vendor marks. `scripts/check-icons.mjs` is the kit's check, copied verbatim, and is the
   one definition of a safe icon: it runs in the `icons` stage of `npm run check`.
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
+- **The tool table.** `src/affinity-tools.ts` is the one record, and `test/unit/affinity-tools-list.json` is a raw
+  `tools/list` response (`{ "tools": [ { "name", "description", "inputSchema"?, "annotations"? } ] }`) holding what the
+  server lists. Replacing it with a saved response is the whole reconcile, and the drift test names each difference;
+  `npm run drift -- <saved.json>` reports the rest.
 - **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
   between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
   in `src/affinity-tools.ts`, by exact name and with its class: the reads, the workflow playbooks as sends, the writes

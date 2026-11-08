@@ -1,8 +1,8 @@
 // The tool lists in src/affinity-tools.ts are the one record of Affinity's tools; everything else derives from them.
 import { describe, expect, test } from "bun:test"
-import { classify, DENIED_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { classify, DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 
-const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 
 describe("Affinity's tool lists", () => {
   test("name each tool once, in one list only, as a plain lower-case name without the server prefix", () => {
@@ -13,7 +13,7 @@ describe("Affinity's tool lists", () => {
   })
 
   test("52 reads, of them 12 workflow playbooks; 20 writes; 10 denied", () => {
-    expect([READ_TOOLS.length, WORKFLOW_TOOLS.length, WRITE_TOOLS.length, DENIED_TOOLS.length]).toEqual([52, 12, 20, 10])
+    expect([READ_TOOLS.length, WORKFLOW_TOOLS.length, WRITE_TOOLS.length, DESTRUCTIVE_TOOLS.length]).toEqual([52, 12, 20, 10])
     for (const tool of WORKFLOW_TOOLS) expect(READ_TOOLS).toContain(tool)
     // A playbook takes one optional file, and returns text.
     for (const tool of WORKFLOW_TOOLS) expect(PARAMETERS[tool]).toEqual(["file:string|null"])
@@ -22,7 +22,7 @@ describe("Affinity's tool lists", () => {
   test("classify each tool by its list, and everything else as unknown", () => {
     for (const tool of READ_TOOLS) expect(classify(tool)).toBe("read")
     for (const tool of WRITE_TOOLS) expect(classify(tool)).toBe("write")
-    for (const tool of DENIED_TOOLS) expect(classify(tool)).toBe("denied")
+    for (const tool of DESTRUCTIVE_TOOLS) expect(classify(tool)).toBe("destructive")
     for (const tool of ["shiny_new_tool", "", "affinity_search_persons", "SEARCH_PERSONS", "describe"]) expect(classify(tool)).toBe("unknown")
   })
 
@@ -34,7 +34,7 @@ describe("Affinity's tool lists", () => {
 
   test("the account read is a known read; every delete, every merge and feedback to Affinity are denied", () => {
     expect(READ_TOOLS).toContain("get_current_user")
-    expect(ALL.filter((tool) => /^(delete|merge)_/.test(tool) || tool === "send_feedback").sort()).toEqual([...DENIED_TOOLS].sort())
-    expect(DENIED_TOOLS).toHaveLength(10)
+    expect(ALL.filter((tool) => /^(delete|merge)_/.test(tool) || tool === "send_feedback").sort()).toEqual([...DESTRUCTIVE_TOOLS].sort())
+    expect(DESTRUCTIVE_TOOLS).toHaveLength(10)
   })
 })

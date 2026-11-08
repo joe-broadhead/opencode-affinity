@@ -10,7 +10,7 @@ import { tmpdir } from "node:os"
 import { join, sep } from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { CLIENT_URL, OAUTH_SCOPE, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { DENIED_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { ADMIN_STEP, SIGN_IN, StatusRpc } from "../../src/status.js"
@@ -18,11 +18,9 @@ import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { ADVERTISED_SCOPE, MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
-const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
-const AGENTS_NEXT_STEP = "Put the default rules shown by /affinity-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Affinity tools."
 const KEY = "sk-fake-host-test-0123456789"
 /** The denied tools as the Tools row names them, in the order the host lists tools. */
-const SORTED_OFF = [...DENIED_TOOLS].sort()
+const SORTED_OFF = [...DESTRUCTIVE_TOOLS].sort()
 const OFF = `${SORTED_OFF.slice(0, -1).join(", ")} and ${SORTED_OFF.at(-1)}`
 
 // Starting a host takes several seconds, more on a busy machine.
@@ -46,7 +44,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
 const affinityTools = (host: Host) =>
   until("Affinity's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("affinity_"))
-    return ids.length === 3 + DENIED_TOOLS.length + 1 && ids.sort()
+    return ids.length === 3 + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
   })
 
 async function status(host: Host, sessionID: string) {
@@ -61,7 +59,7 @@ async function status(host: Host, sessionID: string) {
 /** Enough of the tools RPC's contract for the client to call describe and the methods these tests use. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "create_note", ...DENIED_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "create_note", ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -81,10 +79,16 @@ const statusRpc = (host: Host) => (host.client.rpc as unknown as (definition: ty
 
 describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
   let host: Host
+  let asking: Host
   beforeAll(async () => {
     host = await startHost({ config: () => ({ agents: { reviewer: { description: "Reviews changes", mode: "subagent" } } }) })
+    // A second host with the restricting value, for the tests about prompts and saved approvals.
+    asking = await startHost({ options: { access: "ask-changes" } })
   })
-  afterAll(() => host?.close())
+  afterAll(async () => {
+    await host?.close()
+    await asking?.close()
+  })
 
   test("the host's global folders, temp folder and working directory are inside the test's temp root", async () => {
     const global = ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"].map((key) => join(process.env[key]!, "opencode"))
@@ -99,7 +103,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "affinity.crm")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "affinity")?.status).toEqual({ status: "connected" })
-    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "search_persons", "shiny_new_tool", ...DENIED_TOOLS].map((tool) => `affinity_${tool}`)].sort())
+    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "search_persons", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `affinity_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("affinity")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -122,46 +126,80 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(await effect(host, "explore", "affinity_search_persons")).toBe("deny")
     const explore = await session(host, "explore")
     expect(await attempt(host, explore, "explore", "search_persons")).toEqual({ asked: undefined, ok: false, error: "Tool.Error: Permission denied: affinity_search_persons" })
-    const plan = await session(host, "plan")
-    expect(await attempt(host, plan, "plan", "shiny_new_tool")).toMatchObject({ asked: "affinity_shiny_new_tool", ok: false })
+    // R18: the block allows Affinity tools in every agent, Plan included; only the agent's own rules can refuse one.
+    expect(await effect(host, "plan", "affinity_shiny_new_tool")).toBe("allow")
   })
 
-  test("P2 and H2: known reads run without a prompt, everything else asks, and the ten denied tools are hidden", async () => {
+  // R18: the default is `access: "all"`, so every tool runs without a prompt, nothing is hidden, and a tool Affinity
+  // adds later is allowed at once by the namespace pattern.
+  test("P2 and H2: under access all a read and a write run without a prompt, nothing is hidden, and a new tool is allowed", async () => {
     const build = await session(host)
     const before = host.fake.calls.length
-    expect(await attempt(host, build, "build", "search_persons")).toMatchObject({ asked: undefined, ok: true })
-    expect(await attempt(host, build, "build", "shiny_new_tool")).toEqual({ asked: "affinity_shiny_new_tool", ok: false, error: "Permission.DeclinedError: " })
-    expect(await attempt(host, build, "build", "create_note")).toEqual({ asked: "affinity_create_note", ok: false, error: "Permission.DeclinedError: " })
-    expect(host.fake.calls.slice(before)).toEqual(["search_persons"])
+    for (const tool of ["search_persons", "create_note", "delete_company", "shiny_new_tool"]) {
+      expect({ tool, result: await attempt(host, build, "build", tool) }).toMatchObject({ tool, result: { asked: undefined, ok: true } })
+      expect(await effect(host, "build", `affinity_${tool}`)).toBe("allow")
+    }
+    expect(host.fake.calls.slice(before)).toEqual(["search_persons", "create_note", "delete_company", "shiny_new_tool"])
     const rules = (await agentRules(host)).get("build")!
-    expect(["affinity_search_persons", "affinity_create_note", "affinity_shiny_new_tool"].filter((action) => hidden(rules, action))).toEqual([])
-    // DC-5: each denied tool is hidden, refused with no prompt, and never reaches Affinity, in every built-in agent.
-    const all = await agentRules(host)
-    for (const tool of DENIED_TOOLS) {
-      for (const id of BUILT_IN) expect({ id, tool, hidden: hidden(all.get(id)!, `affinity_${tool}`) }).toEqual({ id, tool, hidden: true })
-      expect(await effect(host, "build", `affinity_${tool}`)).toBe("deny")
-      expect(await attempt(host, build, "build", tool, "always")).toEqual({ asked: undefined, ok: false, error: `Tool.Error: Permission denied: affinity_${tool}` })
-      expect(host.fake.calls).not.toContain(tool)
+    expect(["affinity_search_persons", "affinity_create_note", "affinity_delete_company", "affinity_shiny_new_tool"].filter((action) => hidden(rules, action))).toEqual([])
+  })
+
+  test("access ask-changes runs a read and a playbook, asks for a change, and refuses a script's write before dispatch", async () => {
+    const asking = await startHost({ options: { access: "ask-changes" } })
+    try {
+      const build = await session(asking)
+      expect(await attempt(asking, build, "build", "search_persons")).toMatchObject({ asked: undefined, ok: true })
+      const before = asking.fake.calls.length
+      for (const tool of ["create_note", "delete_company", "shiny_new_tool"]) {
+        expect({ tool, result: await attempt(asking, build, "build", tool) }).toEqual({ tool, result: { asked: `affinity_${tool}`, ok: false, error: "Permission.DeclinedError: " } })
+        expect(await effect(asking, "build", `affinity_${tool}`)).toBe("ask")
+      }
+      expect(asking.fake.calls.length).toBe(before)
+      const refused = JSON.parse(await scriptCall(asking, "create_note", { sessionID: build, input: { content: "Example note" } })) as { message: string }
+      expect(refused.message).toContain("PERMISSION_DENIED: affinity_create_note would ask")
+      expect(asking.fake.calls.length).toBe(before)
+    } finally {
+      await asking.close()
     }
   })
 
-  test("a script's read runs, and a write runs only in a session that names an allow for it", async () => {
+  test("access read-only runs a read and denies every change, hidden from the model and refused to a script", async () => {
+    const readOnly = await startHost({ options: { access: "read-only" } })
+    try {
+      const build = await session(readOnly)
+      expect(await attempt(readOnly, build, "build", "search_persons")).toMatchObject({ asked: undefined, ok: true })
+      const rules = (await agentRules(readOnly)).get("build")!
+      const before = readOnly.fake.calls.length
+      for (const tool of ["create_note", "delete_company", "shiny_new_tool"]) {
+        expect({ tool, hidden: hidden(rules, `affinity_${tool}`) }).toEqual({ tool, hidden: true })
+        expect(await effect(readOnly, "build", `affinity_${tool}`)).toBe("deny")
+        expect(await attempt(readOnly, build, "build", tool, "always")).toEqual({ asked: undefined, ok: false, error: `Tool.Error: Permission denied: affinity_${tool}` })
+      }
+      const call = (readOnly.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
+      const outcome = await call({ rpcID: TOOLS_RPC_ID, method: "create_note", input: { sessionID: build, input: { content: "Example note" } }, location: readOnly.location }).then(
+        (output) => ({ ran: true, output }),
+        (error: unknown) => ({ ran: false, error: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
+      )
+      expect(outcome).toMatchObject({ ran: false })
+      expect(JSON.stringify(outcome)).toContain("PERMISSION_DENIED")
+      expect(readOnly.fake.calls.length).toBe(before)
+    } finally {
+      await readOnly.close()
+    }
+  })
+
+  test("a script can call a read and a write under the default, and a session's own deny still refuses one", async () => {
     const reader = await session(host)
     const before = host.fake.calls.length
     const read = JSON.parse(await scriptCall(host, "search_persons", { sessionID: reader, input: { term: "Acme" } })) as { text: string }
     expect(read.text).toBe("called search_persons")
     expect(host.fake.calls.slice(before)).toEqual(["search_persons"])
-    const writer = await grantedSession(host, [{ action: "*", resource: "*", effect: "deny" }, { action: "affinity_create_note", resource: "*", effect: "allow" }])
-    const write = JSON.parse(await scriptCall(host, "create_note", { sessionID: writer, input: { content: "Example note" } })) as { text: string }
+    const write = JSON.parse(await scriptCall(host, "create_note", { sessionID: reader, input: { content: "Example note" } })) as { text: string }
     expect(write.text).toBe("called create_note")
     expect(host.fake.calls.at(-1)).toBe("create_note")
-  })
-
-  test("a write that would ask is refused before dispatch, with no Affinity call", async () => {
-    const before = host.fake.calls.length
-    const refused = JSON.parse(await scriptCall(host, "create_note", { sessionID: await session(host), input: { content: "Example note" } })) as { message: string }
-    expect(refused.message).toContain("PERMISSION_DENIED: affinity_create_note would ask")
-    expect(host.fake.calls.length).toBe(before)
+    const narrowed = await grantedSession(host, [{ action: "affinity_create_note", resource: "*", effect: "deny" }])
+    const refused = JSON.parse(await scriptCall(host, "create_note", { sessionID: narrowed, input: { content: "Example note" } })) as { message: string }
+    expect(refused.message).toContain("PERMISSION_DENIED")
   })
 
   test("describe with a session reports each method's class and permission, and without one no permission", async () => {
@@ -172,9 +210,9 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     }
     const find = (name: string) => described.methods.find((method) => method.name === name)!
     expect(find("search_persons")).toMatchObject({ class: "read", permission: "allow" })
-    expect(find("warm_intro")).toMatchObject({ class: "send", permission: "allow" })
-    expect(find("create_note")).toMatchObject({ class: "write", permission: "ask" })
-    expect(find("delete_person")).toMatchObject({ class: "destructive", permission: "deny" })
+    expect(find("warm_intro")).toMatchObject({ class: "read", permission: "allow" })
+    expect(find("create_note")).toMatchObject({ class: "write", permission: "allow" })
+    expect(find("delete_person")).toMatchObject({ class: "destructive", permission: "allow" })
     expect(described.location).toBe(host.location.directory)
     expect(described.locationHint).toContain("x-opencode-directory")
     const plain = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { permission?: string }[] }
@@ -192,30 +230,28 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(fallback.location).not.toBe(host.location.directory)
   })
 
-  test("DC-5: no script reaches a denied tool: each is a method, describe shows it denied, and a call is refused before dispatch", async () => {
+  test("DC-5: describe reports every class and permission, and an unknown name is never a method", async () => {
     const sessionID = await session(host)
     const described = JSON.parse(await scriptCall(host, "describe", { sessionID })) as { methods: { name: string; class: string; permission: string }[] }
-    for (const tool of DENIED_TOOLS) {
-      expect(described.methods.find((method) => method.name === tool)).toMatchObject({ class: "destructive", permission: "deny" })
-      const before = host.fake.calls.length
-      const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
-      const outcome = await call({ rpcID: TOOLS_RPC_ID, method: tool, input: { sessionID, input: { confirm: true } }, location: host.location }).then(
-        (output) => ({ ran: true, output }),
-        (error: unknown) => ({ ran: false, error: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
-      )
-      expect(outcome).toMatchObject({ ran: false })
-      expect(JSON.stringify(outcome)).toContain("PERMISSION_DENIED")
-      expect(host.fake.calls.length).toBe(before)
-      expect(host.fake.calls).not.toContain(tool)
-    }
+    for (const tool of DESTRUCTIVE_TOOLS) expect(described.methods.find((method) => method.name === tool)).toMatchObject({ class: "destructive", permission: "allow" })
+    // A tool Affinity adds is not a method, whatever the rules say.
+    const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
+    const outcome = await call({ rpcID: TOOLS_RPC_ID, method: "shiny_new_tool", input: { sessionID, input: {} }, location: host.location }).then(
+      (output) => ({ ran: true, output }),
+      (error: unknown) => ({ ran: false, error: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
+    )
+    expect(outcome).toMatchObject({ ran: false })
+    expect(JSON.stringify(outcome)).toContain("method_not_found")
   })
 
-  test("P4: a saved 'Always allow' removes the prompt", async () => {
-    const build = await session(host)
-    expect(await attempt(host, build, "build", "shiny_new_tool", "always")).toMatchObject({ asked: "affinity_shiny_new_tool", ok: true })
-    expect(await attempt(host, build, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
-    const { projectID } = await host.client.sessions.get({ sessionID: build })
-    const saved = await host.client.permission.saved.list({ projectID })
+  test("P4: under ask-changes a saved 'Always allow' removes the prompt for that one tool", async () => {
+    const build = await session(asking)
+    expect(await attempt(asking, build, "build", "shiny_new_tool", "always")).toMatchObject({ asked: "affinity_shiny_new_tool", ok: true })
+    expect(await attempt(asking, build, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
+    // Another change still asks: the approval covers one action.
+    expect(await attempt(asking, build, "build", "create_note")).toMatchObject({ asked: "affinity_create_note", ok: false })
+    const { projectID } = await asking.client.sessions.get({ sessionID: build })
+    const saved = await asking.client.permission.saved.list({ projectID })
     expect(saved.map(({ action, resource }) => ({ action, resource }))).toEqual([{ action: "affinity_shiny_new_tool", resource: "*" }])
   })
 
@@ -237,9 +273,12 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(host.fake.calls.length).toBe(calls)
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Account: not read yet")
-    expect(text).toContain(`- Tools: 4 available, 1 unknown: shiny_new_tool (unknown tools ask before running); off by default: ${OFF}\n`)
-    expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
-    expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
+    expect(text).toContain("- Access: Affinity grant not read yet; access all: every Affinity tool is allowed, reads and changes alike; every agent has the block\n")
+    // Every listed tool counts now, the destructive class included, and under `all` the config-only reviewer needs no fix.
+    const listed = (await affinityTools(host)).length
+    expect(text).toContain(`- Tools: ${listed} available, 1 unknown: shiny_new_tool (a tool Affinity adds is allowed at once); ${OFF} allowed like everything else\n`)
+    expect(text).toContain("- Agents without default rules: none\n")
+    expect(text).toContain("- Next step: Nothing to do.")
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
   })
 
@@ -251,7 +290,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain("- Account: Northwind Capital\n")
     expect(text).toContain("- Access: Affinity grant: read-only, so Affinity refuses changes;")
     expect(text).toContain("- Organisation setup: done: this Affinity organisation lets OpenCode sign in\n")
-    expect(await statusRpc(host)).toMatchObject({ organisation: "Northwind Capital", grant: "read-only", adminStep: null, unguardedAgents: ["reviewer"] })
+    expect(await statusRpc(host)).toMatchObject({ organisation: "Northwind Capital", grant: "read-only", adminStep: null, access: "all", unguardedAgents: [] })
     // Only the organisation's name and the grant: no user, email or ids from the result.
     expect(JSON.stringify(await statusRpc(host))).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane|jane\.doe/)
     expect(text).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane|jane\.doe/)
@@ -282,7 +321,7 @@ describe("the user's own affinity server, signing in with an API key", () => {
 
   test("H4: is adopted unchanged: the host sends its headers, and the plugin's rules still apply", async () => {
     expect(await attempt(host, await session(host), "build", "search_persons")).toMatchObject({ asked: undefined, ok: true })
-    expect(await attempt(host, await session(host), "build", "create_note")).toMatchObject({ asked: "affinity_create_note", ok: false })
+    expect(await attempt(host, await session(host), "build", "create_note")).toMatchObject({ asked: undefined, ok: true })
     expect(host.fake.markers.length).toBeGreaterThan(0)
     expect(new Set(host.fake.markers)).toEqual(new Set(["user"]))
     expect(new Set(host.fake.authorizations)).toEqual(new Set([`Bearer ${KEY}`]))
@@ -318,6 +357,7 @@ describe("a model turn that reads the account", () => {
   let host: Host
   beforeAll(async () => {
     host = await startHost({
+      options: { access: "read-only" },
       config: (url) => ({
         // The user's own entry at the fake, with Code Mode off, so the tools are the model's own tools.
         mcp: { servers: { affinity: { type: "remote", url, oauth: false, codemode: false } } },
@@ -352,7 +392,7 @@ describe("a model turn that reads the account", () => {
   })
 
   test("DC-5: the model's own calls to the ten denied tools never reach Affinity, and none is offered to it", async () => {
-    host.fake.model.script = DENIED_TOOLS.map((tool) => ({ tool: `affinity_${tool}`, arguments: { confirm: true } }))
+    host.fake.model.script = DESTRUCTIVE_TOOLS.map((tool) => ({ tool: `affinity_${tool}`, arguments: { confirm: true } }))
     const before = host.fake.model.requests.length
     const sessions = host.client.sessions as unknown as {
       create: (input: object) => Promise<{ id: string }>
@@ -361,10 +401,10 @@ describe("a model turn that reads the account", () => {
     const sessionID = (await sessions.create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
     await sessions.prompt({ sessionID, text: "Delete the duplicate companies, merge the two Jane Doe records, and tell Affinity about it." })
     const turns = () => host.fake.model.requests.slice(before) as { tools?: { function?: { name?: string } }[]; messages?: { role: string }[] }[]
-    await until("the model's final turn", async () => turns().some((request) => (request.messages ?? []).filter((message) => message.role === "tool").length >= DENIED_TOOLS.length))
+    await until("the model's final turn", async () => turns().some((request) => (request.messages ?? []).filter((message) => message.role === "tool").length >= DESTRUCTIVE_TOOLS.length))
     const offered = turns().flatMap((request) => (request.tools ?? []).map((item) => item.function?.name ?? ""))
     expect(offered.filter((name) => name.startsWith("affinity_"))).toContain("affinity_get_current_user")
-    for (const tool of DENIED_TOOLS) {
+    for (const tool of DESTRUCTIVE_TOOLS) {
       expect(offered).not.toContain(`affinity_${tool}`)
       expect(host.fake.calls).not.toContain(tool)
     }
@@ -375,6 +415,7 @@ describe("a Code Mode turn that reads the account", () => {
   let host: Host
   beforeAll(async () => {
     host = await startHost({
+      options: { access: "read-only" },
       config: (url) => ({
         // Code Mode on, as users run it by default: the model calls Affinity inside Code Mode's execute tool.
         mcp: { servers: { affinity: { type: "remote", url, oauth: false } } },
@@ -408,7 +449,7 @@ describe("a Code Mode turn that reads the account", () => {
   test("AF-5: inside execute, each denied tool is missing from the namespace call and never reaches Affinity", async () => {
     // The riskiest path users run by default: the model calls Affinity inside Code Mode. The deny is on each tool's
     // own action, so Code Mode's namespace has no such function; a catch keeps the script running to report it.
-    const attempts = DENIED_TOOLS.map((tool) => `try { await tools.affinity.${tool}({ confirm: true }); out.push("ran ${tool}") } catch (error) { out.push("${tool}:" + String(error).slice(0, 80)) }`).join(" ")
+    const attempts = DESTRUCTIVE_TOOLS.map((tool) => `try { await tools.affinity.${tool}({ confirm: true }); out.push("ran ${tool}") } catch (error) { out.push("${tool}:" + String(error).slice(0, 80)) }`).join(" ")
     host.fake.model.script = [{ tool: "execute", arguments: { code: `const out = []; ${attempts}; return out` } }]
     const before = host.fake.calls.length
     const requests = host.fake.model.requests.length
@@ -420,63 +461,48 @@ describe("a Code Mode turn that reads the account", () => {
     await sessions.prompt({ sessionID, text: "Delete the duplicate company, merge the two person records and report it to Affinity." })
     await until("the Code Mode turn ends", async () => host.fake.model.requests.length > requests && (host.fake.model.requests.at(-1) as { messages?: { role: string }[] }).messages?.some((message) => message.role === "tool"))
     expect(host.fake.calls.slice(before)).toEqual([])
-    for (const tool of DENIED_TOOLS) expect(host.fake.calls).not.toContain(tool)
+    for (const tool of DESTRUCTIVE_TOOLS) expect(host.fake.calls).not.toContain(tool)
   })
 })
 
-describe("the documented clean-up agent for deletes and merges", () => {
-  // docs/configuration.md's recipe: an agent defined only in config, whose own permissions hold the plugin's block, then
-  // an ask for each delete and merge. send_feedback stays off there.
-  const asks: Rule[] = DENIED_TOOLS.filter((tool) => tool !== "send_feedback").map((tool) => ({ action: `affinity_${tool}`, resource: "*", effect: "ask" }))
+describe("a clean-up agent over access ask-changes", () => {
+  // R18: `ask-changes` already asks for every delete and merge; an agent's own allow is the documented way to let one
+  // through, and a deny keeps another off.
+  const optIn: Rule = { action: "affinity_delete_reminder", resource: "*", effect: "allow" }
+  const keepOff: Rule = { action: "affinity_merge_companies", resource: "*", effect: "deny" }
   let host: Host
   beforeAll(async () => {
-    host = await startHost({
-      config: () => ({ agents: { "crm-cleanup": { description: "Affinity clean-up: deletes and merges, each asked first", mode: "primary", permissions: [...defaultRules(), ...asks] } } }),
-    })
+    host = await startHost({ options: { access: "ask-changes" }, config: () => ({ agents: { cleanup: { permissions: [optIn, keepOff] } } }) })
   })
   afterAll(() => host?.close())
 
-  test("DC-5: turns each delete and merge into a per-call ask in that agent only, never an allow, and keeps send_feedback off", async () => {
+  test("the agent's own allow runs one delete and its deny keeps a merge off, while the block still asks in build", async () => {
     await affinityTools(host)
-    for (const rule of asks) expect(await effect(host, "crm-cleanup", rule.action)).toBe("ask")
-    expect(await effect(host, "crm-cleanup", "affinity_send_feedback")).toBe("deny")
-    const cleanup = await session(host, "crm-cleanup")
-    expect(await attempt(host, cleanup, "crm-cleanup", "merge_persons")).toEqual({ asked: "affinity_merge_persons", ok: false, error: "Permission.DeclinedError: " })
-    expect(host.fake.calls).not.toContain("merge_persons")
-    // Each call asks again: a "once" answer runs one call and saves nothing.
-    expect(await attempt(host, cleanup, "crm-cleanup", "merge_persons", "once")).toMatchObject({ asked: "affinity_merge_persons", ok: true })
-    expect(await attempt(host, cleanup, "crm-cleanup", "merge_persons")).toMatchObject({ asked: "affinity_merge_persons", ok: false })
-    expect(await attempt(host, cleanup, "crm-cleanup", "send_feedback", "always")).toEqual({ asked: undefined, ok: false, error: "Tool.Error: Permission denied: affinity_send_feedback" })
-    // Every built-in agent, Explore included, keeps all ten off; the clean-up agent is not listed as unguarded.
-    for (const id of BUILT_IN) for (const tool of DENIED_TOOLS) expect({ id, tool, effect: await effect(host, id, `affinity_${tool}`) }).toEqual({ id, tool, effect: "deny" })
-    expect((await statusRpc(host)).unguardedAgents).toEqual([])
-  })
-
-  test("DC-5: a script can't reach a delete or merge even in that agent: its ask is refused before dispatch", async () => {
-    const sessionID = await session(host, "crm-cleanup")
-    const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
-    const before = host.fake.calls.length
-    for (const tool of DENIED_TOOLS) {
-      const outcome = (await call({ rpcID: TOOLS_RPC_ID, method: tool, input: { sessionID, input: { confirm: true } }, location: host.location }).then(
-        () => ({ ran: true, message: "" }),
-        (error: unknown) => ({ ran: false, message: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
-      )) as { ran: boolean; message: string }
-      expect({ tool, ran: outcome.ran }).toEqual({ tool, ran: false })
-      expect(outcome.message).toContain("PERMISSION_DENIED")
-    }
-    expect(host.fake.calls.slice(before)).toEqual([])
+    const sessionID = await session(host, "cleanup")
+    expect(await effect(host, "cleanup", "affinity_delete_reminder")).toBe("allow")
+    expect(await effect(host, "cleanup", "affinity_merge_companies")).toBe("deny")
+    expect(await attempt(host, sessionID, "cleanup", "delete_reminder")).toMatchObject({ asked: undefined, ok: true })
+    expect(await attempt(host, sessionID, "cleanup", "merge_companies")).toEqual({ asked: undefined, ok: false, error: "Tool.Error: Permission denied: affinity_merge_companies" })
+    // A config-only agent gets no block, so a tool its own rules do not name keeps the host default; build, which has
+    // the block, asks for the same call.
+    const build = await session(host, "build")
+    expect(await attempt(host, build, "build", "delete_company")).toMatchObject({ asked: "affinity_delete_company", ok: false })
+    expect(await effect(host, "build", "affinity_delete_reminder")).toBe("ask")
   })
 })
+
 
 describe("user permissions", () => {
   const userRules = [allow("create_note"), deny("search_persons")]
   let host: Host
   beforeAll(async () => {
     host = await startHost({
+      options: { access: "ask-changes" },
       config: () => ({
         permissions: userRules,
         // The documented fix for a config-only agent: the plugin's block first, then the user's rules again.
-        agents: { reviewer: { description: "Reviews changes", mode: "subagent", permissions: [...defaultRules(), ...userRules] } },
+        // The documented fix: the block for this host's access value, then the user's rules again.
+        agents: { reviewer: { description: "Reviews changes", mode: "subagent", permissions: [...defaultRules("ask-changes"), ...userRules] } },
       }),
     })
   })

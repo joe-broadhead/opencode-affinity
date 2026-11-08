@@ -38,12 +38,19 @@ OpenCode project.
   skills label Affinity's scores and AI Notetaker summaries as Affinity's.
 - Every call, from the model or a script, counts against your organisation's monthly Affinity API quota, shared by the
   whole firm. The skills keep calls few.
-- Ten tools are denied by default: the seven deletes and two merges, which remove CRM data for good, and
+- **Every Affinity tool is allowed by default**, so an agent can create a note, rewrite a deal's field values, merge two
+  companies, or delete a reminder without a prompt, and every one of those changes the firm's shared CRM that your
+  colleagues see. The seven deletes remove data for good, and two merges cannot be undone.
+- **One line restricts it.** Set `"access": "ask-changes"` in the plugin options and every change asks first, or
+  `"read-only"` and every change is denied. A rule in an agent's own `permissions` restricts one agent, and a `deny` in
+  the top-level `permissions` restricts every agent. The README's
+  [Permissions](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#permissions) has the three blocks.
+- Ten tools are of the destructive class: the seven deletes and two merges, which remove CRM data for good, and
   `affinity_send_feedback`, which sends text to Affinity's team and which Affinity's own instructions tell the model to
-  offer unasked. Turning them on takes `ask` rules in a dedicated agent's own `permissions`, so each call still asks, in
-  that agent only.
-- `affinity_issue_entity_files_download_token` returns a single-use download credential. It asks before it runs, and
-  the skills tell the model to give it only to you, in chat.
+  offer unasked. `ask-changes` asks for each; `read-only` denies them; a `deny` in an agent's own `permissions` narrows
+  further.
+- `affinity_issue_entity_files_download_token` returns a single-use download credential. Under the default it runs
+  without a prompt; the skills tell the model to give it only to you, in chat.
 
 ## Permissions
 
@@ -52,9 +59,10 @@ What the model can do in Affinity is limited by these layers, in this order:
 1. **Affinity's server and your access.** The sign-in is your own Affinity account, and you see what your Affinity
    permissions show. A sign-in with `mcp` (changes) unticked at consent is read-only: Affinity refuses every change.
    An Affinity admin decides whether OpenCode can sign in at all, and which scopes it may ask for, in Manage Apps.
-2. **Default permission rules.** Every Affinity tool asks before it runs, except Affinity's read tools listed in
-   `src/affinity-tools.ts`, which run without a prompt. Deletes, merges and `affinity_send_feedback` are denied. Every
-   change that asks reaches the firm's shared CRM, which your colleagues see.
+2. **Default permission rules.** The plugin inserts one block generated from the tool table and the `access` option.
+   Its default, `all`, allows every Affinity tool, reads, playbooks and changes alike, and every change reaches the
+   firm's shared CRM. `ask-changes` allows a read and a playbook and asks for everything else; `read-only` allows a read
+   and a playbook and denies everything else, which also hides it from the model.
 3. **Your OpenCode permissions.** Your `permissions` rules and saved "Always allow" answers override the default
    rules. A `deny` you configure always wins.
 
@@ -67,9 +75,10 @@ Things to know:
   apply in other such folders too.
 - **Some agents get no default rules.** Agents defined only in your own config, and agents added by plugins that load
   after this one, are created after the plugin inserts its rules, and agents without a base allow get none. Affinity
-  tools may run there without asking. `/affinity-status` names these agents and gives the fix: put the default rules
-  it shows first in that agent's own `permissions`, followed by your top-level rules for Affinity tools. Do not put
-  them in the top-level `permissions`, which would loosen Explore.
+  tools may run there with no block at all. Under the default `access: "all"` that changes nothing; under `ask-changes`
+  or `read-only` those agents stay unrestricted. `/affinity-status` names them and gives the fix: put the block it shows
+  first in that agent's own `permissions`, followed by your top-level rules for Affinity tools. Do not put an `ask` or
+  an `allow` in the top-level `permissions`, which would loosen Explore.
 - **Unattended runs refuse prompts.** In `opencode run`, an Affinity tool that would ask is refused.
 - **The `affinity_*` rule also matches other servers** whose names start with `affinity_`. For their tools it only
   adds prompts.
@@ -81,15 +90,17 @@ Things to know:
 
 The tools RPC (`affinity.crm.tools`, see
 [docs/scripting.md](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md)) exposes every
-known Affinity tool as a method for a script, with no model, each with a class: read, send (the workflow playbooks),
+known Affinity tool as a method for a script, with no model, each with a class: read (the workflow playbooks too),
 write or destructive. It adds no authority:
 
 - A script names a session that names an agent, and runs as them. The rules that decide are the agent's, then the
   session's, resolved before dispatch: only `allow` runs. An `ask` is refused with no prompt and no Affinity call, and a
   `deny` is refused with no Affinity call. A saved "Always allow" is not part of those rules and does not authorise a
   script; a script's grant is a rule in config, or a Jobs run session.
-- Making a tool a method does not make it reachable. A write's default rule asks, so a script needs an explicit
-  `allow` for its action; the ten denied tools resolve to `deny` and are refused until that deny is changed.
+- A script gets the same default: under `access: "all"` the block allows every method, so a script can change the
+  firm's CRM with no further rule. Restrict the session's agent, or the session's own rules, to narrow that; with
+  `ask-changes` or `read-only` a script needs an explicit `allow` for a change, and an `ask` is refused because no one
+  is there.
 - OpenCode's own executor still checks an MCP call against the agent's rules, the session's rules and saved approvals.
 - An inner ask on a script's call is denied, not prompted. The plugin's permission hook changes only an ask on one of
   its own script calls in flight, only to a deny, and leaves every other call alone.

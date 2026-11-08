@@ -1,20 +1,21 @@
 import { describe, expect, test } from "bun:test"
 import { checkHost } from "../../src/host-version.js"
 import { defaultRules } from "../../src/permissions.js"
-import { ADMIN_STEP, buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, shortReason, SIGN_IN, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { ADMIN_STEP, buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, SIGN_IN, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { shortReason } from "../../src/redact.js"
 import { VERSION } from "../../src/version.js"
 import { allow } from "./fake.js"
 
 const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
 const NOTHING_TO_DO = "Nothing to do."
 /** The default rules as /affinity-status shows them: one rule a line, a JSON array body. */
-const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
+const AGENT_RULES = (access: "all" | "ask-changes" | "read-only" = "all") => defaultRules(access).map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
 
 const host = checkHost("2.2.3", false)
 const URL = "https://mcp.affinity.co/mcp"
 const base: StatusFacts = { server: { status: "connected" }, source: { type: "plugin", url: URL, signIn: "oauth" }, host, tools: ["search_persons"] }
 const guarded = { id: "build", permissions: [allow("*"), ...defaultRules()] }
-const RULES = "no agent runs new Affinity tools unasked"
+const RULES = "access all: every Affinity tool is allowed, reads and changes alike; every agent has the block"
 
 describe("buildStatus", () => {
   test("connected, with the account read, and nothing left to do", () => {
@@ -27,7 +28,9 @@ describe("buildStatus", () => {
       grant: "read-write",
       adminStep: null,
       everConnected: false,
+      access: "all",
       tools: 1,
+      destructiveTools: [],
       deniedTools: [],
       listing: false,
       unknownCount: 0,
@@ -42,7 +45,7 @@ describe("buildStatus", () => {
         "Affinity status",
         "- Connection: connected (https://mcp.affinity.co/mcp, registered by this plugin)",
         "- Account: Northwind Capital",
-        `- Access: Affinity grant: read and write; ${RULES}`,
+        "- Access: Affinity grant: read and write; access all: every Affinity tool is allowed, reads and changes alike; every agent has the block",
         "- Organisation setup: done: this Affinity organisation lets OpenCode sign in",
         "- Tools: 1 available, 0 unknown",
         "- Agents without default rules: none",
@@ -122,14 +125,15 @@ describe("buildStatus", () => {
 
   test("counts the available tools, names the unknown ones, and counts denied ones apart; missing known tools are normal", () => {
     const status = buildStatus({ ...base, tools: ["search_persons", "create_note", "send_feedback", "shiny_new_tool", "summarize_portfolio"] })
-    expect(status.tools).toBe(4)
-    expect(status.deniedTools).toEqual(["send_feedback"])
+    expect(status.tools).toBe(5)
+    expect(status.destructiveTools).toEqual(["send_feedback"])
+    expect(status.deniedTools).toEqual(status.destructiveTools)
     expect(status.unknownCount).toBe(2)
     expect(status.unknownTools).toEqual(["shiny_new_tool", "summarize_portfolio"])
-    expect(formatStatus(status)).toContain("- Tools: 4 available, 2 unknown: shiny_new_tool, summarize_portfolio (unknown tools ask before running); off by default: send_feedback\n")
+    expect(formatStatus(status)).toContain("- Tools: 5 available, 2 unknown: shiny_new_tool, summarize_portfolio (a tool Affinity adds is allowed at once); send_feedback allowed like everything else\n")
     expect(status.nextStep).toBe(NOTHING_TO_DO)
     const denied = buildStatus({ ...base, tools: ["search_persons", "merge_persons", "send_feedback"] })
-    expect(formatStatus(denied)).toContain("- Tools: 1 available, 0 unknown; off by default: merge_persons and send_feedback\n")
+    expect(formatStatus(denied)).toContain("- Tools: 3 available, 0 unknown; merge_persons and send_feedback allowed like everything else\n")
   })
 
   test("a server that just connected and lists no tools yet is still listing them", () => {
@@ -145,11 +149,11 @@ describe("buildStatus", () => {
   })
 
   test("the Access row says whether the default rules are in place, from what status can see", () => {
-    expect(formatStatus(buildStatus(base))).toContain("- Access: Affinity grant not read yet; no agent runs new Affinity tools unasked\n")
-    const missing = buildStatus({ ...base, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
-    expect(formatStatus(missing)).toContain("- Access: Affinity grant not read yet; default rules missing in the agents listed below\n")
-    const problem = "RULES_NOT_ADDED: Affinity's default permission rules could not be added (boom), so Affinity tools may run without asking. Next step: Restart OpenCode."
-    expect(formatStatus(buildStatus({ ...base, account: { grant: "read-write" }, problems: [problem] }))).toContain("- Access: Affinity grant: read and write; default rules not added (see the OpenCode row)\n")
+    expect(formatStatus(buildStatus(base))).toContain("- Access: Affinity grant not read yet; access all: every Affinity tool is allowed, reads and changes alike; every agent has the block\n")
+    const missing = buildStatus({ ...base, access: "read-only", agents: [{ id: "reviewer", permissions: [allow("*")] }] })
+    expect(formatStatus(missing)).toContain("- Access: Affinity grant not read yet; access read-only: reads run without asking; the 20 writes and the 10 destructive tools are denied; default rules missing in the agents listed below\n")
+    const problem = "RULES_NOT_ADDED: Affinity's default permission rules could not be added (boom). Next step: Restart OpenCode."
+    expect(formatStatus(buildStatus({ ...base, account: { grant: "read-write" }, problems: [problem] }))).toContain("- Access: Affinity grant: read and write; access all: every Affinity tool is allowed, reads and changes alike; default rules not added (see the OpenCode row)\n")
   })
 
   test("a failure's reason never carries a token or key the host's text echoed", () => {
@@ -164,18 +168,18 @@ describe("buildStatus", () => {
     const status = buildStatus({ ...base, tools: ["search_persons", ...odd, ...many] })
     expect(status.unknownCount).toBe(29)
     expect(status.unknownTools).toEqual(many.slice(0, 20))
-    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (unknown tools ask before running)`)
-    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (unknown tools ask before running)")
+    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (a tool Affinity adds is allowed at once)`)
+    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (a tool Affinity adds is allowed at once)")
   })
 
   test("names agents without the default rules, with the block to paste, and points the next step at it", () => {
-    const status = buildStatus({ ...base, agents: [guarded, { id: "reviewer", permissions: [allow("*")] }] })
+    const status = buildStatus({ ...base, access: "read-only", agents: [{ id: "build", permissions: [allow("*"), ...defaultRules("read-only")] }, { id: "reviewer", permissions: [allow("*")] }] })
     expect(status.unguardedAgents).toEqual(["reviewer"])
     expect(status.nextStep).toBe(
       "Put the default rules shown by /affinity-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Affinity tools.",
     )
-    expect(JSON.parse(`[${AGENT_RULES}]`)).toEqual(defaultRules())
-    expect(formatStatus(status)).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n- OpenCode:`)
+    expect(JSON.parse(`[${AGENT_RULES("read-only")}]`)).toEqual(defaultRules("read-only"))
+    expect(formatStatus(status)).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES("read-only")}\n- OpenCode:`)
   })
 
   test("an agent whose own rules already ask or deny for every Affinity tool is not listed", () => {
@@ -184,11 +188,11 @@ describe("buildStatus", () => {
       { id: "denies-affinity", permissions: [allow("*"), { action: "affinity_*", resource: "*", effect: "deny" as const }] },
       { id: "reviewer", permissions: [allow("*")] },
     ]
-    expect(buildStatus({ ...base, agents }).unguardedAgents).toEqual(["reviewer"])
+    expect(buildStatus({ ...base, access: "read-only", agents }).unguardedAgents).toEqual(["reviewer"])
   })
 
   test("the sign-in step comes before the agent fix, which still shows, and there is one next step", () => {
-    const status = buildStatus({ ...base, server: { status: "needs_auth", error: "x" }, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
+    const status = buildStatus({ ...base, access: "read-only", server: { status: "needs_auth", error: "x" }, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
     expect(status.nextStep).toBe(SIGN_IN)
     const text = formatStatus(status)
     expect(text).toContain(`- Connection: sign-in required (${URL}, registered by this plugin)`)
@@ -210,7 +214,7 @@ describe("buildStatus", () => {
       'Rename or move the "affinity" skill at /projects/acme/.opencode/skills/affinity/SKILL.md, which OpenCode loads instead of the plugin\'s skill of the same name.',
     )
     expect(buildStatus({ ...base, skills: { own, listed: own } })).not.toHaveProperty("shadowedSkills")
-    expect(buildStatus({ ...base, skills: { own, listed }, agents: [{ id: "reviewer", permissions: [allow("*")] }] }).nextStep).toStartWith("Put the default rules")
+    expect(buildStatus({ ...base, access: "read-only", skills: { own, listed }, agents: [{ id: "reviewer", permissions: [allow("*")] }] }).nextStep).toStartWith("Put the default rules")
   })
 
   test("an untested host and setup problems show on the OpenCode row; a problem's own next step comes first", () => {
@@ -255,7 +259,10 @@ describe("readStatus", () => {
 
   test("reads connection, the captured account, tools and agents through public APIs", async () => {
     const status = await readStatus(statusContext("connected"), { source: { type: "plugin", url: URL, signIn: "oauth" }, host, problems: [], account: account() })
-    expect(status).toMatchObject({ state: "connected", organisation: "Northwind Capital", tools: 2, unknownTools: ["shiny_new_tool"], unguardedAgents: ["reviewer"] })
+    expect(status).toMatchObject({ state: "connected", organisation: "Northwind Capital", access: "all", unknownCount: 1, unguardedAgents: [] })
+    const readOnly = await readStatus(statusContext("connected"), { host, account: account(), access: "read-only" })
+    expect(readOnly).toMatchObject({ access: "read-only" })
+    expect(readOnly.unguardedAgents).toEqual(expect.arrayContaining(["reviewer"]))
   })
 
   test("a server that needs a new sign-in forgets the account read before it", async () => {

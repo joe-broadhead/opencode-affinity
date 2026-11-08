@@ -1,1040 +1,2954 @@
 {
- "source": "Affinity affinity-mcp 0.7.1, read statically: names, readOnlyHint and destructiveHint, and parameters as name*:type. Replace with the live tool list when there is one.",
  "tools": [
   {
    "name": "get_current_user",
+   "description": "Affinity get_current_user",
+   "inputSchema": {
+    "type": "object",
+    "properties": {}
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": []
+   }
   },
   {
    "name": "search_companies_top_matches",
+   "description": "Affinity search_companies_top_matches",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "search_criteria": {},
+     "list_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "query:string|null",
-    "search_criteria",
-    "list_ids:array<integer>|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "search_all_companies",
+   "description": "Affinity search_all_companies",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "search_criteria": {},
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "search_criteria",
-    "field_ids:array<string>|null",
-    "field_types",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_company_info",
+   "description": "Affinity get_company_info",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {}
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "company_id*:integer",
-    "field_ids:array<string>|null",
-    "field_types"
-   ]
+   }
   },
   {
    "name": "get_company_list_entries",
+   "description": "Affinity get_company_list_entries",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "company_id*:integer",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_merge_task",
+   "description": "Affinity get_merge_task",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "task_id": {
+      "type": "string"
+     },
+     "entity_type": {}
+    },
+    "required": [
+     "task_id",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "task_id*:string",
-    "entity_type*"
-   ]
+   }
   },
   {
    "name": "render_market_map",
+   "description": "Affinity render_market_map",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "thesis": {},
+     "your_companies": {},
+     "explore_companies": {}
+    },
+    "required": [
+     "thesis",
+     "your_companies",
+     "explore_companies"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "thesis*",
-    "your_companies*",
-    "explore_companies*"
-   ]
+   }
   },
   {
    "name": "get_entity_fields",
+   "description": "Affinity get_entity_fields",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_type": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "includes": {}
+    },
+    "required": [
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_type*",
-    "cursor:string|null",
-    "limit:integer",
-    "filter:string|null",
-    "includes"
-   ]
+   }
   },
   {
    "name": "get_list_fields",
+   "description": "Affinity get_list_fields",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "includes": {}
+    },
+    "required": [
+     "list_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "cursor:string|null",
-    "limit:integer",
-    "filter:string|null",
-    "includes"
-   ]
+   }
   },
   {
    "name": "get_list_field_dropdown_options",
+   "description": "Affinity get_list_field_dropdown_options",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "field_id": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id",
+     "field_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "field_id*",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_entity_field_dropdown_options",
+   "description": "Affinity get_entity_field_dropdown_options",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_type": {},
+     "field_id": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "entity_type",
+     "field_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_type*",
-    "field_id*",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_field_value_changes",
+   "description": "Affinity get_field_value_changes",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "order_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "cursor:string|null",
-    "limit:integer",
-    "filter_expr:string|null",
-    "order_by:string|null"
-   ]
+   }
   },
   {
    "name": "get_investor_executive_connections",
+   "description": "Affinity get_investor_executive_connections",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "company_id*:integer",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_coworker_connections",
+   "description": "Affinity get_coworker_connections",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "company_id*:integer",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_lists",
+   "description": "Affinity get_lists",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "term": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "term:string|null",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_single_list_entry",
+   "description": "Affinity get_single_list_entry",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "list_entry_id": {
+      "type": "integer"
+     },
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {}
+    },
+    "required": [
+     "list_id",
+     "list_entry_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "list_entry_id*:integer",
-    "field_ids:array<string>|null",
-    "field_types"
-   ]
+   }
   },
   {
    "name": "get_list_info",
+   "description": "Affinity get_list_info",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer"
-   ]
+   }
   },
   {
    "name": "search_list_entries",
+   "description": "Affinity search_list_entries",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "search_criteria": {},
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "list_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "search_criteria",
-    "field_ids:array<string>|null",
-    "field_types",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_meetings",
+   "description": "Affinity get_meetings",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "filter_expr:string|null",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_meetings_for_entity",
+   "description": "Affinity get_meetings_for_entity",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "type": "integer"
+     },
+     "entity_type": {},
+     "start_time": {},
+     "end_time": {},
+     "internal_person_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "logging_type": {},
+     "page_size": {
+      "type": "integer"
+     },
+     "page_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "entity_id",
+     "entity_type",
+     "start_time",
+     "end_time"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_id*:integer",
-    "entity_type*",
-    "start_time*",
-    "end_time*",
-    "internal_person_id:integer|null",
-    "logging_type",
-    "page_size:integer",
-    "page_token:string|null"
-   ]
+   }
   },
   {
    "name": "query_notes",
+   "description": "Affinity query_notes",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "filter_expr:string|null",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_notes_for_entity",
+   "description": "Affinity get_notes_for_entity",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "type": "integer"
+     },
+     "entity_type": {},
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "entity_id",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_id*:integer",
-    "entity_type*",
-    "filter_expr:string|null",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_entities_attached_to_note",
+   "description": "Affinity get_entities_attached_to_note",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "note_id": {
+      "type": "integer"
+     },
+     "entity_type": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "note_id",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "note_id*:integer",
-    "entity_type*",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "search_notes",
+   "description": "Affinity search_notes",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "prompt": {
+      "type": "string"
+     },
+     "note_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "prompt"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "prompt*:string",
-    "note_ids:array<integer>|null",
-    "company_id:integer|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_entity_files",
+   "description": "Affinity get_entity_files",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "entity_type": {},
+     "page_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "page_size": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_id:integer|null",
-    "entity_type",
-    "page_token:string|null",
-    "page_size:integer"
-   ]
+   }
   },
   {
    "name": "get_entity_file_metadata",
+   "description": "Affinity get_entity_file_metadata",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "file_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file_id*:integer"
-   ]
+   }
   },
   {
    "name": "search_files",
+   "description": "Affinity search_files",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "prompt": {
+      "type": "string"
+     },
+     "file_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "prompt"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "prompt*:string",
-    "file_ids:array<integer>|null",
-    "company_id:integer|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "search_opportunities",
+   "description": "Affinity search_opportunities",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "term": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "page_size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "page_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "term:string|null",
-    "page_size:integer|null",
-    "page_token:string|null"
-   ]
+   }
   },
   {
    "name": "search_persons",
+   "description": "Affinity search_persons",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "search_criteria": {},
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "search_criteria",
-    "field_ids:array<string>|null",
-    "field_types",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_person_info",
+   "description": "Affinity get_person_info",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_id": {
+      "type": "integer"
+     },
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {}
+    },
+    "required": [
+     "person_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "person_id*:integer",
-    "field_ids:array<string>|null",
-    "field_types"
-   ]
+   }
   },
   {
    "name": "get_persons_info",
+   "description": "Affinity get_persons_info",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_ids": {
+      "type": "array",
+      "items": {
+       "type": "integer"
+      }
+     },
+     "field_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "field_types": {},
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "person_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "person_ids*:array<integer>",
-    "field_ids:array<string>|null",
-    "field_types",
-    "cursor:string|null",
-    "limit:integer",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_person_list_entries",
+   "description": "Affinity get_person_list_entries",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "person_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "person_id*:integer",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_person_relationships",
+   "description": "Affinity get_person_relationships",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "order_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "person_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "person_id*:integer",
-    "cursor:string|null",
-    "limit:integer",
-    "filter_expr:string|null",
-    "order_by:string|null",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_company_relationships",
+   "description": "Affinity get_company_relationships",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "order_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "total_count": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "company_id*:integer",
-    "cursor:string|null",
-    "limit:integer",
-    "filter_expr:string|null",
-    "order_by:string|null",
-    "total_count:boolean"
-   ]
+   }
   },
   {
    "name": "get_reminders",
+   "description": "Affinity get_reminders",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "entity_type": {},
+     "creator_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "owner_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "completer_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reminder_type": {},
+     "reset_type": {},
+     "status": {},
+     "due_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "due_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "page_size": {
+      "type": "integer"
+     },
+     "page_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_id:integer|null",
-    "entity_type",
-    "creator_id:integer|null",
-    "owner_id:integer|null",
-    "completer_id:integer|null",
-    "reminder_type",
-    "reset_type",
-    "status",
-    "due_before:string|null",
-    "due_after:string|null",
-    "page_size:integer",
-    "page_token:string|null"
-   ]
+   }
   },
   {
    "name": "get_saved_views",
+   "description": "Affinity get_saved_views",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_saved_view_list_entries",
+   "description": "Affinity get_saved_view_list_entries",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "view_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id",
+     "view_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "view_id*:integer",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_transcript_fragments",
+   "description": "Affinity get_transcript_fragments",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "transcript_id": {
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "transcript_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "transcript_id*:integer",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "get_users",
+   "description": "Affinity get_users",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "term": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "limit": {
+      "type": "integer"
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "term:string|null",
-    "filter_expr:string|null",
-    "cursor:string|null",
-    "limit:integer"
-   ]
+   }
   },
   {
    "name": "render_warm_intro_graph",
+   "description": "Affinity render_warm_intro_graph",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "team": {},
+     "targets": {},
+     "edges": {}
+    },
+    "required": [
+     "team",
+     "targets",
+     "edges"
+    ]
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "team*",
-    "targets*",
-    "edges*"
-   ]
+   }
   },
   {
    "name": "create_company",
+   "description": "Affinity create_company",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "domain": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "name"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "name*:string",
-    "domain:string|null",
-    "person_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "send_feedback",
+   "description": "Affinity send_feedback",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "subject": {
+      "type": "string"
+     },
+     "body": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "subject",
+     "body"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "subject*:string",
-    "body*:string"
-   ]
+   }
   },
   {
    "name": "create_field",
+   "description": "Affinity create_field",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "value_type": {},
+     "entity_type": {},
+     "list_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "allows_multiple": {
+      "type": "boolean"
+     },
+     "is_required": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "value_type",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "name*:string",
-    "value_type*",
-    "entity_type*",
-    "list_id:integer|null",
-    "allows_multiple:boolean",
-    "is_required:boolean"
-   ]
+   }
   },
   {
    "name": "create_list_field_dropdown_option",
+   "description": "Affinity create_list_field_dropdown_option",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "field_id": {},
+     "option_type": {},
+     "text": {
+      "type": "string"
+     },
+     "rank": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "color": {},
+     "status_category": {},
+     "win_rate": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "list_id",
+     "field_id",
+     "option_type",
+     "text"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "field_id*",
-    "option_type*",
-    "text*:string",
-    "rank:integer|null",
-    "color",
-    "status_category",
-    "win_rate:integer|null"
-   ]
+   }
   },
   {
    "name": "create_interaction",
+   "description": "Affinity create_interaction",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "interaction_type": {},
+     "date": {
+      "type": "string"
+     },
+     "person_ids": {
+      "type": "array",
+      "items": {
+       "type": "integer"
+      }
+     },
+     "content": {
+      "type": "string"
+     },
+     "direction": {}
+    },
+    "required": [
+     "interaction_type",
+     "date",
+     "person_ids",
+     "content"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "interaction_type*",
-    "date*:string",
-    "person_ids*:array<integer>",
-    "content*:string",
-    "direction"
-   ]
+   }
   },
   {
    "name": "create_list",
+   "description": "Affinity create_list",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "entity_type": {},
+     "is_public": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "name*:string",
-    "entity_type*",
-    "is_public:boolean"
-   ]
+   }
   },
   {
    "name": "create_list_entry",
+   "description": "Affinity create_list_entry",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "entity_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id",
+     "entity_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "list_id*:integer",
-    "entity_id*:integer"
-   ]
+   }
   },
   {
    "name": "create_note",
+   "description": "Affinity create_note",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "note_type": {},
+     "content": {
+      "type": "string"
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "opportunity_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meeting_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "parent_note_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "note_type",
+     "content"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "note_type*",
-    "content*:string",
-    "person_ids:array<integer>|null",
-    "company_ids:array<integer>|null",
-    "opportunity_ids:array<integer>|null",
-    "meeting_id:integer|null",
-    "parent_note_id:integer|null"
-   ]
+   }
   },
   {
    "name": "create_opportunity",
+   "description": "Affinity create_opportunity",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "list_id": {
+      "type": "integer"
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "name",
+     "list_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "name*:string",
-    "list_id*:integer",
-    "company_ids:array<integer>|null",
-    "person_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "create_person",
+   "description": "Affinity create_person",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "first_name": {
+      "type": "string"
+     },
+     "last_name": {
+      "type": "string"
+     },
+     "emails": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "first_name",
+     "last_name",
+     "emails"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "first_name*:string",
-    "last_name*:string",
-    "emails*:array<string>",
-    "company_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "create_reminder",
+   "description": "Affinity create_reminder",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "owner_id": {
+      "type": "integer"
+     },
+     "reminder_type": {},
+     "entity_id": {
+      "type": "integer"
+     },
+     "entity_type": {},
+     "content": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "due_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reset_type": {},
+     "reminder_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "is_completed": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "owner_id",
+     "reminder_type",
+     "entity_id",
+     "entity_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "owner_id*:integer",
-    "reminder_type*",
-    "entity_id*:integer",
-    "entity_type*",
-    "content:string|null",
-    "due_date:string|null",
-    "reset_type",
-    "reminder_days:integer|null",
-    "is_completed:boolean|null"
-   ]
+   }
   },
   {
    "name": "update_company",
+   "description": "Affinity update_company",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_id": {
+      "type": "integer"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "domain": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "company_id*:integer",
-    "name:string|null",
-    "domain:string|null",
-    "person_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "delete_company",
+   "description": "Affinity delete_company",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "company_ids": {},
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "company_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "company_ids*",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "merge_companies",
+   "description": "Affinity merge_companies",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "primary_company_id": {
+      "type": "integer"
+     },
+     "duplicate_company_id": {
+      "type": "integer"
+     },
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "primary_company_id",
+     "duplicate_company_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "primary_company_id*:integer",
-    "duplicate_company_id*:integer",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "update_list_field_dropdown_option",
+   "description": "Affinity update_list_field_dropdown_option",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "field_id": {},
+     "dropdown_option_id": {
+      "type": "integer"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "rank": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "color": {},
+     "status_category": {},
+     "win_rate": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "list_id",
+     "field_id",
+     "dropdown_option_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "list_id*:integer",
-    "field_id*",
-    "dropdown_option_id*:integer",
-    "text:string|null",
-    "rank:integer|null",
-    "color",
-    "status_category",
-    "win_rate:integer|null"
-   ]
+   }
   },
   {
    "name": "delete_list_field_dropdown_option",
+   "description": "Affinity delete_list_field_dropdown_option",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "field_id": {},
+     "dropdown_option_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "list_id",
+     "field_id",
+     "dropdown_option_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "list_id*:integer",
-    "field_id*",
-    "dropdown_option_id*:integer"
-   ]
+   }
   },
   {
    "name": "delete_list_entries",
+   "description": "Affinity delete_list_entries",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "list_entry_ids": {},
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "list_id",
+     "list_entry_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "list_id*:integer",
-    "list_entry_ids*",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "upsert_entity_field_values",
+   "description": "Affinity upsert_entity_field_values",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_type": {},
+     "entity_id": {
+      "type": "integer"
+     },
+     "upserts": {}
+    },
+    "required": [
+     "entity_type",
+     "entity_id",
+     "upserts"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "entity_type*",
-    "entity_id*:integer",
-    "upserts*"
-   ]
+   }
   },
   {
    "name": "upsert_list_entry_field_values",
+   "description": "Affinity upsert_list_entry_field_values",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "list_id": {
+      "type": "integer"
+     },
+     "list_entry_id": {
+      "type": "integer"
+     },
+     "upserts": {}
+    },
+    "required": [
+     "list_id",
+     "list_entry_id",
+     "upserts"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "list_id*:integer",
-    "list_entry_id*:integer",
-    "upserts*"
-   ]
+   }
   },
   {
    "name": "update_note",
+   "description": "Affinity update_note",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "note_id": {
+      "type": "integer"
+     },
+     "content": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "opportunity_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "note_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "note_id*:integer",
-    "content:string|null",
-    "person_ids:array<integer>|null",
-    "company_ids:array<integer>|null",
-    "opportunity_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "delete_note",
+   "description": "Affinity delete_note",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "note_ids": {},
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "note_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "note_ids*",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "update_opportunity",
+   "description": "Affinity update_opportunity",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "opportunity_id": {
+      "type": "integer"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "person_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "opportunity_id*:integer",
-    "name:string|null",
-    "company_ids:array<integer>|null",
-    "person_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "delete_opportunity",
+   "description": "Affinity delete_opportunity",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "opportunity_ids": {},
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "opportunity_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "opportunity_ids*",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "update_person",
+   "description": "Affinity update_person",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_id": {
+      "type": "integer"
+     },
+     "first_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "last_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "emails": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "company_ids": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "integer"
+        }
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "person_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "person_id*:integer",
-    "first_name:string|null",
-    "last_name:string|null",
-    "emails:array<string>|null",
-    "company_ids:array<integer>|null"
-   ]
+   }
   },
   {
    "name": "delete_person",
+   "description": "Affinity delete_person",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "person_ids": {},
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "person_ids"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "person_ids*",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "merge_persons",
+   "description": "Affinity merge_persons",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "primary_person_id": {
+      "type": "integer"
+     },
+     "duplicate_person_id": {
+      "type": "integer"
+     },
+     "confirm": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "primary_person_id",
+     "duplicate_person_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "primary_person_id*:integer",
-    "duplicate_person_id*:integer",
-    "confirm:boolean"
-   ]
+   }
   },
   {
    "name": "update_reminder",
+   "description": "Affinity update_reminder",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "reminder_id": {
+      "type": "integer"
+     },
+     "owner_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reminder_type": {},
+     "content": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "due_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reset_type": {},
+     "reminder_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "is_completed": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "reminder_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "reminder_id*:integer",
-    "owner_id:integer|null",
-    "reminder_type",
-    "content:string|null",
-    "due_date:string|null",
-    "reset_type",
-    "reminder_days:integer|null",
-    "is_completed:boolean|null"
-   ]
+   }
   },
   {
    "name": "delete_reminder",
+   "description": "Affinity delete_reminder",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "reminder_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "reminder_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true
-   },
-   "inputs": [
-    "reminder_id*:integer"
-   ]
+   }
   },
   {
    "name": "issue_entity_files_upload_token",
+   "description": "Affinity issue_entity_files_upload_token",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "type": "integer"
+     },
+     "entity_type": {},
+     "filename": {
+      "type": "string"
+     },
+     "filesize": {
+      "type": "integer"
+     },
+     "content_type": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "entity_id",
+     "entity_type",
+     "filename",
+     "filesize",
+     "content_type"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "entity_id*:integer",
-    "entity_type*",
-    "filename*:string",
-    "filesize*:integer",
-    "content_type*:string"
-   ]
+   }
   },
   {
    "name": "issue_entity_files_download_token",
+   "description": "Affinity issue_entity_files_download_token",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "file_id"
+    ]
+   },
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file_id*:integer"
-   ]
+   }
   },
   {
    "name": "affinity_data_migration",
+   "description": "Affinity affinity_data_migration",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "affinity_event_setup",
+   "description": "Affinity affinity_event_setup",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "affinity_lp_pipeline_brief",
+   "description": "Affinity affinity_lp_pipeline_brief",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "affinity_meeting_prep",
+   "description": "Affinity affinity_meeting_prep",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "affinity_missed_deal_review",
+   "description": "Affinity affinity_missed_deal_review",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "affinity_reference_check",
+   "description": "Affinity affinity_reference_check",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "company_signals",
+   "description": "Affinity company_signals",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "crm_audit",
+   "description": "Affinity crm_audit",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "customer_ready_to_raise",
+   "description": "Affinity customer_ready_to_raise",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "market_map_generator",
+   "description": "Affinity market_map_generator",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "portfolio_attention_score",
+   "description": "Affinity portfolio_attention_score",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   },
   {
    "name": "warm_intro",
+   "description": "Affinity warm_intro",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    }
+   },
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false
-   },
-   "inputs": [
-    "file:string|null"
-   ]
+   }
   }
  ]
 }

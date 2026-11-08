@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { cut, oneLine } from "./redact.js"
 import { SERVER_NAME } from "./constants.js"
+import { delay, RESUBSCRIBE_MS } from "./watch.js"
 
 /**
  * What status shows about the signed-in Affinity account, from the last `get_current_user` result: the organisation's
@@ -93,7 +94,6 @@ export function captureAccount(result: AccountResult): void {
   for (const item of captures) if (item.owned()) item.capture(result)
 }
 
-const RESUBSCRIBE_MS = 5_000
 
 /**
  * Captures the account from the model's `get_current_user` calls and the tools RPC's, and forgets it when the user
@@ -159,15 +159,3 @@ export async function watchAccount(
     },
   }
 }
-
-const delay = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) return resolve()
-    const done = () => {
-      clearTimeout(timer)
-      signal.removeEventListener("abort", done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    signal.addEventListener("abort", done, { once: true })
-  })

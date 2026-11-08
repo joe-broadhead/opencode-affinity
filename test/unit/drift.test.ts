@@ -1,46 +1,38 @@
-// The drift script against saved tool lists: the recorded list (the research form), OpenCode's form built from it, and
-// edited copies. It reads files only.
+// The drift script against saved tool lists: the committed fixture, which is a raw tools/list response, and edited
+// copies of it. It reads files only.
 import { afterAll, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DENIED_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 
 const SCRIPT = fileURLToPath(new URL("../../scripts/check-affinity-tools.mjs", import.meta.url))
 const FIXTURE = fileURLToPath(new URL("./affinity-tools-list.json", import.meta.url))
 const dir = mkdtempSync(join(tmpdir(), "affinity-drift-"))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
-type Research = { name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean }; inputs: string[] }
-const recorded = () => (JSON.parse(readFileSync(FIXTURE, "utf8")) as { tools: Research[] }).tools
-const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+type Saved = { name: string; description: string; inputSchema: { type: string; properties: Record<string, unknown>; required?: string[] }; annotations: { readOnlyHint: boolean; destructiveHint?: boolean } }
+const recorded = () => (JSON.parse(readFileSync(FIXTURE, "utf8")) as { tools: Saved[] }).tools
+const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 
-/** A recorded `name*:type` as a JSON Schema property; an untyped entry gets an object, as Affinity's models do. */
-function property(entry: string) {
-  const type = entry.split(":")[1]
-  if (!type) return { $ref: "#/$defs/Model" }
-  const one = (part: string): Record<string, unknown> => {
-    const array = /^array<(.*)>$/.exec(part)
-    return array ? { type: "array", items: one(array[1]!) } : { type: part }
+/** A schema property's type as PARAMETERS records it: `array<object>`, `integer|null` and so on, or `any`. */
+function shape(property: unknown): string {
+  if (!property || typeof property !== "object") return "any"
+  const one = (part: Record<string, unknown>): string => {
+    if (Array.isArray(part["anyOf"])) return (part["anyOf"] as Record<string, unknown>[]).map(one).join("|")
+    if (part["type"] === "array") return `array<${one(part["items"] as Record<string, unknown>)}>`
+    return typeof part["type"] === "string" ? part["type"] : "any"
   }
-  const parts = type.split("|")
-  return parts.length > 1 ? { anyOf: parts.map(one) } : one(type)
+  return one(property as Record<string, unknown>)
 }
 
-/** The same list in OpenCode's form: `id` with the server prefix, the name without it, and JSON Schemas. */
-const opencodeForm = () =>
-  recorded().map((tool) => ({
-    id: `affinity_${tool.name}`,
-    name: tool.name,
-    description: `Affinity ${tool.name}`,
-    inputSchema: {
-      type: "object",
-      properties: Object.fromEntries(tool.inputs.map((entry) => [entry.split(":")[0]!.replace(/\*$/, ""), property(entry)])),
-      required: tool.inputs.filter((entry) => entry.split(":")[0]!.endsWith("*")).map((entry) => entry.split(":")[0]!.slice(0, -1)),
-    },
-  }))
+/**
+ * The fixture in OpenCode's form: `id` with the server prefix, the name without it, and the same schemas. OpenCode's own
+ * tool list carries no annotations, so this form has none either.
+ */
+const opencodeForm = () => recorded().map(({ annotations: _annotations, ...tool }) => ({ id: `affinity_${tool.name}`, ...tool }))
 
 let files = 0
 function drift(list: unknown, ...args: string[]) {
@@ -55,16 +47,24 @@ describe("npm run drift", () => {
     expect(Object.keys(PARAMETERS).sort()).toEqual([...ALL].sort())
   })
 
-  test("the recorded list matches the tool lists and PARAMETERS exactly, and its annotations match each class", () => {
+  test("the fixture matches the tool lists and PARAMETERS exactly, and its annotations match each class", () => {
     const tools = recorded()
     expect(tools.map((tool) => tool.name).sort()).toEqual([...ALL].sort())
     for (const tool of tools) {
-      expect({ name: tool.name, inputs: tool.inputs }).toEqual({ name: tool.name, inputs: [...PARAMETERS[tool.name]!] })
+      // The schema's names, optionality and types are the recorded parameters, in the same order.
+      const properties = tool.inputSchema.properties
+      expect({ name: tool.name, params: Object.keys(properties) }).toEqual({ name: tool.name, params: PARAMETERS[tool.name]!.map((entry) => entry.split(":")[0]!.replace(/\*$/, "")) })
+      for (const entry of PARAMETERS[tool.name]!) {
+        const [head, type] = entry.split(":")
+        const property = properties[head!.replace(/\*$/, "")]
+        if (type) expect({ name: tool.name, param: head, type: shape(property) }).toEqual({ name: tool.name, param: head, type })
+        expect({ name: tool.name, param: head, required: (tool.inputSchema.required ?? []).includes(head!.replace(/\*$/, "")) }).toEqual({ name: tool.name, param: head, required: head!.endsWith("*") })
+      }
       expect({ name: tool.name, readOnly: tool.annotations.readOnlyHint }).toEqual({ name: tool.name, readOnly: READ_TOOLS.includes(tool.name) })
     }
     const { code, out } = drift({ tools }, "--strict")
     expect([code, out.trim().split("\n").at(-1)]).toEqual([0, "No drift."])
-    expect(out).toContain("The list holds 82 tools: 52 read, 20 write, 10 denied, 0 unclassified.")
+    expect(out).toContain("The list holds 82 tools: 52 read, 20 write, 10 destructive, 0 unclassified.")
   })
 
   test("OpenCode's form of the same list shows no drift, and a playbook keeps its own affinity_ name", () => {
@@ -82,7 +82,7 @@ describe("npm run drift", () => {
     delete (people.inputSchema.properties as Record<string, unknown>).total_count
     people.inputSchema.properties.window = { type: "object" }
     people.inputSchema.properties.limit = { type: "string" }
-    people.inputSchema.required = [...people.inputSchema.required, "window"]
+    people.inputSchema.required = [...(people.inputSchema.required ?? []), "window"]
     const { code, out } = drift({ tools }, "--strict")
     expect(code).toBe(1)
     expect(out).toContain("Added: listed by Affinity, in no list of src/affinity-tools.ts:\n  semantic_note_search")

@@ -18,6 +18,16 @@ To set options, use the object form:
 
 ## Options
 
+### `access`
+
+- Type: `"all"`, `"ask-changes"` or `"read-only"`.
+- Default: `"all"`.
+
+How much the default rules restrict. `all` allows every Affinity tool; `ask-changes` allows a read and a playbook and
+asks for every other tool; `read-only` allows a read and a playbook and denies every other tool, which also hides it
+from the model. The classes come from `src/affinity-tools.ts`, so the value decides a tool Affinity adds later too.
+[Permissions](#permissions) has the details and the generated blocks.
+
 ### `allowUntestedHost`
 
 - Type: `true` or `false`.
@@ -154,36 +164,21 @@ gives the next step:
 
 ## Permissions
 
-OpenCode asserts every MCP call itself, with the action `affinity_<tool>` and the resource `*`. The plugin adds these
-rules to every agent that starts with the base rule `{ "action": "*", "resource": "*", "effect": "allow" }`, directly
-after that rule:
+OpenCode asserts every MCP call itself, with the action `affinity_<tool>` and the resource `*`. The plugin adds its
+block to every agent that starts with the base rule `{ "action": "*", "resource": "*", "effect": "allow" }`, directly
+after that rule. The README prints the whole block for all three `access` values in
+[Permissions](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#permissions); `/affinity-status`
+prints the one in force, and its `Agents without default rules` row prints it as a list to paste.
 
-```json
-[
-  { "action": "affinity_*", "resource": "*", "effect": "ask" },
-  { "action": "affinity_get_current_user", "resource": "*", "effect": "allow" },
-  "… one allow rule for each read tool in src/affinity-tools.ts …",
-  { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
-  { "action": "affinity_delete_company", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_person", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_opportunity", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_note", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" },
-  { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
-  { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
-  { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
-  { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }
-]
-```
-
-`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its workflow playbooks such as
-`affinity_affinity_meeting_prep`, which return Affinity's instructions for a task as text. `WRITE_TOOLS` lists its write
-tools, and `DENIED_TOOLS` the ten that are off. Writes and tools that Affinity adds later match only `affinity_*`, so
-they ask. `/affinity-status` names the tools in neither list. Affinity lists the same tools to everyone; your access
+`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its twelve workflow playbooks such as
+`affinity_affinity_meeting_prep`, which return Affinity's instructions for a task as text. `WRITE_TOOLS` lists its
+write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool that Affinity adds later matches only
+`affinity_*`, so it takes the value's own effect: allowed under `all`, asked about under `ask-changes`, denied under
+`read-only`. `/affinity-status` names the tools in neither list. Affinity lists the same tools to everyone; your access
 (Deal Assist, unified events, a read-only grant) shows as an error when a tool is called.
 
-The last ten rules turn tools off:
+**Every tool is allowed by default**, so nothing is switched off for you. The destructive class deserves its own
+sentences before you decide:
 
 - the seven deletes remove CRM data for good. `affinity_delete_reminder` and
   `affinity_delete_list_field_dropdown_option` have no confirmation step in Affinity; the others first return a preview
@@ -193,32 +188,41 @@ The last ten rules turn tools off:
 - `affinity_send_feedback` sends text to Affinity's team, and Affinity's own server instructions tell the model to offer
   it whenever something can't be done.
 
-### A clean-up agent for deletes and merges
+### Restricting it
 
-To use deletes or merges from OpenCode, define a dedicated agent and turn them on in that agent's own `permissions`
-only, where each call asks. Start with the plugin's whole block, as `/affinity-status` shows it (an agent defined only in
-your config gets no rules of its own, see [Agents that miss the rules](#agents-that-miss-the-rules)), then make the
-tools you need ask:
+1. the `access` option, for the whole plugin;
+2. the agent's own `permissions`, for one agent;
+3. your top-level `permissions`, which OpenCode adds to every agent.
+
+### `access`
+
+| Value | What runs |
+| --- | --- |
+| `all` (the default) | every Affinity tool runs without a prompt |
+| `ask-changes` | a read and a playbook run; every other tool asks, including one Affinity adds later |
+| `read-only` | a read and a playbook run; every other tool is denied, and hidden from the model |
+
+The value generates the block from the tool table's classes. A namespace rule (`affinity_*`) comes first, and each
+known tool's own rule after it.
+
+### A read-only agent
+
+To restrict one agent, put the rules in that agent's own `permissions`; a top-level `ask` or `allow` would reach every
+agent, Explore included. This agent reads, creates and updates notes, and asks before a delete or a merge:
 
 ```json
 {
   "agents": {
     "crm-cleanup": {
-      "description": "Affinity clean-up: deletes and merges, each asked first",
+      "description": "Affinity: reads and notes, every delete and merge asked first",
       "mode": "primary",
       "permissions": [
         { "action": "affinity_*", "resource": "*", "effect": "ask" },
         { "action": "affinity_get_current_user", "resource": "*", "effect": "allow" },
-        "… the rest of the block from /affinity-status …",
+        { "action": "affinity_create_note", "resource": "*", "effect": "allow" },
+        { "action": "affinity_update_note", "resource": "*", "effect": "allow" },
         { "action": "affinity_delete_company", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_person", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_opportunity", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_note", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_list_entries", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "ask" },
-        { "action": "affinity_delete_reminder", "resource": "*", "effect": "ask" },
-        { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" },
-        { "action": "affinity_merge_persons", "resource": "*", "effect": "ask" }
+        { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" }
       ]
     }
   }
@@ -226,13 +230,11 @@ tools you need ask:
 ```
 
 To let that agent report a problem to Affinity, add `{ "action": "affinity_send_feedback", "resource": "*", "effect":
-"ask" }` to the same agent's own `permissions`. Use only the rules you need. In that agent, the model first calls a
-delete or merge without `confirm`, shows you Affinity's warning, then makes the confirmed call; its permission prompt is
-your yes.
+"ask" }` to the same agent's own `permissions`. In that agent, the model first calls a delete or merge without
+`confirm`, shows you Affinity's warning, then makes the confirmed call; its permission prompt is your yes.
 
 Don't put these rules in the top-level `permissions`: a top-level rule comes after every agent's own rules, so it would
-reach every agent, Explore included, which otherwise can't use Affinity. Never make them `allow`, and don't answer
-"Always allow" when they ask: OpenCode would save an allow for every agent in the project.
+reach every agent, Explore included, which otherwise can't use Affinity.
 
 OpenCode uses the last rule that matches, so everything after the plugin's rules wins:
 
@@ -378,11 +380,13 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `grant` | `read-write`, `read-only` (Affinity refuses every change), `api-key` (a personal key, with full access), or `null` until read |
 | `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. |
 | `everConnected` | True once this `affinity` server has connected since OpenCode started |
-| `tools` | How many Affinity tools OpenCode lists that the default rules let run or ask: the listed ones, without the denied ones |
-| `deniedTools` | The listed tools that the default rules deny, such as `send_feedback`. The `Tools` row shows them as "off by default"; an agent's own later `ask` rule may have turned one on. |
+| `access` | `all`, `ask-changes` or `read-only`: the value the default rules were generated for |
+| `tools` | How many Affinity tools OpenCode lists that the plugin knows |
+| `destructiveTools` | The listed tools of the destructive class, such as `send_feedback`. Under `all` they run like everything else, `ask-changes` asks for each, and `read-only` denies them. |
+| `deniedTools` | The family field's old name; it carries the same list as `destructiveTools`. |
 | `listing` | True while a server that connected moments ago lists no tools yet. The next step is then to run `/affinity-status` again in a few seconds. |
 | `unknownCount`, `unknownTools` | How many of them the plugin does not know, and at most 20 of their names, only those made of lowercase letters, digits and `_` |
-| `unguardedAgents` | Agents where a new Affinity tool would run without asking; empty when there are none. An agent whose own rules already ask or deny for every Affinity tool is not listed. |
+| `unguardedAgents` | Agents with a base allow and no block, under `ask-changes` or `read-only`; empty under `all`, and empty for an agent whose own rules already ask or deny for every Affinity tool. |
 | `shadowedSkills` | Present only when a skill with one of the plugin's ids, such as your own `affinity` skill, replaces the plugin's: each `id` and the `path` OpenCode loads instead |
 | `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4, 2.2.5 and 2.2.6) |
 | `problems` | Setup problems, each `CODE: What happened. Next step: What to do.` |

@@ -4,10 +4,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { watchAccount } from "../../src/account.js"
-import { DENIED_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { PLUGIN_ID as AFFINITY_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
 import { METHODS, NEXT_STEPS, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { defaultRules } from "../../src/permissions.js"
+import { defaultRules, evaluate } from "../../src/permissions.js"
 
 interface Recorded {
   readonly name: string
@@ -20,10 +20,9 @@ afterEach(async () => {
 })
 
 const CLASS_OF = new Map<string, string>([
-  ...READ_TOOLS.filter((name) => !WORKFLOW_TOOLS.includes(name)).map((name) => [name, "read"] as const),
-  ...WORKFLOW_TOOLS.map((name) => [name, "send"] as const),
+  ...READ_TOOLS.map((name) => [name, "read"] as const),
   ...WRITE_TOOLS.map((name) => [name, "write"] as const),
-  ...DENIED_TOOLS.map((name) => [name, "destructive"] as const),
+  ...DESTRUCTIVE_TOOLS.map((name) => [name, "destructive"] as const),
 ])
 
 describe("Affinity's tools RPC", () => {
@@ -36,16 +35,17 @@ describe("Affinity's tools RPC", () => {
     const names = METHODS.map((method) => method.name)
     expect(new Set(names).size).toBe(names.length)
     expect([...names].sort()).toEqual(RECORDED.map((tool) => tool.name).sort())
-    expect([...names].sort()).toEqual([...READ_TOOLS, ...WORKFLOW_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS].filter((name, index, all) => all.indexOf(name) === index).sort())
+    expect([...names].sort()).toEqual([...READ_TOOLS, ...WORKFLOW_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].filter((name, index, all) => all.indexOf(name) === index).sort())
     for (const name of ["shiny_new_tool", "describe", "*"]) expect(names).not.toContain(name)
     for (const method of METHODS) expect(method.kind).toBe("mcp")
   })
 
-  test("gives each method its class: reads, the twelve workflow playbooks as sends, writes, and the ten denied tools", () => {
+  test("gives each method its class: reads, the twelve workflow playbooks with them, writes, and the ten of the destructive class", () => {
     for (const method of METHODS) expect(CLASS_OF.get(method.name)).toBe(method.class)
-    for (const name of WORKFLOW_TOOLS) expect(METHODS.find((method) => method.name === name)!.class).toBe("send")
-    expect(METHODS.filter((method) => method.class === "send")).toHaveLength(WORKFLOW_TOOLS.length)
-    expect(METHODS.filter((method) => method.class === "destructive")).toHaveLength(DENIED_TOOLS.length)
+    // R4: a playbook only returns text, so it is a read. Nothing in this plugin is classed `send`.
+    for (const name of WORKFLOW_TOOLS) expect(METHODS.find((method) => method.name === name)!.class).toBe("read")
+    expect(METHODS.filter((method) => method.class === "send")).toHaveLength(0)
+    expect(METHODS.filter((method) => method.class === "destructive")).toHaveLength(DESTRUCTIVE_TOOLS.length)
   })
 
   test("its classes agree with the fixture's annotations, and the default rules' effects", () => {
@@ -55,12 +55,14 @@ describe("Affinity's tools RPC", () => {
       if (method.class === "read") expect(tool.annotations.readOnlyHint).toBe(true)
       if (!tool.annotations.readOnlyHint) expect(["write", "destructive"]).toContain(method.class)
     }
-    const allowed = defaultRules().filter((rule) => rule.effect === "allow").map((rule) => rule.action)
-    const denied = defaultRules().filter((rule) => rule.effect === "deny").map((rule) => rule.action)
+    // R4: a playbook returns text, so it is a read; R18: every class is allowed by default, and read-only denies the
+    // destructive one.
+    const readOnly = defaultRules("read-only")
     for (const method of METHODS) {
       const action = `${SERVER_NAME}_${method.name}`
-      if (method.class === "read" || method.class === "send") expect(allowed).toContain(action)
-      if (method.class === "destructive") expect(denied).toContain(action)
+      expect({ name: method.name, effect: evaluate(defaultRules(), action) }).toEqual({ name: method.name, effect: "allow" })
+      if (method.class === "destructive") expect(readOnly.filter((rule) => rule.action === action).map((rule) => rule.effect)).toEqual(["deny"])
+      if (method.class === "read") expect(readOnly.filter((rule) => rule.action === action).map((rule) => rule.effect)).toEqual(["allow"])
     }
   })
 

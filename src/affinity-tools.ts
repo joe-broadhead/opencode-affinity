@@ -126,7 +126,7 @@ export const WRITE_TOOLS: readonly string[] = [
  * - `send_feedback` sends text to Affinity's team, and Affinity's server instructions tell the model to offer it
  *   whenever a request can't be done.
  */
-export const DENIED_TOOLS: readonly string[] = [
+export const DESTRUCTIVE_TOOLS: readonly string[] = [
   "delete_company",
   "delete_person",
   "delete_opportunity",
@@ -231,11 +231,15 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   warm_intro: ["file:string|null"],
 }
 
-type ToolClass = "read" | "write" | "denied" | "unknown"
+/** Every known tool, in the order the default rules list them: the reads and playbooks, then the writes and the
+ * destructive class. */
+export const ALL_TOOLS: readonly string[] = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
+
+type ToolClass = "read" | "write" | "destructive" | "unknown"
 
 export function classify(name: string): ToolClass {
   if (READ_TOOLS.includes(name)) return "read"
   if (WRITE_TOOLS.includes(name)) return "write"
-  if (DENIED_TOOLS.includes(name)) return "denied"
+  if (DESTRUCTIVE_TOOLS.includes(name)) return "destructive"
   return "unknown"
 }

@@ -73,7 +73,7 @@ Ask, for example:
 - "Who at our firm knows Jane Doe best?"
 - "Which deals in our pipeline have had no activity for 30 days, by stage?"
 - "Summarise our notes on Northwind Capital this quarter."
-- "Move Acme Robotics to Due Diligence." (asks first)
+- "Move Acme Robotics to Due Diligence."
 - "Run a backchannel on the CTO candidate at our portfolio company Acme Robotics."
 - "Build a market map of climate-tech startups and flag the ones we know."
 
@@ -101,11 +101,11 @@ Two skills teach the model to use Affinity well:
 ### Scripts
 
 A script or a cron job can call every known Affinity tool with no model, through `opencode api`. It runs as a session
-and its agent, under that agent's permission rules and the session's own. Only a rule that resolves to `allow` runs: a
-write, whose default rule asks, needs an explicit `allow` in the session's or the agent's rules, and the ten denied
-tools need their deny removed. An `ask` is refused before anything reaches Affinity, and a saved "Always allow" does
-not authorise a script. A change needs an interactive session, where the prompt is the yes. Every call counts against
-the firm's quota:
+and its agent, under that agent's permission rules and the session's own. Only a rule that resolves to `allow` runs,
+and under the default every method resolves to `allow`: a script can change the firm's CRM. A session that restricts
+with `ask-changes` or `read-only` needs an explicit `allow` for the method in the session's or the agent's rules. An
+`ask` is refused before anything reaches Affinity, and a saved "Always allow" does not authorise a script. Every call
+counts against the firm's quota:
 
 ```sh
 opencode api post /api/rpc/affinity.crm.tools/get_lists \
@@ -122,42 +122,355 @@ tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinit
 
 ## Permissions
 
-The plugin adds these rules to every agent, directly after the agent's base rule that allows everything:
+**Every tool is allowed by default.** The plugin adds one block to every agent, right after the agent's base rule that
+allows everything, and that block allows Affinity's tools: reads, the workflow playbooks, creates, updates, upserts,
+the deletes, the merges and `send_feedback` alike. An agent can therefore create a note, rewrite a deal's field values,
+merge two companies, or delete a reminder without a prompt. `/affinity` and `/affinity-status` show the block, the
+access value and the tools involved.
 
-1. `{ "action": "affinity_*", "resource": "*", "effect": "ask" }`: every Affinity tool asks, including tools Affinity
-   adds later.
-2. One `allow` rule for each of Affinity's read tools, Affinity's workflow playbooks included, listed in
-   [`src/affinity-tools.ts`](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/src/affinity-tools.ts).
-   These run without a prompt.
-3. Ten `deny` rules, for tools that are off until you turn them on. A deny also hides the tool from the model.
-   - Seven deletes, which remove CRM data for good. Two have no confirmation step in Affinity.
-     - `{ "action": "affinity_delete_company", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_person", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_opportunity", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_note", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" }`
-   - Two merges, which delete the duplicate; a merge with a global company can't be undone.
-     - `{ "action": "affinity_merge_companies", "resource": "*", "effect": "deny" }`
-     - `{ "action": "affinity_merge_persons", "resource": "*", "effect": "deny" }`
-   - `{ "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }`: sends text to Affinity's team, and
-     Affinity's own instructions tell the model to offer it whenever something can't be done.
+There are three ways to restrict it.
 
-   To turn them on, use a dedicated agent whose own `permissions` make them **ask**, as
-   [Configuration](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/configuration.md#a-clean-up-agent-for-deletes-and-merges)
-   shows. Not in the top-level `permissions`: a top-level rule reaches every agent, Explore included. Never make them
-   `allow`, and don't answer "Always allow" for them.
+### 1. The `access` option
 
-So reads run, every change asks before it runs, and the ten above don't run at all. Each change reaches the firm's
-shared CRM, which your colleagues see. Everything that comes later than these rules still wins: an agent's own stricter
-rules (Explore cannot use Affinity), your `permissions` in `opencode.json`, and your saved "Always allow" answers. In an
-unattended run such as `opencode run`, a tool that asks is refused.
+```json
+{
+  "plugins": [
+    { "package": "@joe-broadhead/opencode-affinity", "options": { "access": "ask-changes" } }
+  ]
+}
+```
+
+| `access` | What runs |
+| --- | --- |
+| `all` (the default) | every Affinity tool runs without a prompt |
+| `ask-changes` | a read and a playbook run; every other tool asks, including one Affinity adds later |
+| `read-only` | a read and a playbook run; every other tool is denied, and hidden from the model |
+
+The block is generated from the tool table and the value, so `/affinity` always shows what is in force. The three
+blocks:
+
+#### `all` (the default)
+
+The plugin adds these rules for `access: "all"`:
+
+```json
+[
+    { "action": "affinity_*", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_current_user", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_companies_top_matches", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_all_companies", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_merge_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_market_map", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_field_value_changes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_investor_executive_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_coworker_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_lists", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_single_list_entry", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_query_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_notes_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entities_attached_to_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_file_metadata", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_opportunities", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_persons", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_persons_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_reminders", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_views", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_lp_pipeline_brief", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_meeting_prep", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_missed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_reference_check", "resource": "*", "effect": "allow" },
+    { "action": "affinity_company_signals", "resource": "*", "effect": "allow" },
+    { "action": "affinity_crm_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_customer_ready_to_raise", "resource": "*", "effect": "allow" },
+    { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
+    { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_company", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_field", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_interaction", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_list_entry", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_opportunity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_person", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_reminder", "resource": "*", "effect": "allow" },
+    { "action": "affinity_issue_entity_files_upload_token", "resource": "*", "effect": "allow" },
+    { "action": "affinity_issue_entity_files_download_token", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_company", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_list_field_dropdown_option", "resource": "*", "effect": "allow" },
+    { "action": "affinity_upsert_entity_field_values", "resource": "*", "effect": "allow" },
+    { "action": "affinity_upsert_list_entry_field_values", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_opportunity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_person", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_reminder", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_company", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_person", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_opportunity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_reminder", "resource": "*", "effect": "allow" },
+    { "action": "affinity_merge_companies", "resource": "*", "effect": "allow" },
+    { "action": "affinity_merge_persons", "resource": "*", "effect": "allow" },
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" }
+]
+```
+
+#### `ask-changes`
+
+The plugin adds these rules for `access: "ask-changes"`:
+
+```json
+[
+    { "action": "affinity_*", "resource": "*", "effect": "ask" },
+    { "action": "affinity_get_current_user", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_companies_top_matches", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_all_companies", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_merge_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_market_map", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_field_value_changes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_investor_executive_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_coworker_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_lists", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_single_list_entry", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_query_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_notes_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entities_attached_to_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_file_metadata", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_opportunities", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_persons", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_persons_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_reminders", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_views", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_lp_pipeline_brief", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_meeting_prep", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_missed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_reference_check", "resource": "*", "effect": "allow" },
+    { "action": "affinity_company_signals", "resource": "*", "effect": "allow" },
+    { "action": "affinity_crm_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_customer_ready_to_raise", "resource": "*", "effect": "allow" },
+    { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
+    { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_company", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_field", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_interaction", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_list", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_list_entry", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_note", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_opportunity", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_person", "resource": "*", "effect": "ask" },
+    { "action": "affinity_create_reminder", "resource": "*", "effect": "ask" },
+    { "action": "affinity_issue_entity_files_upload_token", "resource": "*", "effect": "ask" },
+    { "action": "affinity_issue_entity_files_download_token", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_company", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_list_field_dropdown_option", "resource": "*", "effect": "ask" },
+    { "action": "affinity_upsert_entity_field_values", "resource": "*", "effect": "ask" },
+    { "action": "affinity_upsert_list_entry_field_values", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_note", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_opportunity", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_person", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_reminder", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_company", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_person", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_opportunity", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_note", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_list_entries", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_reminder", "resource": "*", "effect": "ask" },
+    { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" },
+    { "action": "affinity_merge_persons", "resource": "*", "effect": "ask" },
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" }
+]
+```
+
+#### `read-only`
+
+The plugin adds these rules for `access: "read-only"`:
+
+```json
+[
+    { "action": "affinity_*", "resource": "*", "effect": "deny" },
+    { "action": "affinity_get_current_user", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_companies_top_matches", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_all_companies", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_merge_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_market_map", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_fields", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_field_dropdown_options", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_field_value_changes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_investor_executive_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_coworker_connections", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_lists", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_single_list_entry", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_list_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_meetings_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_query_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_notes_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entities_attached_to_note", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_notes", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_entity_file_metadata", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_files", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_opportunities", "resource": "*", "effect": "allow" },
+    { "action": "affinity_search_persons", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_persons_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_person_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_company_relationships", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_reminders", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_views", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_lp_pipeline_brief", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_meeting_prep", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_missed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_affinity_reference_check", "resource": "*", "effect": "allow" },
+    { "action": "affinity_company_signals", "resource": "*", "effect": "allow" },
+    { "action": "affinity_crm_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_customer_ready_to_raise", "resource": "*", "effect": "allow" },
+    { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
+    { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_create_company", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_interaction", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_list", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_list_entry", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_note", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_opportunity", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_person", "resource": "*", "effect": "deny" },
+    { "action": "affinity_create_reminder", "resource": "*", "effect": "deny" },
+    { "action": "affinity_issue_entity_files_upload_token", "resource": "*", "effect": "deny" },
+    { "action": "affinity_issue_entity_files_download_token", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_company", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_list_field_dropdown_option", "resource": "*", "effect": "deny" },
+    { "action": "affinity_upsert_entity_field_values", "resource": "*", "effect": "deny" },
+    { "action": "affinity_upsert_list_entry_field_values", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_note", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_opportunity", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_person", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_reminder", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_company", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_person", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_opportunity", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_note", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
+    { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
+    { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }
+]
+```
+
+### 2. An agent's own rules
+
+A rule in an agent's own `permissions` comes after the plugin's block, so it wins for that agent. An agent that creates
+and updates notes but asks before a merge:
+
+```json
+{
+  "agents": {
+    "build": {
+      "permissions": [
+        { "action": "affinity_*", "resource": "*", "effect": "ask" },
+        { "action": "affinity_create_note", "resource": "*", "effect": "allow" },
+        { "action": "affinity_update_note", "resource": "*", "effect": "allow" }
+      ]
+    }
+  }
+}
+```
+
+### 3. A per-tool rule
+
+Every action is `affinity_` followed by the tool's name. A later rule wins, so this denies one tool in the top-level
+`permissions`, for every agent:
+
+```json
+{
+  "permissions": [
+    { "action": "affinity_delete_company", "resource": "*", "effect": "deny" }
+  ]
+}
+```
+
+The seven deletes remove CRM data for good, and two have no confirmation step in Affinity. The two merges delete the
+duplicate, and a merge with a global company can't be undone. `affinity_send_feedback` sends text to Affinity's team,
+and Affinity's own instructions tell the model to offer it whenever something can't be done.
+
+### What each change reaches
+
+Say what a change does and whom it reaches before you make it. Every change reaches the firm's shared CRM, which your
+colleagues see. Everything that comes later than these rules still wins: an agent's own stricter rules (Explore cannot
+use Affinity), your `permissions` in `opencode.json`, and your saved "Always allow" answers.
 
 Agents that exist only in your own config, and agents added by plugins that load later, are created after the plugin
-adds its rules, so Affinity tools run there without asking. `/affinity-status` and `/affinity` name those agents and
-show the default rules to put first in each one's own `permissions`. Do not put them in the top-level `permissions`,
-which would loosen Explore.
+adds its rules, so they get no block. With `access: "all"` that changes nothing; with `ask-changes` or `read-only` they
+stay unrestricted, and `/affinity-status` and `/affinity` name them with the block to put first in each one's own
+`permissions`. Do not put an `ask` or an `allow` in the top-level `permissions`, which would loosen Explore.
 [Configuration](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/configuration.md#permissions) has a
 worked example and permission recipes.
 
@@ -228,7 +541,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | Connection: not configured | An organisation policy (`mcp.use`) or another plugin removes the `affinity` server. Ask your administrator, then restart OpenCode. |
 | Connection: conflict | Your config has an `mcp.servers.affinity` entry with a URL other than `https://mcp.affinity.co/mcp`. Point it at `https://mcp.affinity.co/mcp` or remove it, then restart OpenCode. |
 | Tools: none listed yet | Affinity connected moments ago and is still listing its tools. Run `/affinity-status` again, or press `r` in the dialog, in a few seconds. |
-| Tools: off by default | The tools the default rules deny, listed by name. See [Permissions](#permissions) to turn them on, as an ask, in one agent. |
+| Tools: a tool Affinity adds | Every tool is allowed by default, so it runs at once. See [Permissions](#permissions) to restrict it. |
 | Tools: unknown | Affinity added tools the plugin does not know yet. They ask before they run. |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
 | Access: Affinity grant: read-only | You unticked `mcp` (changes) at sign-in, so Affinity refuses changes with `Insufficient scope`. To allow changes, sign out (`opencode mcp logout affinity`, from the project folder; see [Sign in](#sign-in)) and sign in again with `mcp` ticked. |
@@ -242,21 +555,43 @@ Run `/affinity-status` first. Its last line is the next step.
 | An Affinity tool is refused in `opencode run` | Nobody could answer its prompt. Add an `allow` rule for that **read** to the agent's own `permissions`, if you want it unattended. A change needs an interactive session: run it there, where the prompt can be answered. |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `affinity`, replaces the plugin's. Rename or move it. |
 | `/affinity` is missing | The plugin did not start. Run `/plugins` to see the error. |
-| `OPTIONS_INVALID` | An option is unknown or has a wrong value. The message names the option and the accepted values. |
-| `HOST_UNTESTED` | Your OpenCode is outside `>=2.2.3 <2.3.0`, so the plugin did not start. Use OpenCode `>=2.2.3 <2.3.0`, or set `"allowUntestedHost": true` to run anyway. |
-| `STATUS_UNAVAILABLE` | The status could not be read, or the plugin is not running. Follow the next step in the message. |
-| `SKILLS_INVALID` | A skill file in the package is missing or broken. Reinstall the plugin. |
-| `SERVER_NOT_REGISTERED` | The plugin could not register the `affinity` server. Restart OpenCode. |
-| `RULES_NOT_ADDED` | The default permission rules could not be added, so Affinity tools may run without asking. Restart OpenCode. |
+| An error code such as `OPTIONS_INVALID` | See [Errors](#errors) for the code, where it comes from and what to do. |
 
-A script's errors from the tools RPC have their own codes, listed in
-[Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md#errors).
+## Errors
+
+Every error reads `CODE: What happened. Next step: What to do.` The codes are the plugin's own one table. `setup` and
+`status` codes come from the plugin; `rpc` codes are a refusal from the tools RPC for scripts, which
+[Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md#errors) explains in detail.
+
+| Code | Surface | When |
+| --- | --- | --- |
+| `HOST_UNTESTED` | setup | OpenCode is outside the supported range and `allowUntestedHost` is not set. |
+| `OPTIONS_INVALID` | setup | An option is unknown or has a wrong value. |
+| `SKILLS_INVALID` | setup | A skill file is missing or broken; the plugin still starts. |
+| `SERVER_NOT_REGISTERED` | setup | The `affinity` server could not be registered. |
+| `RULES_NOT_ADDED` | setup | The default permission rules could not be added. |
+| `STATUS_UNAVAILABLE` | status | The status could not be read, or the plugin is not running. |
+| `SESSION_UNKNOWN` | rpc | The session does not exist in this location. |
+| `SESSION_AGENT_REQUIRED` | rpc | The session names no agent, or one that does not exist. |
+| `PERMISSION_DENIED` | rpc | The last matching rule is an `ask` or a `deny`; refused before dispatch. |
+| `SERVER_CONFLICT` | rpc | `mcp.servers.affinity` is defined at another URL. |
+| `AUTH_REQUIRED` | rpc | The `affinity` server needs a sign-in. |
+| `CONNECTING` | rpc | The `affinity` server is still connecting. |
+| `CONNECTION_FAILED` | rpc | The `affinity` server could not connect. |
+| `DISABLED` | rpc | The `affinity` server is disabled. |
+| `NOT_REGISTERED` | rpc | The `affinity` server is not registered. |
+| `TOOL_UNAVAILABLE` | rpc | The server is connected but OpenCode does not list the tool. |
+| `UPSTREAM_ERROR` | rpc | Affinity answered with an error, such as an invalid input or a rate limit. |
+| `CANCELLED` | rpc | The request was cancelled. |
+
+The status RPC's own error is `unavailable`, with a next step, when the status cannot be read.
 
 ## Known limits
 
-- Affinity's tool names, parameters and playbook text here come from Affinity's own server package, `affinity-mcp`, read without running it.
-  Affinity ships changes often, so a tool it adds asks until a release of this plugin lists it, and is not a method of
-  the tools RPC. The first live sign-in reconciles them.
+- **The tool table comes from Affinity's own server package.** The names, parameters and playbook text come from
+  `affinity-mcp`, read without running it, and Affinity ships changes often. A tool it adds is allowed at once, counted
+  as unknown, and not a method of the tools RPC until a release lists it. `CONTRIBUTING.md` has the check that
+  reconciles the table with a saved tool list.
 - Whether the model writes its sentence on whom a change reaches before a call depends on the model: the rules cannot
   make it. A script's reads follow the location it calls, not the session's location (a limit of the shared tools
   module).

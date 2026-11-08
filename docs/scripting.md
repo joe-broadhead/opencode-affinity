@@ -9,9 +9,9 @@ carries a class: the worst thing that tool can do.
 | Class | Methods | What the class means |
 | --- | --- | --- |
 | `read` | one per known read: `search_persons`, `get_lists`, `search_list_entries`, `get_notes_for_entity`, `get_current_user` and the others | it only reads |
-| `send` | Affinity's twelve workflow playbooks, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each returns instructions that can drive many tools, so it can act in bulk |
+| `read` | Affinity's twelve workflow playbooks too, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each only returns text; what it can drive is the caller's own decision, under the caller's rules |
 | `write` | the twenty writes, such as `create_note`, `create_person`, `update_person` and `upsert_list_entry_field_values` | it changes the firm's shared CRM, or issues a file credential |
-| `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`, `send_feedback` | the ten tools the default rules deny |
+| `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`, `send_feedback` | removes CRM data for good, or sends text to Affinity's team |
 | `describe` | none: lists the methods, their class, their permission action, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — given a session — whether that session may call it |
 
 The methods come from the plugin's one tool table, `src/affinity-tools.ts`: the known reads (`READ_TOOLS` in
@@ -19,11 +19,11 @@ The methods come from the plugin's one tool table, `src/affinity-tools.ts`: the 
 tools in `DENIED_TOOLS`. Call `describe` for the list: it marks a known tool that OpenCode does not list now as
 unavailable.
 
-The class is never the decision: the rules are. A `write` is a method, and under the default rules it resolves to
-`ask`, which a script cannot answer, so it is refused. The only way to run one unattended is an explicit `allow` for
-its action in the agent's or the session's rules. This plugin does not recommend that for a change: a change reaches
-the firm's shared CRM, and it needs an interactive session where the prompt is the yes. A `destructive` method is a
-method too, and the default deny refuses it, so making it a method does not make it reachable.
+The class is never the decision: the rules are. A `write` and a `destructive` method are methods too, and they run
+whenever the session's rules resolve them to `allow` — which the default `access: "all"` does, for every method. That
+is the family default, and it means a script can change the firm's shared CRM: restrict the session's agent, or the
+session's own rules, before you schedule one. The class decides what `access: "ask-changes"` and `"read-only"`
+restrict, and `describe` reports it beside the resolved permission.
 
 Every call counts against your organisation's monthly Affinity API quota, which the whole firm shares (100,000 calls a
 month on Scale and Advanced). Filter on the server and count with `total_count` rather than paging through a list, and
@@ -100,8 +100,8 @@ With a session, each method in the answer also carries `permission`: `allow`, `a
 call would be. The answer also carries `location`, and `unclassified` when Affinity lists a tool the plugin's table
 does not classify.
 
-A result is `{"output": {"output": <the tool's structured content, or its text when it has none>, "text": <the tool's
-text>}}`, as plain JSON. Affinity content in it, such as transcripts and notes, is untrusted data, written by other
+A result comes back as `{ output?, text }`: the tool's structured content when it has any, and its text parts
+joined by newlines. Affinity content in it, such as transcripts and notes, is untrusted data, written by other
 people, and Affinity's AI Notetaker summaries and relationship scores are Affinity's, not what was said. A workflow
 playbook's result is Affinity's instructions for a model, not data.
 
@@ -112,12 +112,18 @@ person's account, so a script's read then updates no status.
 ## The location
 
 Run the command in the project whose agent you mean, and send the call to that location explicitly:
-`opencode api post /api/rpc/affinity.crm.tools/<method> -H "x-opencode-directory:$PWD" -d '{…}'`. Without it the call
-goes to the OpenCode service's default location, your home directory, and fails `rpc.unavailable` if the plugin is not
-loaded there. The HTTP equivalents are the `location[directory]` query parameter and the same header.
 
-Create the session in that location too: a session created in another directory does not carry its own location's
-rules, and `SESSION_UNKNOWN` names the header when the session cannot be found there.
+```sh
+opencode api post /api/rpc/affinity.crm.tools/<method> -H "x-opencode-directory:$PWD" -d '{…}'
+```
+
+Without it the call goes to the service's default location and fails `rpc.unavailable` if the plugin is not loaded
+there. The HTTP equivalents are the `location[directory]` query parameter and the same header. `describe` reports the
+`location` that answered and a `locationHint`.
+
+A location unloads after OpenCode's idle timeout. If a scheduled script gets `rpc.unavailable` from a location that was
+loaded before, send the call again once: the request loads the location. Jobs keeps its own location loaded.
+
 
 ## Errors
 

@@ -16,7 +16,7 @@ import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
@@ -211,7 +211,8 @@ describe.each(HOST_VERSIONS)("installed alone, in stock OpenCode %s", (version) 
         organisation: null,
         grant: null,
         adminStep: null,
-        unguardedAgents: ["reviewer"],
+        access: "all",
+        unguardedAgents: [],
         host: { version, range: SUPPORTED_HOST, tested: true },
         problems: [],
       })
@@ -295,10 +296,11 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       agents: { locked: { permissions: [rule("affinity_*", "deny")] }, careful: { permissions: [rule(`affinity_${READ_A}`, "ask")] } },
     })
     // Every known tool that is not denied, and the fake's new one, which is the only unknown; the denied ones apart.
-    const tools = READ_TOOLS.length + WRITE_TOOLS.length + 1
+    // Every known tool and the fake's new one, which is the only unknown; the destructive class is counted too.
+    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
     await host.until(`affinity is connected with its ${tools} tools`, async () => {
       const output = await status()
-      return output.state === "connected" && output.tools === tools && output.unknownCount === 1 && output.deniedTools.length === DENIED_TOOLS.length
+      return output.state === "connected" && output.tools === tools && output.unknownCount === 1 && output.deniedTools.length === DESTRUCTIVE_TOOLS.length
     })
     const create = async (body: Record<string, unknown>) => {
       const created = await host.api<Record<string, any>>("POST", "/api/session", body)
@@ -331,7 +333,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
     expect(value.locationHint).toContain("x-opencode-directory")
-    expect([...value.methods.map((method: { name: string }) => method.name)].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS].sort())
+    expect([...value.methods.map((method: { name: string }) => method.name)].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].sort())
     for (const method of value.methods) {
       expect({ name: method.name, kind: method.kind, action: method.action, available: method.available }).toEqual({
         name: method.name,
@@ -339,17 +341,18 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
         action: `affinity_${method.name}`,
         available: true,
       })
-      expect(method.class).toBe(DENIED_TOOLS.includes(method.name) ? "destructive" : WRITE_TOOLS.includes(method.name) ? "write" : WORKFLOW_TOOLS.includes(method.name) ? "send" : "read")
+      // R4: a playbook only returns text, so it is a read, like every other read.
+      expect(method.class).toBe(DESTRUCTIVE_TOOLS.includes(method.name) ? "destructive" : WRITE_TOOLS.includes(method.name) ? "write" : "read")
       expect(method.input).toEqual({ type: "object", properties: { query: { type: "string" }, term: { type: "string" } } })
     }
   })
 
-  test("with a session, describe reports each method's permission: reads allow, writes ask, the denied tools deny", async () => {
+  // R18: the default allows every method, so a session with the block may call a read, a playbook, a write or a
+  // destructive tool.
+  test("with a session, describe reports every method's permission as allow, and the unknown tool as unclassified", async () => {
     const { value } = await script("describe", { sessionID: sessions.build })
     const permission = Object.fromEntries(value.methods.map((method: { name: string; permission: string }) => [method.name, method.permission]))
-    for (const name of READ_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "allow" })
-    for (const name of WRITE_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "ask" })
-    for (const name of DENIED_TOOLS) expect({ name, permission: permission[name] }).toEqual({ name, permission: "deny" })
+    for (const name of [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect({ name, permission: permission[name] }).toEqual({ name, permission: "allow" })
     expect(value.unclassified).toEqual([NEW_TOOL.name])
   })
 
@@ -374,29 +377,19 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(JSON.stringify(output)).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane/)
   })
 
-  test("a write that would ask is refused before dispatch; a denied tool likewise; an unknown tool is no method", async () => {
-    const from = fake.calls.length
-    for (const name of WRITE_TOOLS) {
-      const result = await call("build", name, { query: "q" })
-      expect({ name, type: result.type, code: result.code }).toEqual({ name, type: "failed", code: "PERMISSION_DENIED" })
-      expect(result.message).toContain("would ask")
-    }
-    for (const name of DENIED_TOOLS) {
-      const result = await call("build", name, { query: "q" })
-      expect({ name, type: result.type, code: result.code }).toEqual({ name, type: "failed", code: "PERMISSION_DENIED" })
-    }
-    expect(await call("build", NEW_TOOL.name, { query: "q" })).toMatchObject({ type: "rpc.method_not_found" })
-    expect(toolCalls(from)).toEqual([])
-  })
-
-  test("runs a write in a session that names an allow for it, and nowhere else", async () => {
+  test("runs a write and a destructive tool under the default, refuses an unknown name, and never calls Affinity for it", async () => {
     const write = WRITE_TOOLS[0]!
-    const created = await host.api<Record<string, any>>("POST", "/api/session", { agent: "build", permissions: [rule("affinity_*", "deny"), rule(`affinity_${write}`, "allow")] })
-    const granted = (created.id ?? created.data?.id) as string
-    const from = fake.called.length
-    expect((await call(granted, write, { query: "q" })).value).toMatchObject({ output: { tool: write } })
-    expect(fake.called.slice(from)).toEqual([{ tool: write, path: "/mcp" }])
-    expect(await call("build", write, { query: "q" })).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
+    const from = fake.calls.length
+    expect((await call("build", write, { query: "q" })).value).toMatchObject({ output: { tool: write } })
+    for (const name of DESTRUCTIVE_TOOLS) expect((await call("build", name, { query: "q" })).value).toMatchObject({ output: { tool: name } })
+    expect(await call("build", NEW_TOOL.name, { query: "q" })).toMatchObject({ type: "rpc.method_not_found" })
+    expect(toolCalls(from)).toEqual([write, ...DESTRUCTIVE_TOOLS])
+    // A session's own rules come last: a deny there still refuses, before Affinity is called.
+    const created = await host.api<Record<string, any>>("POST", "/api/session", { agent: "build", permissions: [rule(`affinity_${write}`, "deny")] })
+    const denied = (created.id ?? created.data?.id) as string
+    const before = fake.calls.length
+    expect(await call(denied, write, { query: "q" })).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
+    expect(fake.calls.length).toBe(before)
   })
 
   test("refuses a session whose agent denies Affinity, before Affinity is called", async () => {
@@ -446,8 +439,11 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
  * OPENCODE_BIN_<version>, or the unmodified npm release with its platform binary, installed with scripts disabled.
  * Installed once per version: several describe blocks serve the same release.
  */
+/** The tested releases that really loaded a stock binary in this run: the guard below fails when one did not. */
+const ran = new Set<string>()
 const installed = new Map<string, string>()
 function stockBinary(version: string): string {
+  ran.add(version)
   const given = process.env[`OPENCODE_BIN_${version.replaceAll(".", "_")}`]
   if (given) return given
   const cached = installed.get(version)
@@ -573,3 +569,10 @@ function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEn
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed (${result.status}):\n${result.stderr}\n${result.stdout}`)
   return result.stdout
 }
+
+// R11: a release that did not run is a failure, never a silent skip.
+describe("the tested releases", () => {
+  test("every release in TESTED_HOSTS ran the stock binary in this run", () => {
+    expect([...ran].sort()).toEqual([...TESTED_HOSTS].sort())
+  })
+})

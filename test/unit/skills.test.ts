@@ -4,11 +4,11 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DENIED_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { parseSkill, SKILL_NAMES, SKILLS_DIR } from "../../src/skills.js"
 
 const NAMES = [...SKILL_NAMES]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const MAX_LINES = 100
 // Parameter names that look like tool names, or that a bare name in a code span might be.
 const PARAMETER_NAMES = ["search_criteria", "field_ids", "company_ids", "person_ids", "opportunity_ids", "list_entry_id"]
@@ -224,9 +224,10 @@ describe("skills", () => {
     expect(text).toContain("`create_list` with `is_public: true`")
   })
 
-  test("SC-13: an opted-in delete says its preview call asks too", () => {
+  test("SC-13: a delete's preview call is described, and the confirm call follows it", () => {
     const text = flat("affinity-write")
-    expect(text).toContain("call it once without `confirm`. That call asks too, changes nothing, and returns Affinity's preview")
+    expect(text).toContain("When one returns a preview")
+    expect(text).toContain("Show the whole warning in your reply, then make the `confirm: true` call")
   })
 
   test("affinity-write shows the before and after for every full-replace update", () => {
@@ -235,15 +236,15 @@ describe("skills", () => {
     expect(traps).toContain("show the before and after")
   })
 
-  test("affinity-write names every denied tool as off, never works around it, and never offers send_feedback", () => {
+  // R18: nothing is off by default, so the skill's own rules carry the safety for deletes, merges and feedback.
+  test("affinity-write names every destructive tool, says what it removes, and never works around a refusal", () => {
     const text = read("affinity-write")
-    const off = text.split("## Off by default")[1]?.split("\n## ")[0] ?? ""
-    for (const name of DENIED_TOOLS) expect(off).toContain(`\`${name}\``)
-    expect(off.replace(/\s+/g, " ")).toMatch(/Never work around the deny/)
-    expect(off).toMatch(/Don't `search\(\)` for these tools/)
-    expect(off).toContain("docs/configuration.md")
-    expect(off).not.toMatch(/"effect": "allow"/)
-    expect(off.replace(/\s+/g, " ")).toMatch(/never offer it/)
+    const section = text.split("## Deletes, merges and feedback")[1]?.split("\n## ")[0] ?? ""
+    for (const name of DESTRUCTIVE_TOOLS) expect(section).toContain(`\`${name}\``)
+    expect(section.replace(/\s+/g, " ")).toMatch(/Every Affinity tool is allowed by default/)
+    expect(section.replace(/\s+/g, " ")).toMatch(/never work around a refusal/)
+    expect(section.replace(/\s+/g, " ")).toMatch(/never offer it/i)
+    expect(section).not.toMatch(/"effect": "allow"/)
   })
 
   test("the download credential goes only to the user, in chat", () => {

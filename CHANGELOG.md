@@ -21,10 +21,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - Adopts your own `mcp.servers.affinity` at Affinity's URL unchanged, including a read-only sign-in, your
   organisation's own OAuth app, or an Affinity API key in its headers. The plugin never reads those headers. Any other
   URL, or a local command, is a conflict that status explains.
-- Default permission rules after each agent's base allow: every Affinity tool asks, and Affinity's read tools,
-  including its workflow playbooks, run without a prompt. Ten tools are denied: the seven deletes, the two merges and
-  `affinity_send_feedback` (text sent to Affinity's team). The docs give a clean-up agent that turns them back on, each
-  as an ask.
+- Default permission rules after each agent's base allow: every tool is allowed, reads and changes alike, so an agent
+  can create a note, rewrite a deal's field values, merge two companies or delete a reminder without a prompt. The
+  option `access` restricts them: `ask-changes` asks for every change, and `read-only` denies every change. The README
+  prints the block each value generates, and three ways to restrict a single agent or tool.
 - `/affinity-status` and the `/affinity` dialog ("Affinity: Status" in the palette): connection, account, access,
   organisation setup, tools, agents without the default rules, the OpenCode check and one next step. The organisation
   and grant come from the first `get_current_user` call, kept in memory only. While a sign-in is required, status gives
@@ -41,7 +41,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Affinity's twelve workflow playbooks are also `/affinity:<name>` commands, since OpenCode turns MCP prompts into
   commands; running one sends Affinity's text to the model as your own message, and the skills' rules still decide
   what it may do.
-- The option `allowUntestedHost`, and a host check for OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5.
+- The option `allowUntestedHost`, and a host check for OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and
+  2.2.6.
 - A `jelly` declaration for Jelly: the tools with their default effects, the skills, the sign-in, a summary and an
   icon.
 - The family icon kit's mark and its 128 and 256 pixel rasters, declared in `opencode.icons` and exported from the

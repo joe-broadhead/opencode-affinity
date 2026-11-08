@@ -15,14 +15,14 @@
 // with a code, and the token endpoint exchanges it for a token, so a host test can complete OpenCode's sign-in.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 
 const schema = { type: "object", properties: { query: { type: "string" }, term: { type: "string" } } }
 /** A tool the plugin has never seen. */
 export const NEW_TOOL = { name: "shiny_new_tool", description: "A tool added upstream after the tool lists were written", annotations: {} }
 const tool = (name: string, readOnlyHint: boolean) => ({ name, description: `Affinity ${name}`, annotations: { readOnlyHint }, inputSchema: schema })
-const TOOLS = [tool("search_persons", true), tool("get_current_user", true), tool("create_note", false), ...DENIED_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
-const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DENIED_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const TOOLS = [tool("search_persons", true), tool("get_current_user", true), tool("create_note", false), ...DESTRUCTIVE_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
 
 /** The upstream error a "fail" query gets: two lines, the first with a signed URL. */
 export const UPSTREAM_FAILURE = "Affinity refused https://files.affinity.co/a.png?signature=fake-signature-123 for this input\nTraceback: second line"
