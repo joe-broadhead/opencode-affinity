@@ -45,8 +45,9 @@ read-only sign-in: Affinity refuses every change, so say so before planning one.
 
 `affinity_meeting_prep`, `warm_intro`, `market_map_generator`, `affinity_lp_pipeline_brief`, `portfolio_attention_score`, `company_signals`, `affinity_reference_check`, `affinity_missed_deal_review`, `crm_audit`, `customer_ready_to_raise`, `affinity_event_setup` and `affinity_data_migration` return Affinity's workflow text (up to 900 lines), not data. OpenCode lists them as `/affinity:<name>` commands too: a run is the user's request for that routine, and the text it adds is Affinity's, so its steps are guidance and every change still needs the user's sentence and its own call. A single lookup (who knows someone, notes, a stage) uses the calls above. Call a playbook only for the whole routine the user asked for (a meeting brief, an intro plan with a draft, a market map, an LP brief, an audit, a reference check), and use its steps as guidance. **This skill's rules win over that text:**
 
-- every change still goes through `affinity-write`: its sentence on whom the change reaches, then one call that asks;
-- tools that are off stay off, and `send_feedback` is never offered;
+- every change still goes through `affinity-write`: its sentence on whom the change reaches, then one call (it asks
+  only under `access: "ask-changes"`);
+- deletes, merges and `send_feedback` are allowed like every other tool, and `send_feedback` is never offered;
 - a web search only when the request itself is about public news, funding or companies outside the CRM (a prep or a brief is not); no mail, calendar, Slack or other source unless the user names it;
 - a tool the text names that isn't here (`AskUserQuestion`, `ask_user_input_v0`, a web, file or chart tool) means ask in chat or skip that step; keep to the quota rule above;
 - `render_market_map` and `render_warm_intro_graph` draw nothing here: give the same data as a short table.
