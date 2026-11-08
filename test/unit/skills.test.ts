@@ -214,10 +214,10 @@ describe("skills", () => {
     expect(text).toContain("`upserts` is always a list, and `type` is copied exactly from the field, not its label")
   })
 
-  test("SC-9: a decline restates whom the change would have reached, and the permission prompt is the yes", () => {
+  test("SC-9: a decline restates whom the change would have reached, and ask-changes makes the prompt the yes", () => {
     const text = flat("affinity-write")
     expect(text).toMatch(/Before each write call, write one sentence in your reply on what the call does and \*\*whom it reaches\*\*/)
-    expect(text).toMatch(/That sentence is chat text, not a question: the permission prompt shows only the tool input and is the user's yes/)
+    expect(text).toMatch(/That sentence is chat text, not a question: by default the call runs at once, and with `access: "ask-changes"` the permission prompt shows only the tool input and is the user's yes/)
     expect(text).toMatch(/Declined: say nothing changed and whom it would have reached, then offer your drafted text or a retry, never a workaround/)
     expect(text).not.toMatch(/wait for a yes|get a yes|only after a yes/i)
     for (const words of ["**The whole firm:**", "**Everyone in the organisation:**", "**A colleague:**", "**Nobody outside the firm:**"]) expect(text).toContain(words)
