@@ -108,9 +108,9 @@ derive from it. Affinity lists the same tools to every caller and ships changes 
 missing from a saved list was removed by a release, and is drift.
 
 The lists come from Affinity's own server package, `affinity-mcp` on PyPI, read without running it.
-`test/unit/affinity-tools-list.json` records them in the research form below (names, `readOnlyHint` and
-`destructiveHint`, and parameters), and the drift test runs the check on it with `--strict`, so `src/affinity-tools.ts`
-must match it exactly. A parameter recorded without a type takes one of Affinity's own models or enums. When a live
+`test/unit/affinity-tools-list.json` records them as the server's own `tools/list` response (names, descriptions,
+`inputSchema`, and `readOnlyHint` and `destructiveHint`), and the drift test runs the check on it with `--strict`, so
+`src/affinity-tools.ts` must match it exactly. A parameter recorded without a type takes one of Affinity's own models or enums. When a live
 tool list is saved, reconciling with it is a data change: replace the fixture with it (the same fields, and a `source`
 line with no local path), run the check, and update the lists, `PARAMETERS`, `jelly.tools` and any skill example it
 names, as below.
@@ -129,7 +129,6 @@ npx -y @modelcontextprotocol/inspector --cli https://mcp.affinity.co/mcp \
   --method tools/list --header "Authorization: Bearer $AFFINITY_TOKEN" > tools-list.json
 ```
 
-A list written from an OpenCode project signed in to Affinity, `ctx.tool.list()`'s `affinity` tools, is the same form.
 Then:
 
 ```sh
