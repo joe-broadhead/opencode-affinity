@@ -3,6 +3,8 @@ name: affinity
 description: Load before the first Affinity tool call (affinity_*, tools.affinity.*). For the firm's Affinity CRM - companies, founders, LPs, co-investors and deals, pipeline lists and stages, who at the firm knows someone and warm intro paths, CRM notes, reminders on records, meetings and AI Notetaker transcripts held in Affinity, prep for a meeting or call with a company, founder or LP the firm tracks, backchannel reference checks, market maps, portfolio check-ins, and Affinity CRM sign-in. Not for Affinity Photo, Designer or Publisher (Canva's design apps) or design files, the user's own calendar or personal reminders, Granola or Wispr Flow notes the user names, or the firm's own hiring interviews (Metaview).
 ---
 
+If Affinity's tools are absent, run `/connect` and choose Affinity, or on Jelly call jelly_connection_request. An Affinity admin must first add OpenCode's client URL in Manage Apps.
+
 # Affinity CRM
 
 Tools are `affinity_<tool>`, or `tools.affinity.<tool>` in Code Mode. The calls below are exact: don't `search()` for

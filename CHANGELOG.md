@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Both skills explain how to connect Affinity when its tools are absent, including the administrator's client URL setup.
+
 - Default permission rules after each agent's base allow: every tool is allowed, reads and changes alike, so an agent
   can create a note, rewrite a deal's field values, merge two companies or delete a reminder without a prompt. The
   option `access` restricts them: `ask-changes` asks for every change, and `read-only` denies every change. The README
