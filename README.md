@@ -591,8 +591,8 @@ The status RPC's own error is `unavailable`, with a next step, when the status c
 
 - **The tool table comes from Affinity's own server package.** The names, parameters and playbook text come from
   `affinity-mcp`, read without running it, and Affinity ships changes often. A tool it adds is allowed at once, counted
-  as unknown, and not a method of the tools RPC until a release lists it. `CONTRIBUTING.md` has the check that
-  reconciles the table with a saved tool list.
+  as unknown, and not a method of the tools RPC until a release lists it. The table has not been checked against a
+  signed-in server's tool list yet: `npm run drift` compares a saved list with it, and `CONTRIBUTING.md` has the steps.
 - Whether the model writes its sentence on whom a change reaches before a call depends on the model: the rules cannot
   make it. A script's reads follow the location it calls, not the session's location (a limit of the shared tools
   module).
