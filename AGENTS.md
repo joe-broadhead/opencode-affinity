@@ -90,6 +90,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 
 `scripts/check-forbidden.mjs` enforces this list in `src/`, `test/`, `scripts/` and `dist/`:
 
+- internal wording: a decision attributed to the owner, the lead or a reviewer; a lane's name or identifier; and a
+  `hey-jelly` issue reference;
 - dispatch-lease, catalog-ownership and text-only markers, and tool `options.mcp` delegation;
 - `Plugin.image` and profile images;
 - imported OAuth grants;
