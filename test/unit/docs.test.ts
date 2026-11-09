@@ -242,7 +242,8 @@ describe("docs", () => {
       }
     }
     for (const file of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md"]) check(file, raw(file))
-    const changelog = /## \[[\s\S]*?\] - Unreleased\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    const changelog = /## \[Unreleased\]\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    expect(changelog.length).toBeGreaterThan(0)
     check("CHANGELOG.md (Unreleased)", changelog)
     expect(mentions).toBeGreaterThanOrEqual(2)
     const list = `${TESTED_HOSTS.slice(0, -1).join(", ")} and ${TESTED_HOSTS.at(-1)}`
