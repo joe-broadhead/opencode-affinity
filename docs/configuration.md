@@ -278,7 +278,7 @@ No recipe here makes a change run without a prompt. Answering "Always allow" at 
 moment, and it applies to every agent in the project.
 
 A strict agent where every Affinity tool asks, reads included: put these in that agent's own `permissions`, after the
-block. The last match wins, so the `affinity_*` ask alone would turn the ten denied tools into asks too; repeating
+block. The last match wins, so the `affinity_*` ask alone would turn the ten destructive tools into asks too; repeating
 their denies after it keeps them off:
 
 ```json

@@ -67,8 +67,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   `npm run drift -- <saved.json>` reports the rest.
 - **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
   between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
-  in `src/affinity-tools.ts`, by exact name and with its class: the reads, the workflow playbooks as sends, the writes
-  and the ten denied tools, and never an unknown tool. A write or a denied tool is a method but runs only on a resolved
+  in `src/affinity-tools.ts`, by exact name and with its class: the reads (the workflow playbooks among them), the writes
+  and the ten destructive tools, and never an unknown tool. A write or a destructive tool is a method but runs only on a resolved
   `allow`. Keep the RPC id `affinity.crm.tools` and its method names stable: scripts call them by name.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.

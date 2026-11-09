@@ -119,8 +119,9 @@ export const WRITE_TOOLS: readonly string[] = [
 ]
 
 /**
- * Off by default; a deny also hides them. A user turns one back on with an `ask` rule in a named agent's own
- * permissions, never top level (docs/configuration.md).
+ * Allowed by default, like every tool: `access: "ask-changes"` asks for each call, and `access: "read-only"` denies them
+ * and hides them from the model. A user restricts one agent with an `ask` or `deny` rule in that agent's own
+ * permissions, never at the top level (docs/configuration.md).
  * - The seven deletes and two merges remove CRM data permanently (a merge deletes the duplicate; a merge with a global
  *   company can't be undone). delete_reminder and delete_list_field_dropdown_option have no confirmation step.
  * - `send_feedback` sends text to Affinity's team, and Affinity's server instructions tell the model to offer it

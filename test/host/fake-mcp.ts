@@ -1,5 +1,5 @@
 // A loopback Streamable-HTTP MCP server. By default it lists two known reads (one the account read), one known write,
-// the ten denied tools and one tool the plugin has never seen. With `catalog: "affinity"` it lists every tool in
+// the ten destructive tools and one tool the plugin has never seen. With `catalog: "affinity"` it lists every tool in
 // src/affinity-tools.ts and the new tool. It answers JSON-RPC POSTs with plain JSON (no SSE stream) and records every
 // tool call, its path and every request header. A `tools/call` answers with the tool's name, the path and its
 // arguments as structured content; for a `query` that starts with "text", with text alone; or, for a `query` that
