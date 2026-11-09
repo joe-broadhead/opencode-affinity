@@ -67,7 +67,7 @@ an upsert over a value that is set. Read the current set, show the before and af
 
 ## Deletes, merges and feedback
 
-Every Affinity tool is allowed by default, so a delete, a merge or a feedback call can run without a prompt. These are
+By default every Affinity tool is allowed, so a delete, a merge or a feedback call can run without a prompt; the `access` option decides otherwise. These are
 the tools that remove the firm's data for good, and your sentence is the only warning.
 
 - `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`,

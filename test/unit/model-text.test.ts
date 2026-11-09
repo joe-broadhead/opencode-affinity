@@ -34,4 +34,12 @@ describe("the text the model is given", () => {
       }
     }
   })
+
+  test("wherever a text says tools are allowed by default, the same text says what the access option decides", () => {
+    // "Allowed by default" holds for the default `access` only, so the text that claims it also names the option.
+    const ALLOWED_BY_DEFAULT = /\ballowed\b.*\bby default\b|\bby default\b.*\ballowed\b/iu
+    const claims = modelTexts().filter(([, text]) => ALLOWED_BY_DEFAULT.test(text.replace(/\s+/g, " ")))
+    expect(claims.map(([file]) => file)).toContain("src/constants.ts (namespace)")
+    for (const [file, text] of claims) expect({ file, names: VALUE.test(text) }).toEqual({ file, names: true })
+  })
 })

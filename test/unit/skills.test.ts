@@ -241,7 +241,7 @@ describe("skills", () => {
     const text = read("affinity-write")
     const section = text.split("## Deletes, merges and feedback")[1]?.split("\n## ")[0] ?? ""
     for (const name of DESTRUCTIVE_TOOLS) expect(section).toContain(`\`${name}\``)
-    expect(section.replace(/\s+/g, " ")).toMatch(/Every Affinity tool is allowed by default/)
+    expect(section.replace(/\s+/g, " ")).toMatch(/By default every Affinity tool is allowed, so a delete, a merge or a feedback call can run without a prompt; the `access` option decides otherwise/)
     expect(section.replace(/\s+/g, " ")).toMatch(/never work around a refusal/)
     expect(section.replace(/\s+/g, " ")).toMatch(/never offer it/i)
     expect(section).not.toMatch(/"effect": "allow"/)
