@@ -27,7 +27,7 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 ## Install
 
 ```sh
-opencode plugin add @joe-broadhead/opencode-affinity
+opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.0
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/affinity-status`: it shows `sign-in required` until you sign in
@@ -37,8 +37,8 @@ The plugin registers Affinity's MCP server under the name `affinity`, adds defau
 `/affinity-status` command, the `/affinity` status view and two skills. Every tool is Affinity's, and OpenCode handles
 the connection, the sign-in and the stored credentials.
 
-**Update** with `opencode plugin update @joe-broadhead/opencode-affinity`, then run `opencode reload`. An entry pinned
-to a version does not update: remove the `@version` from its `plugins` entry first.
+The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
+A new release is a new tag: install it with its own `#v<version>` spec.
 
 ## Sign in
 
