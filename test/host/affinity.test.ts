@@ -16,7 +16,9 @@ import { SKILL_NAMES } from "../../src/skills.js"
 import { ADMIN_STEP, SIGN_IN, StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { ADVERTISED_SCOPE, MODEL_ID } from "./fake-mcp.js"
-import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
+import { agentRules, attempt, effect, HOST_VERSION, holdRoot, releaseRoot, session, startHost, until, type Host } from "./harness.js"
+
+holdRoot()
 
 const KEY = "sk-fake-host-test-0123456789"
 /** The denied tools as the Tools row names them, in the order the host lists tools. */
@@ -25,7 +27,7 @@ const OFF = `${SORTED_OFF.slice(0, -1).join(", ")} and ${SORTED_OFF.at(-1)}`
 
 // Starting a host takes several seconds, more on a busy machine.
 setDefaultTimeout(120_000)
-afterAll(cleanup)
+afterAll(releaseRoot)
 
 const BUILT_IN = ["build", "general", "explore", "compaction", "title", "summary", "plan"]
 const allow = (tool: string): Rule => ({ action: `affinity_${tool}`, resource: "*", effect: "allow" })
