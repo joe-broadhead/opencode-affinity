@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Jelly shows an `access` setting (`all`, `ask-changes` or `read-only`; `all` by default), the option the plugin already reads.
 - Registers Affinity's official MCP server, `https://mcp.affinity.co/mcp`, as `affinity`, signed in with OpenCode's own
   MCP OAuth and the scope `mcp mcp.read offline_access`, pinned so the refresh token stays. No client ID or key to
   configure; an Affinity admin adds OpenCode's client URL once per organisation.
