@@ -79,6 +79,6 @@ only when the user names them, also for a prep or recap that names no app about 
 interviews are Metaview's. Load `affinity-write` before any change, or a request to delete, merge or report a problem.
 
 Scripts run the reads through the tools RPC `affinity.crm.tools`, as a session made for them (`opencode api post
-/api/session -d '{"title":"…","agent":"build"}'`, keep `data.id`; never borrow one found through history or a list),
+/api/session -d '{"title":"…","agent":"build","location":{"directory":"/path/to/project"}}'`, keep `data.id`; never borrow one found through history or a list),
 and each call counts against the quota. Details:
 https://raw.githubusercontent.com/joe-broadhead/opencode-affinity/HEAD/docs/scripting.md

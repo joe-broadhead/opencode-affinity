@@ -55,15 +55,17 @@ project. Within that location, the rules are resolved before dispatch:
 Create the session once, with the agent the script runs as, and keep its id. Never reuse a session found through
 history or a list: the script would run as that session's agent, under its rules.
 
+Give the project as the session's `location`: a session made without one belongs to the service's default location, where the project's agents may not exist, and each call then fails `Agent not found`.
+
 ```sh
-opencode api post /api/session -d '{"title":"weekly pipeline","agent":"build"}'
+opencode api post /api/session -d '{"title":"weekly pipeline","agent":"build","location":{"directory":"/path/to/project"}}'
 ```
 
 Session rules come after the agent's, so a session can narrow what its script may do. This one can find lists and
 search their entries, and nothing else in Affinity:
 
 ```sh
-opencode api post /api/session -d '{"title":"weekly pipeline","agent":"build","permissions":[
+opencode api post /api/session -d '{"title":"weekly pipeline","agent":"build","location":{"directory":"/path/to/project"},"permissions":[
   {"action":"affinity_*","resource":"*","effect":"deny"},
   {"action":"affinity_get_lists","resource":"*","effect":"allow"},
   {"action":"affinity_search_list_entries","resource":"*","effect":"allow"}
