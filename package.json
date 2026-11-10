@@ -1,7 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-affinity",
   "version": "0.0.0",
-  "private": true,
   "description": "Unofficial OpenCode plugin for Affinity CRM: find, read and update your firm's companies, people, deals, notes and relationships through Affinity's official MCP server",
   "keywords": [
     "opencode",
