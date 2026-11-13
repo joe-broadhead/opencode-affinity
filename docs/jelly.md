@@ -69,6 +69,13 @@ key has no sign-in for Jelly to show; that server signs in with its own headers.
 
 Jelly folds the declared sign-in into this plugin's one card, which shows it as Connected, Not signed in or Sign in again (expired or revoked), and starts, renews and signs out of it. An agent's `jelly_connection_request`, or a tool result that names this plugin's "Run /connect and choose …" next step, opens the same card. The plugin still signs in through OpenCode, as it does without Jelly; the declaration only tells Jelly which of the engine's integrations and servers are this plugin's.
 
+## Settings
+
+`jelly.contributes.settings` declares one setting, `access`, the option of the same name, as a choice of three:
+**Allowed** (`all`, the default), **Ask before changes** (`ask-changes`) and **Read only** (`read-only`), with Jelly's
+own line for each. Jelly draws it as a choice, never as free text, and saves only one of the three. A Jelly that does
+not know declared choices yet refuses the whole declaration, so this needs a Jelly that does.
+
 ## Versions
 
 Jelly's curated catalogue pins an exact version, so publish each release under a new version: a review in Jelly

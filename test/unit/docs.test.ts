@@ -41,9 +41,9 @@ describe("docs", () => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
   })
 
-  // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v0.0.0`).
+  // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v<x.y.z>`).
   test("the README names no version of the plugin, except its install spec", () => {
-    expect(text("README.md").replaceAll("opencode-affinity#v0.0.0", "")).not.toMatch(/opencode-affinity@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    expect(text("README.md").replace(/opencode-affinity#v\d+\.\d+\.\d+/g, "")).not.toMatch(/opencode-affinity@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // R7 with R18: the block for each access value is in the README, generated from defaultRules(access).
@@ -119,7 +119,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout affinity")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.0")
+    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.1")
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
@@ -243,10 +243,10 @@ describe("docs", () => {
       }
     }
     for (const file of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md"]) check(file, raw(file))
-    // The release heading is `## [0.0.0] - <date>` once the release kit has dated it; before that, `- Unreleased`.
-    const changelog = /## \[[\s\S]*?\] - (?:Unreleased|\d{4}-\d{2}-\d{2})\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    // The newest release notes that name the tested releases, which a later patch's notes need not repeat.
+    const changelog = raw("CHANGELOG.md").split("\n## [").find((section) => section.includes("tested on ")) ?? ""
     expect(changelog.length).toBeGreaterThan(0)
-    check("CHANGELOG.md (Unreleased)", changelog)
+    check("CHANGELOG.md (newest tested-on notes)", changelog)
     expect(mentions).toBeGreaterThanOrEqual(2)
     const list = `${TESTED_HOSTS.slice(0, -1).join(", ")} and ${TESTED_HOSTS.at(-1)}`
     for (const file of ["AGENTS.md", "docs/configuration.md", "CONTRIBUTING.md"]) expect({ file, list: text(file).includes(list) }).toEqual({ file, list: true })
