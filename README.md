@@ -27,7 +27,7 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.1
+opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.2
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/affinity-status`: it shows `sign-in required` until you sign in
@@ -38,7 +38,7 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.1" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.2" }] }
 ```
 
 The plugin registers Affinity's MCP server under the name `affinity`, adds default permission rules, the
@@ -144,7 +144,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.1", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.2", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -489,7 +489,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.1", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.2", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -522,7 +522,7 @@ dropdown options, which change every record of their type:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.1" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.2" }],
   "permissions": [
     { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" }
@@ -618,7 +618,7 @@ credential store.
 1. Sign out: `opencode mcp logout affinity` from the project folder. Right after OpenCode starts or reloads, it can
    answer `MCP server not found: affinity` for a few seconds; wait, then run it again.
 2. Check: `/connect` → **Affinity** shows no account; `opencode auth list` after step 3 shows no Affinity credential.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.1`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.2`, then `opencode reload`.
    `opencode mcp list` no longer lists `affinity`.
 4. Remove any Affinity rules you copied into your agents' own `permissions`. If you used an API key, revoke it in
    Affinity: Settings, Manage Apps. An admin who no longer wants OpenCode for anyone revokes its app there, which
