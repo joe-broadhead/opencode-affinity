@@ -5,6 +5,8 @@ through Affinity's official MCP server.
 
 Unofficial; not affiliated with Affinity.
 
+Affinity is a trademark of Project Affinity, Inc.; this unofficial plugin is not endorsed by them.
+
 This is Affinity CRM ([affinity.co](https://www.affinity.co)), the relationship-intelligence CRM for deal teams: not
 Affinity Photo, Designer or Publisher, Canva's design apps.
 
