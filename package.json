@@ -63,7 +63,8 @@
     "vendor": {
       "id": "affinity",
       "name": "Affinity",
-      "domain": "affinity.co"
+      "domain": "affinity.co",
+      "mark": true
     }
   },
   "scripts": {

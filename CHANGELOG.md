@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The icon is now Affinity's own mark, Affinity's knot symbol in white on Affinity's aubergine, as in Affinity's own app icon, in place of the family's drawn mark; `opencode.vendor.mark` is `true`, and the README says Affinity is a trademark of Project Affinity, Inc.
+
 ## [0.0.3] - 2026-11-15
 
 ### Changed
