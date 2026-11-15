@@ -95,6 +95,7 @@
     "title": "Affinity",
     "summary": "Your firm's Affinity CRM: companies, people, deals, notes and relationships.",
     "icon": "assets/icon.svg",
+    "admin": "add OpenCode as an app in Affinity (Settings > Manage Apps > New App > Client URL https://opencode.ai/oauth/opencode/client.json) with the scopes mcp, mcp.read and offline_access",
     "tools": [
       {
         "name": "affinity.get_current_user",

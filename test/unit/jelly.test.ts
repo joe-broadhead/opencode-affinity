@@ -19,6 +19,7 @@ const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.ur
     title: string
     summary: string
     icon: string
+    admin: string
     tools: Tool[]
     skills: string[]
     rpc: unknown[]
@@ -57,7 +58,13 @@ describe("the jelly declaration", () => {
   })
 
   test("uses only the keys Jelly reads: its contracts strip any other", () => {
-    expect(Object.keys(jelly).sort()).toEqual(["contributes", "icon", "rpc", "signIns", "skills", "summary", "title", "tools", "views"])
+    expect(Object.keys(jelly).sort()).toEqual(["admin", "contributes", "icon", "rpc", "signIns", "skills", "summary", "title", "tools", "views"])
+  })
+
+  test("states the admin step, which ends 'Before anyone signs in, your admin needs to …': one line of at most 200 characters", () => {
+    expect(jelly.admin.length).toBeLessThanOrEqual(200)
+    expect(jelly.admin).toBe(jelly.admin.trim())
+    expect(jelly.admin).not.toContain("\n")
   })
 
   test("names every skill the package ships, the one sign-in, and no views, RPC, feeds or widgets", () => {
