@@ -19,11 +19,15 @@ interface AffinitySeam {
 
 type RemoteConfig = Extract<Mcp.ServerConfig, { type: "remote" }>
 
-/** No protocol, codemode, timeout or headers: the host defaults apply. The scope is the one Affinity's challenge asks for, with a refresh token. */
-export const serverConfig = (seam: AffinitySeam): RemoteConfig => ({
+/**
+ * No protocol, codemode, timeout or headers: the host defaults apply. The scope is the one Affinity's challenge asks
+ * for, with a refresh token. With `clientId`, OpenCode signs in as the organisation's own Public OAuth app instead of
+ * with its client metadata document; the URL and the scope stay the plugin's.
+ */
+export const serverConfig = (seam: AffinitySeam, clientId?: string): RemoteConfig => ({
   type: "remote",
   url: seam.endpoint,
-  oauth: seam.oauth ?? { scope: OAUTH_SCOPE },
+  oauth: seam.oauth ?? (clientId ? { client_id: clientId, scope: OAUTH_SCOPE } : { scope: OAUTH_SCOPE }),
 })
 
 /** Origin and path only, so a token in a query string never reaches status. */
@@ -91,7 +95,7 @@ export function createAffinityPlugin(seam: AffinitySeam) {
       const report = (area: string) => (problem: string | undefined) => void (problem ? problems.set(area, problem) : problems.delete(area))
       let source: ServerSource | undefined
 
-      await registerServer(ctx.mcp, serverConfig(seam), (next, problem) => {
+      await registerServer(ctx.mcp, serverConfig(seam, options.clientId), (next, problem) => {
         source = next
         report("server")(problem)
       })
@@ -102,7 +106,9 @@ export function createAffinityPlugin(seam: AffinitySeam) {
       await registerDefaultRules(ctx.agent, defaultRules(options.access), report("rules"))
       const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned)
       const own = skills.map((skill) => ({ id: skill.id, path: skill.path }))
-      const read = () => readStatus(ctx, () => ({ ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account, access: options.access }))
+      const clientId = options.clientId
+      const read = () =>
+        readStatus(ctx, () => ({ ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account, access: options.access, ...(clientId ? { clientId } : {}) }))
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)

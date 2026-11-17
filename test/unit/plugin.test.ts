@@ -18,6 +18,7 @@ for (const name of SKILL_NAMES) {
 }
 const seam = { endpoint: ENDPOINT, skillsDir }
 const KEY = "sk-fake-0123456789"
+const CLIENT_ID = "00000000-1111-4222-8333-444444444444"
 
 async function register(initial: Parameters<typeof mcpEditor>[0] = {}) {
   const { transform, run } = transforms<McpEditor>()
@@ -40,6 +41,14 @@ describe("the affinity server", () => {
     expect(oauth).toEqual({ scope: OAUTH_SCOPE })
     expect(oauth && Object.keys(oauth).filter((key) => key === "client_id" || key === "redirect_uri" || key === "client_secret")).toEqual([])
     expect(OAUTH_SCOPE.split(" ")).toEqual(["mcp", "mcp.read", "offline_access"])
+  })
+
+  // The clientId option: the organisation's own Public OAuth app, at Affinity's URL with the pinned scope.
+  test("with clientId, carries the organisation's client ID beside the pinned scope, at Affinity's URL", () => {
+    expect(serverConfig(seam, CLIENT_ID)).toEqual({ type: "remote", url: ENDPOINT, oauth: { client_id: CLIENT_ID, scope: OAUTH_SCOPE } })
+    expect(serverConfig(seam, undefined)).toEqual(serverConfig(seam))
+    // A loopback test without OAuth stays without it.
+    expect(serverConfig({ endpoint: "http://127.0.0.1:1/mcp", oauth: false }, CLIENT_ID)).toEqual({ type: "remote", url: "http://127.0.0.1:1/mcp", oauth: false })
   })
 
   test("is registered under the stable name when the user has none", async () => {
@@ -200,6 +209,32 @@ describe("setup", () => {
     foreign.tool.run({ namespace: (namespace: unknown) => void namespaces.push(namespace), add: () => {} } as never)
     expect(namespaces).toEqual([])
     await stopForeign!()
+  })
+
+  test("with clientId, registers the server with the client ID and the pinned scope, or adopts the user's own entry unchanged", async () => {
+    const { ctx, mcp, rpc, handlers } = context({ clientId: CLIENT_ID })
+    const cleanup = await createAffinityPlugin(seam).setup(ctx)
+    const { editor, servers } = mcpEditor()
+    mcp.run(editor)
+    expect(servers.get("affinity")).toEqual({ type: "remote", url: ENDPOINT, oauth: { client_id: CLIENT_ID, scope: OAUTH_SCOPE } })
+    expect(rpc).toContain("affinity.crm")
+    const status = (await handlers.get("affinity.crm")!.status!({}, { error: () => undefined })) as { signInClient: unknown }
+    expect(status.signInClient).toEqual({ type: "app", id: "00000000…" })
+    expect(JSON.stringify(status)).not.toContain(CLIENT_ID)
+    // The user's own entry wins, unchanged, and status says the option is ignored.
+    const own = { type: "remote" as const, url: ENDPOINT, oauth: { scope: "mcp.read offline_access" } }
+    const adopted = mcpEditor({ affinity: own })
+    mcp.run(adopted.editor)
+    expect(adopted.servers.get("affinity")).toEqual(own)
+    const after = (await handlers.get("affinity.crm")!.status!({}, { error: () => undefined })) as { signInClient: unknown }
+    expect(after.signInClient).toEqual({ type: "own-entry", clientIdIgnored: true })
+    await cleanup!()
+  })
+
+  test("refuses an invalid client ID before registering anything", async () => {
+    const invalid = context({ clientId: "https://opencode.ai/oauth/opencode/client.json" })
+    await expect(createAffinityPlugin(seam).setup(invalid.ctx)).rejects.toThrow('OPTIONS_INVALID: The option "clientId" must be')
+    expect([invalid.mcp, invalid.agent, invalid.skill, invalid.command, invalid.tool].map((t) => t.callbacks.length)).toEqual([0, 0, 0, 0, 0])
   })
 
   test("refuses invalid options and untested hosts before registering anything", async () => {

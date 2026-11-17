@@ -1,8 +1,9 @@
 import type { Plugin, Rpc } from "@opencode/plugin"
 import type { Account } from "./account.js"
-import { CLIENT_URL, codeText, PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
+import { APP_REDIRECT_URIS, CLIENT_URL, codeText, PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
 import { isSupportedHost, type HostCheck } from "./host-version.js"
 import { classify, DESTRUCTIVE_TOOLS, WRITE_TOOLS } from "./affinity-tools.js"
+import { shortClientId } from "./options.js"
 import { ACCESS, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
 import { shortReason } from "./redact.js"
 import { VERSION } from "./version.js"
@@ -19,6 +20,17 @@ export type ServerSource =
   | { readonly type: "adopted"; readonly url: string; readonly signIn: "oauth" | "own" }
   | { readonly type: "conflict"; readonly url: string; readonly expected: string }
 
+/**
+ * Whom Affinity sees signing in: the organisation's own OAuth app (the `clientId` option, shown by its first 8
+ * characters), OpenCode's client URL, or whatever the user's own `mcp.servers.affinity` sets, which the plugin never
+ * reads (`clientIdIgnored` when the option is set but that entry wins). `none` while no server of the plugin's exists.
+ */
+export type SignInClient =
+  | { readonly type: "app"; readonly id: string }
+  | { readonly type: "client-url"; readonly url: string }
+  | { readonly type: "own-entry"; readonly clientIdIgnored: boolean }
+  | { readonly type: "none" }
+
 interface SkillPath {
   readonly id: string
   readonly path: string
@@ -28,6 +40,8 @@ interface SkillPath {
 export interface StatusFacts {
   readonly server?: { readonly status: "connected" | "pending" | "disabled" | "failed" | "needs_auth"; readonly error?: string }
   readonly source?: ServerSource
+  /** The `clientId` option, in full; the status keeps only its first 8 characters. */
+  readonly clientId?: string
   readonly account?: Account
   readonly host: HostCheck
   /** The names of the tools the `affinity` server serves, without the `affinity_` prefix. */
@@ -60,6 +74,8 @@ export interface Status {
   /** For a failed connection only: OpenCode's reason, on one line of at most 160 characters, URLs without their query. */
   readonly error?: string
   readonly source?: ServerSource
+  /** Whom Affinity sees signing in: the organisation's own OAuth app, OpenCode's client URL, or the user's own entry. */
+  readonly signInClient: SignInClient
   /** The Affinity organisation's name from the last account read since OpenCode started, or null before one. */
   readonly organisation: string | null
   /** What the sign-in allows, from the same read: `read-only` means Affinity refuses every change. */
@@ -112,6 +128,13 @@ export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter 
  */
 export const ADMIN_STEP = `If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
 
+/**
+ * The advice for a first sign-in with the `clientId` option: the organisation's own app must be a Public app with
+ * OpenCode's redirect URIs and the pinned scopes. `id` is the client ID's first 8 characters.
+ */
+export const adminStepApp = (id: string) =>
+  `If this is the first sign-in here, your organisation's OAuth app ${id} (the clientId option) must be a Public app in Affinity, under Settings, Manage Apps, with the redirect URIs ${list(APP_REDIRECT_URIS)} and the scopes mcp, mcp.read and offline_access. If Affinity answers Unknown client_id, the option does not name an app of this organisation.`
+
 /** For a user's own entry, which may use the organisation's own OAuth app instead of OpenCode's client URL. */
 const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
 
@@ -140,6 +163,18 @@ function shadowedOf(facts: StatusFacts): SkillPath[] {
   })
 }
 
+/** Whom Affinity sees signing in, from the server's source and the `clientId` option. */
+function signInClientOf({ source, clientId }: Pick<StatusFacts, "source" | "clientId">): SignInClient {
+  if (source?.type === "adopted") return { type: "own-entry", clientIdIgnored: clientId !== undefined }
+  if (source?.type !== "plugin") return { type: "none" }
+  return clientId ? { type: "app", id: shortClientId(clientId) } : { type: "client-url", url: CLIENT_URL }
+}
+
+function adminStepOf(client: SignInClient) {
+  if (client.type === "app") return adminStepApp(client.id)
+  return `${ADMIN_STEP}${client.type === "own-entry" ? ADMIN_STEP_OWN : ""}`
+}
+
 const STATE_OF = { connected: "connected", pending: "connecting", needs_auth: "sign_in_required", failed: "failed", disabled: "disabled" } as const
 
 export function buildStatus(facts: StatusFacts): Status {
@@ -151,15 +186,17 @@ export function buildStatus(facts: StatusFacts): Status {
   // OpenCode's text for a needed sign-in can hold an authorization URL, so only a failure's reason is kept.
   const error = facts.server?.status === "failed" && facts.server.error ? shortReason(facts.server.error) : undefined
   const shadowed = shadowedOf(facts)
+  const signInClient = signInClientOf(facts)
   const status = {
     version: VERSION,
     state,
     access,
     ...(error ? { error } : {}),
     ...(facts.source ? { source: facts.source } : {}),
+    signInClient,
     organisation: facts.account?.organisation ?? null,
     grant: facts.account?.grant ?? null,
-    adminStep: state === "sign_in_required" && facts.everConnected !== true ? `${ADMIN_STEP}${facts.source?.type === "adopted" ? ADMIN_STEP_OWN : ""}` : null,
+    adminStep: state === "sign_in_required" && facts.everConnected !== true ? adminStepOf(signInClient) : null,
     everConnected: facts.everConnected === true,
     tools: listed.length,
     destructiveTools: destructive,
@@ -235,6 +272,22 @@ function serverText(source: ServerSource) {
   return `your mcp.servers.${SERVER_NAME} points at ${source.url}`
 }
 
+/** Whom Affinity sees signing in, after the Connection row. */
+function signInClientText({ signInClient: client, source }: Status) {
+  switch (client.type) {
+    case "app":
+      return `your organisation's OAuth app ${client.id} (the clientId option)`
+    case "client-url":
+      return `OpenCode's client URL, ${client.url} (an Affinity admin adds it once)`
+    case "own-entry": {
+      const keyed = source?.type === "adopted" && source.signIn === "own" ? ", which signs in with an API key" : ""
+      return `set by your own mcp.servers.${SERVER_NAME}${keyed}${client.clientIdIgnored ? "; the clientId option is ignored because your entry wins" : ""}`
+    }
+    case "none":
+      return "none"
+  }
+}
+
 function toolsText({ tools, unknownCount, unknownTools, destructiveTools, listing, access }: Status) {
   if (listing) return "none listed yet (Affinity is still listing them)"
   const posture = destructiveTools.length
@@ -270,15 +323,16 @@ function accessText({ grant, access, problems, unguardedAgents }: Status) {
  * required this row gives the admin step to take if Affinity showed an error page; once connected through OAuth, the
  * organisation has allowed it.
  */
-function organisationText({ state, source, adminStep, everConnected }: Status) {
+function organisationText({ state, source, adminStep, everConnected, signInClient }: Status) {
   if (adminStep) return adminStep
   if (source?.type === "adopted" && source.signIn === "own") return "not needed: your own entry signs in with an API key"
   if (state === "connected") return "done: this Affinity organisation lets OpenCode sign in"
   // DR-13: only the two states where a sign-in is the subject carry advice; a conflict, a disabled or a connecting
   // server has not reached the organisation at all, and the first-sign-in advice would be noise there.
   if (state === "sign_in_required") {
-    return everConnected
-      ? "done earlier: the sign-in has expired, so run /connect again"
+    if (everConnected) return "done earlier: the sign-in has expired, so run /connect again"
+    return signInClient.type === "app"
+      ? `once per Affinity organisation, an admin registers its own Public OAuth app, ${signInClient.id}, under Settings, Manage Apps`
       : `once per Affinity organisation, an admin adds OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps`
   }
   return "not reached yet"
@@ -303,6 +357,7 @@ export function formatStatus(status: Status) {
     `- Connection: ${STATE_TEXT[status.state]}${details ? ` (${details})` : ""}`,
     `- Account: ${status.organisation ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_current_user call since OpenCode started)`}`,
     `- Access: ${accessText(status)}`,
+    `- Sign-in client: ${signInClientText(status)}`,
     `- Organisation setup: ${organisationText(status)}`,
     `- Tools: ${toolsText(status)}`,
     `- Agents without default rules: ${agents.length ? `${agents.join(", ")}\n${agentRules(status.access)}` : "none"}`,
@@ -331,7 +386,7 @@ interface AccountState {
 /** How long after a status change no tools still means "listing". */
 const LISTING_MS = 15_000
 
-type ReadFacts = Pick<StatusFacts, "source" | "host" | "problems"> & { readonly skills?: readonly SkillPath[]; readonly account?: AccountState; readonly access?: Access }
+type ReadFacts = Pick<StatusFacts, "source" | "host" | "problems" | "clientId"> & { readonly skills?: readonly SkillPath[]; readonly account?: AccountState; readonly access?: Access }
 
 /**
  * Reads the live facts through public host APIs. Optional lookups that fail leave their field empty.
@@ -396,7 +451,7 @@ export const StatusRpc = {
       input: { type: "object" },
       output: {
         type: "object",
-        required: ["version", "access", "state", "organisation", "grant", "adminStep", "everConnected", "tools", "destructiveTools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
+        required: ["version", "access", "state", "signInClient", "organisation", "grant", "adminStep", "everConnected", "tools", "destructiveTools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
         properties: {
           version: { type: "string" },
           access: { enum: [...ACCESS] },
@@ -406,6 +461,11 @@ export const StatusRpc = {
             type: "object",
             required: ["type", "url"],
             properties: { type: { enum: ["plugin", "adopted", "conflict"] }, url: { type: "string" }, expected: { type: "string" }, signIn: { enum: ["oauth", "own"] } },
+          },
+          signInClient: {
+            type: "object",
+            required: ["type"],
+            properties: { type: { enum: ["app", "client-url", "own-entry", "none"] }, id: { type: "string" }, url: { type: "string" }, clientIdIgnored: { type: "boolean" } },
           },
           organisation: nullableString,
           grant: { enum: ["read-write", "read-only", "api-key", null] },

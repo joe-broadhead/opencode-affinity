@@ -95,7 +95,7 @@
     "title": "Affinity",
     "summary": "Your firm's Affinity CRM: companies, people, deals, notes and relationships.",
     "icon": "assets/icon.svg",
-    "admin": "add OpenCode as an app in Affinity (Settings > Manage Apps > New App > Client URL https://opencode.ai/oauth/opencode/client.json) with the scopes mcp, mcp.read and offline_access",
+    "admin": "add an app in Affinity (Settings > Manage Apps): Client URL https://opencode.ai/oauth/opencode/client.json, or a Public OAuth app for the Client ID setting; scopes mcp, mcp.read, offline_access",
     "tools": [
       {
         "name": "affinity.get_current_user",
@@ -631,6 +631,12 @@
             }
           ],
           "default": "all"
+        },
+        {
+          "key": "clientId",
+          "label": "Client ID",
+          "type": "string",
+          "description": "Optional. The client ID, a UUID, of your organisation's own Public OAuth app in Affinity (Settings > Manage Apps). Leave it empty to sign in with OpenCode's client URL, which an Affinity admin adds once. Not a secret."
         }
       ]
     }

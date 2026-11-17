@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The `clientId` option, for an organisation that signs in through its own **Public** OAuth app in Affinity instead of
+  adding OpenCode's client URL. The plugin registers the server at `https://mcp.affinity.co/mcp` with
+  `oauth: { client_id, scope: "mcp mcp.read offline_access" }`, so nobody writes a server entry by hand, and the URL
+  and the scope, with its refresh token, stay the plugin's. It must be a UUID: anything else is `OPTIONS_INVALID`,
+  which shows only its first 8 characters; an empty value counts as unset. A user's own `mcp.servers.affinity` still
+  wins, unchanged.
+- Status, `/affinity-status` and the status RPC name the sign-in client in a new `Sign-in client` row and the
+  `signInClient` field: the organisation's own app by the ID's first 8 characters, OpenCode's client URL, or the user's
+  own entry, with "the clientId option is ignored because your entry wins" when both are set. With the option, the
+  first-sign-in advice is about the organisation's own app (Public, its redirect URIs and scopes) instead of the client
+  URL.
+- **For jelly:** a **Client ID** setting, free text, wired to the option; `jelly.admin` names both routes.
+- The README's Organisation rollout gives both routes, and Troubleshooting covers `Unknown client_id`
+  (`SERVER-OAUTH-003`) and `invalid_scope` for either.
+
 ## [0.0.4] - 2026-11-15
 
 ### Added

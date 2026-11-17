@@ -22,7 +22,7 @@ adds no tool of its own, makes no Affinity call of its own, and has no runtime d
 | `src/skills.ts` | Loading and registering the skills |
 | `src/host/tools-rpc.ts` | The tools RPC for scripts, `affinity.crm.tools`; a copy of a module shared by several plugins, with Affinity's part in one marked block |
 | `src/tui.ts` | The terminal UI part: the plugin `affinity.crm.tui` and the `/affinity` dialog |
-| `src/constants.ts` | IDs, the server name and URL, the OAuth scope, OpenCode's client URL that Affinity organisations add, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
+| `src/constants.ts` | IDs, the server name and URL, the OAuth scope, OpenCode's client URL that Affinity organisations add, the redirect URIs an organisation's own app registers, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
 
 The default rules, the tools RPC's methods, status's unknown tools, the fake server in the tests and the checks of
@@ -39,14 +39,16 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 
 ## Setup
 
-1. `parseOptions` validates `allowUntestedHost`; anything else fails with `OPTIONS_INVALID`.
+1. `parseOptions` validates `allowUntestedHost`, `access` and `clientId` (a UUID; empty counts as unset); anything
+   else fails with `OPTIONS_INVALID`.
 2. `checkHost` compares `ctx.app.version` with `>=2.2.3 <2.4.0`, the same range as `opencode.host` in `package.json`.
    Inside it the plugin starts, and status calls only 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 tested. Outside it, setup fails with
    `HOST_UNTESTED` unless `allowUntestedHost` is set.
 3. The skills are read from the package's `skills/` folder, before the synchronous skill transform needs them.
 4. `ctx.mcp.transform` registers `affinity` at Affinity's URL with `oauth.scope` (and no `client_id` or
-   `redirect_uri`, so OpenCode signs in with its client metadata document), or adopts the user's own entry at that
-   URL, reading only its type, URL and whether `oauth` is `false`. Any other URL, or a local command, is a conflict:
+   `redirect_uri`, so OpenCode signs in with its client metadata document; with the `clientId` option, `oauth.client_id`
+   too, so it signs in as the organisation's own app), or adopts the user's own entry at that URL, which then wins over
+   the option, reading only its type, URL and whether `oauth` is `false`. Any other URL, or a local command, is a conflict:
    nothing is added, and status reports it.
 5. `ctx.tool.transform` gives the `affinity` namespace its Code Mode description.
 6. `ctx.agent.transform` inserts the default rules after each agent's base `* * allow`.
@@ -80,7 +82,9 @@ entry with
 `readStatus` reads the server's state (`ctx.mcp.list()`), the `affinity` tools (`ctx.tool.list()`, by the namespace
 `affinity`), every agent's rules (`ctx.agent.list()`) and the skills OpenCode lists (`ctx.skill.list()`), and takes the
 captured account. `buildStatus` turns them into one model, and `formatStatus` renders it in a fixed order: Connection
-(state and server), Account (the organisation), Access (the grant, and what the default rules let run), Organisation
+(state and server), Account (the organisation), Access (the grant, and what the default rules let run), Sign-in client
+(the organisation's own app by the `clientId` option's first 8 characters, OpenCode's client URL, or the user's own
+entry, and whether that entry makes the option ignored), Organisation
 setup (whether the organisation lets OpenCode sign in, and for a first sign-in that Affinity may refuse, the admin
 step), Tools
 (counts and up to 20 unknown names), Agents without default rules (names, then the default rules to paste, one rule a
