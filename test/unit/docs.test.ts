@@ -6,8 +6,8 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { CODES, TESTED_HOSTS, UNTESTED_EXAMPLE } from "../../src/constants.js"
 import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
-import { METHODS, NEXT_STEPS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { ACCESS, defaultRules } from "../../src/permissions.js"
+import { METHODS, NEXT_STEPS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
+import { ACCESS, defaultRules, SOURCE_METHODS } from "../../src/permissions.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 // Everything a user or the model reads about the current release.
@@ -20,7 +20,7 @@ const FILES = [
   ...readdirSync(join(ROOT, "docs")).map((name) => `docs/${name}`),
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, ...SOURCE_METHODS]
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
 const text = (file: string) => raw(file).replace(/\s+/g, " ")
 
@@ -195,7 +195,7 @@ describe("docs", () => {
 
   test("every code raised in src/ is in CODES, and every non-rpc code in CODES is raised", () => {
     const sources = readdirSync(join(ROOT, "src")).filter((name) => name.endsWith(".ts")).map((name) => [name, readFileSync(join(ROOT, "src", name), "utf8")] as const)
-    const found = new Set(sources.flatMap(([, source]) => [...source.matchAll(/(?:affinityError|errorText|codeText)\(\s*"([A-Z][A-Z_]+)"/g)].map((match) => match[1]!)))
+    const found = new Set(sources.flatMap(([, source]) => [...source.matchAll(/(?:affinityError|errorText|codeText|fail)\(\s*"([A-Z][A-Z_]+)"/g)].map((match) => match[1]!)))
     for (const [, source] of sources) for (const match of source.matchAll(/`([A-Z][A-Z0-9]*_[A-Z0-9_]+): /g)) found.add(match[1]!)
     expect([...found].filter((code) => !(code in CODES))).toEqual([])
     const declared = Object.entries(CODES).filter(([, entry]) => entry.surface !== "rpc").map(([code]) => code)
@@ -213,12 +213,13 @@ describe("docs", () => {
     expect(Object.fromEntries(rows)).toEqual(CODES)
   })
 
-  test("the configuration guide documents the setup and status codes, and the scripting guide the rpc ones", () => {
+  test("the configuration guide documents the setup and status codes, and the scripting guide the rpc and source ones", () => {
     const errors = /## Errors([\s\S]*?)## /.exec(text("docs/configuration.md"))?.[1] ?? ""
-    const setup = Object.entries(CODES).filter(([, entry]) => entry.surface !== "rpc").map(([code]) => code)
+    const scripted = (surface: string) => surface === "rpc" || surface === "source"
+    const setup = Object.entries(CODES).filter(([, entry]) => !scripted(entry.surface)).map(([code]) => code)
     expect([...errors.matchAll(/\| `([A-Z][A-Z_]+)` \|/g)].map((match) => match[1]!).sort()).toEqual(setup.sort())
     const scripting = /## Errors([\s\S]*?)## What scripts cannot do/.exec(text("docs/scripting.md"))?.[1] ?? ""
-    for (const [code, entry] of Object.entries(CODES)) expect({ code, named: entry.surface !== "rpc" || scripting.includes(`\`${code}\``) }).toEqual({ code, named: true })
+    for (const [code, entry] of Object.entries(CODES)) expect({ code, named: !scripted(entry.surface) || scripting.includes(`\`${code}\``) }).toEqual({ code, named: true })
     const named = [...scripting.matchAll(/`([A-Z][A-Z_]+)`/g)].map((match) => match[1]!)
     expect(named.filter((code) => !(code in CODES))).toEqual([])
   })
@@ -264,7 +265,7 @@ describe("docs", () => {
   // R1: every example runs the RPC this plugin registers, with the location header and the envelope, and names a method
   // in the table.
   test("every scripting example has the RPC id, the location header, the envelope, and a method in the table", () => {
-    const names = new Set(["describe", ...METHODS.map((method) => method.name)])
+    const names = new Set(["describe", ...METHODS.map((method) => method.name), ...SOURCE_METHODS])
     let examples = 0
     for (const file of ["docs/scripting.md", "README.md"]) {
       const source = raw(file).replace(/\\\n\s*/g, " ")

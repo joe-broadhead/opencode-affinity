@@ -1,12 +1,12 @@
-// Affinity's part of the tools RPC: the plugin-specific block of src/host/tools-rpc.ts. The shared part is tested in
-// tools-rpc.test.ts. The methods come from src/affinity-tools.ts, the same table the reconcile fixture pins, so
+// Affinity's part of the tools RPC: its plugin value in src/tools-rpc.ts. The shared part, the source contract's, is tested
+// in tools-rpc.test.ts. The methods come from src/affinity-tools.ts, the same table the reconcile fixture pins, so
 // replacing test/unit/affinity-tools-list.json with a live list updates both in one step.
 import { afterEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { watchAccount } from "../../src/account.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { PLUGIN_ID as AFFINITY_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
-import { METHODS, NEXT_STEPS, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { METHODS, NEXT_STEPS, PLUGIN, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { defaultRules, evaluate } from "../../src/permissions.js"
 
 interface Recorded {
@@ -28,6 +28,8 @@ const CLASS_OF = new Map<string, string>([
 describe("Affinity's tools RPC", () => {
   test("is affinity.crm.tools, under the plugin's own id", () => {
     expect(PLUGIN_ID).toBe(AFFINITY_PLUGIN_ID)
+    expect(PLUGIN.id).toBe(AFFINITY_PLUGIN_ID)
+    expect(PLUGIN.nextSteps).toBe(NEXT_STEPS)
     expect(TOOLS_RPC_ID).toBe("affinity.crm.tools")
   })
 

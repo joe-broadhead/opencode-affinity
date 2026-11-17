@@ -27,6 +27,8 @@ const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare",
 const stages = {
   typecheck: () => run("tsc", ["--noEmit", "-p", "tsconfig.json"]),
   unit: () => run("bun", ["test", "./test/unit"]),
+  // The source contract's kit over package.json's sources, writing reports/conformance-report.json for a release.
+  conformance: () => run("bun", ["scripts/conformance.ts"]),
   kit: () => run("node", ["--test", "scripts/release-kit.test.mjs"]),
   build: () => run("node", ["scripts/build.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),

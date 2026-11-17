@@ -14,7 +14,7 @@ import { DESTRUCTIVE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { ADMIN_STEP, adminStepApp, SIGN_IN, StatusRpc } from "../../src/status.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { ADVERTISED_SCOPE, MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 

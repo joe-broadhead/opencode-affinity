@@ -15,7 +15,7 @@ import { arch, platform } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
@@ -329,12 +329,15 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     }
   })
 
-  test("describes every known tool with its class, each available with its live schema", async () => {
+  test("describes every known tool with its class, each available with its live schema, then the meetings source's two methods", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
     expect(value.locationHint).toContain("x-opencode-directory")
-    expect([...value.methods.map((method: { name: string }) => method.name)].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].sort())
-    for (const method of value.methods) {
+    expect([...value.methods.map((method: { name: string }) => method.name)].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, "events_list", "probe"].sort())
+    // The source's methods are the plugin's own reads, in every access mode.
+    expect(value.methods.at(-2)).toMatchObject({ name: "events_list", kind: "plugin", class: "read", action: "affinity_events_list", available: true })
+    expect(value.methods.at(-1)).toMatchObject({ name: "probe", kind: "plugin", class: "read", action: "affinity_probe", available: true })
+    for (const method of value.methods.slice(0, -2)) {
       expect({ name: method.name, kind: method.kind, action: method.action, available: method.available }).toEqual({
         name: method.name,
         kind: "mcp",
@@ -390,6 +393,22 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const before = fake.calls.length
     expect(await call(denied, write, { query: "q" })).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
     expect(fake.calls.length).toBe(before)
+  })
+
+  test("events_list runs the packed plugin's own spec, and waits for probe before any Affinity call", async () => {
+    const from = fake.calls.length
+    const result = await call("build", "events_list", { account: "4821/jane.doe@example.com", since: "2026-11-01" })
+    expect(result).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
+    expect(String(result.message)).toContain("no probe has named this sign-in's account")
+    expect(toolCalls(from)).toEqual([])
+  })
+
+  test("probe runs the packed plugin's own spec, reads get_current_user through OpenCode, and refuses an answer that names no Affinity organisation id", async () => {
+    const from = fake.calls.length
+    // The fake's tenant id is not Affinity's numeric id, so probe cannot name the account.
+    const result = await call("build", "probe", {})
+    expect(result).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
+    expect(toolCalls(from)).toEqual(["get_current_user"])
   })
 
   test("refuses a session whose agent denies Affinity, before Affinity is called", async () => {

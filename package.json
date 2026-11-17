@@ -77,7 +77,58 @@
     "lint": "node scripts/check.mjs forbidden",
     "drift": "node scripts/check-affinity-tools.mjs",
     "release:check": "node scripts/release-check.mjs",
-    "capture": "node scripts/capture-tools.mjs"
+    "capture": "node scripts/capture-tools.mjs",
+    "conformance": "node scripts/check.mjs conformance"
+  },
+  "sources": {
+    "contractVersion": 1,
+    "rpc": "affinity.crm.tools",
+    "probe": {
+      "action": "affinity_probe"
+    },
+    "items": [
+      {
+        "id": "affinity.meetings",
+        "kind": "events",
+        "reads": "meeting",
+        "tool": "events_list",
+        "input": {
+          "source": "affinity"
+        },
+        "accounts": {
+          "named": true
+        },
+        "permission": {
+          "events": "affinity_events_list",
+          "operations": [
+            "get_current_user",
+            "get_meetings"
+          ],
+          "identity": [
+            "get_current_user"
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "metered",
+          "units": [
+            {
+              "per": "call",
+              "usd": 0
+            }
+          ],
+          "probe": {
+            "per": "call",
+            "usd": 0
+          }
+        },
+        "maxBytes": 65536,
+        "urlHosts": [
+          "affinity.co",
+          "*.affinity.co"
+        ]
+      }
+    ]
   },
   "devDependencies": {
     "@opencode/client": "2.2.3",

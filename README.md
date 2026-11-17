@@ -99,7 +99,8 @@ other tools unless you name the destination. It keeps calls few, because they co
 | `/affinity`, or "Affinity: Status" in the command palette | Opens the same report in a dialog. Press `r` to refresh it and `Esc` to close it. It also refreshes when Affinity's connection, the sign-in or the agents change. |
 
 The organisation and the grant in the report appear after the model's first account read (`affinity_get_current_user`)
-since OpenCode started; the plugin makes no Affinity call of its own.
+since OpenCode started, or a consumer's `probe`; the plugin makes no Affinity call of its own, only those a model, a
+script or a source's consumer asks for.
 
 Two skills teach the model to use Affinity well:
 
@@ -132,6 +133,35 @@ OpenCode's permission prompt.
 
 A script's reads run under the rules of the location it calls, not of a session's own location (a limit of the shared
 tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md).
+
+### The meetings source
+
+The plugin declares one source of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
+`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read your Affinity meetings with
+your consent: `affinity.meetings`, events of kind `meeting`. A consumer calls two tools RPC methods, never tools the
+model sees, and the default rules allow both under every `access` value, because they only read:
+
+- `probe` (`affinity_probe`) makes one `get_current_user` call and names who is signed in: the account
+  `<organisation id>/<email>`, its owner (`mailto:` and the email, labelled with your name and the organisation's) and
+  the sign-in's scopes. It remembers the answer for the current sign-in, in memory only.
+- `events_list` (`affinity_events_list`) lists, oldest first, the meetings you organised, created or attended, one
+  event per meeting: Affinity's meeting id, its start, its title, the people on it whom Affinity matched to a person
+  record (`affinity:person/<id>` and their name), and its Affinity link when Affinity gives one. It carries no notes,
+  transcripts, email addresses, phone numbers or relationship scores; its text is always empty. A meeting is listed
+  once it started an hour ago, and a meeting logged in Affinity after a listing passed its start is listed by the next
+  one, when it started at most 30 days before. A listing names the account `probe` named, and is refused until `probe`
+  has named it for the current sign-in; a new sign-in forgets it. A meeting whose title holds a secret is refused for
+  good.
+- It reads back 90 days, because Affinity's meeting history is not permanent: a meeting can be deleted before a
+  consumer reads it. A `since` further back starts at 90 days with `gap` `window-truncated`, and a cursor more than 100
+  days old restarts there with `gap` `expired`, each once.
+
+Every call counts against the firm's monthly API quota. `events_list` reads `get_meetings` a week of start times at a
+time, 100 meetings a call, and its first call also asks, in the same filter, for the meetings logged late: a consumer that reads every hour makes one call a page, a first read of the last day makes
+one, and a page that catches up on a long gap starts no new window after 10 calls and says there is more. Affinity lists every
+meeting you may see, colleagues' included, and the source keeps only yours, so a firm whose calendars Affinity shares
+widely uses more calls per week read. Each page's `cost` says how many calls it made; a probe is one call.
+`npm run conformance` runs the contract's conformance kit over the source, and each release attaches its report.
 
 ## Permissions
 
@@ -250,7 +280,9 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "allow" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -342,7 +374,9 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "ask" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -434,7 +468,9 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -610,7 +646,7 @@ Run `/affinity-status` first. Its last line is the next step.
 ## Errors
 
 Every error reads `CODE: What happened. Next step: What to do.` The codes are the plugin's own one table. `setup` and
-`status` codes come from the plugin; `rpc` codes are a refusal from the tools RPC for scripts, which
+`status` codes come from the plugin; `rpc` and `source` codes are a refusal from the tools RPC for scripts, which
 [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md#errors) explains in detail.
 
 | Code | Surface | When |
@@ -633,6 +669,17 @@ Every error reads `CODE: What happened. Next step: What to do.` The codes are th
 | `TOOL_UNAVAILABLE` | rpc | The server is connected but OpenCode does not list the tool. |
 | `UPSTREAM_ERROR` | rpc | Affinity answered with an error, such as an invalid input or a rate limit. |
 | `CANCELLED` | rpc | The request was cancelled. |
+| `INPUT_INVALID` | source | `events_list` or `probe` got an input it does not take, or no account. |
+| `SOURCE_UNKNOWN` | source | The input names a source other than `affinity`. |
+| `ACCOUNT_MISMATCH` | source | The account or cursor is another than the one Affinity is signed in to. |
+| `CURSOR_INVALID` | source | The cursor was not issued by this source for this account. |
+| `NEEDS_SIGN_IN` | source | The `affinity` server needs a sign-in. |
+| `SCOPE_MISSING` | source | The Affinity sign-in lacks a scope the read needs. |
+| `RATE_LIMITED` | source | Affinity refused a call for a rate limit or the firm's monthly API quota. |
+| `UNAVAILABLE` | source | Probe has not named the sign-in yet, or Affinity's answer could not be read. |
+
+`source` codes are the source contract's own, from the meetings source's `events_list` and `probe` (see
+[The meetings source](#the-meetings-source)).
 
 The status RPC's own error is `unavailable`, with a next step, when the status cannot be read.
 
