@@ -3,12 +3,14 @@ import { watchAccount } from "./account.js"
 import { reasonOf } from "./redact.js"
 import { errorText, NAMESPACE_DESCRIPTION, OAUTH_SCOPE, PLUGIN_ID, SERVER_NAME } from "./constants.js"
 import { checkHost } from "./host-version.js"
-import { registerToolsRpc, METHODS } from "./host/tools-rpc.js"
+import { registerToolsRpc } from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import { eventsMethod, probeMethod, signIns } from "./events.js"
 import { watchIntegration } from "./integration.js"
 import { parseOptions } from "./options.js"
 import { defaultRules, registerDefaultRules } from "./permissions.js"
 import { loadSkills, registerSkills } from "./skills.js"
 import { readStatus, registerStatusCommand, registerStatusRpc, type ServerSource } from "./status.js"
+import { METHODS, PLUGIN } from "./tools-rpc.js"
 
 /** Internal seam: tests point the server at a loopback fake without OAuth, and at their own skills. */
 interface AffinitySeam {
@@ -112,9 +114,22 @@ export function createAffinityPlugin(seam: AffinitySeam) {
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
-      // Scripts call the known reads with no model, as a session and its agent.
-      const stopTools = await registerToolsRpc(ctx, { methods: METHODS, mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" } })
-      const stopWatch = watchIntegration(ctx, owned)
+      // Affinity's meetings source (package.json's `sources`): events_list and probe, tools RPC methods only. The sign-in
+      // is OpenCode's credential for the server: probe records who it is, and a listing checks against that.
+      const signIn = async () => {
+        const server = (await ctx.mcp.list()).data.find((entry) => entry.name === SERVER_NAME)
+        const connection = server?.integrationID ? await ctx.integration.connection.active(server.integrationID) : undefined
+        return connection?.type === "credential" ? connection.id : undefined
+      }
+      const events = { tool: ctx.tool, mcp: ctx.mcp, permission: ctx.permission, owned, signIn, signIns: signIns() }
+      // Scripts call every known tool, and the source's events_list and probe, with no model, as a session and its agent.
+      const stopTools = await registerToolsRpc(ctx as never, {
+        plugin: PLUGIN,
+        methods: [...METHODS, eventsMethod(events), probeMethod(events)],
+        mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" },
+      })
+      // A new or switched sign-in forgets what probe read for every sign-in: the next listing waits for a probe.
+      const stopWatch = watchIntegration(ctx, owned, () => events.signIns.clear())
       return async () => {
         await stopWatch()
         await stopTools()

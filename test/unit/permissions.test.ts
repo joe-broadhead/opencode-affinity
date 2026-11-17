@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
-import { ACCESS, defaultRules, effectOf, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
+import { ACCESS, defaultRules, effectOf, evaluate, hasDefaultRules, insertRules, registerDefaultRules, SOURCE_METHODS, unguardedAgents, type Rule } from "../../src/permissions.js"
 import { agentEditor, allow, builtInAgents, transforms, type AgentEditor, type FakeAgent } from "./fake.js"
 
 const deny = (action: string): Rule => ({ action, resource: "*", effect: "deny" })
@@ -14,8 +14,15 @@ describe("defaultRules", () => {
   test("allow everything by default: the namespace pattern, then every tool, reads and changes alike", () => {
     const rules = defaultRules("all")
     expect(rules[0]).toEqual(allowAll("affinity_*"))
-    expect(rules.slice(1)).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => allowAll(`affinity_${tool}`)))
+    expect(rules.slice(1)).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, ...SOURCE_METHODS].map((tool) => allowAll(`affinity_${tool}`)))
     expect(effects([allowAll("*"), ...rules])).toEqual(ACTIONS.map(() => "allow"))
+  })
+
+  test("the meetings source's events_list and probe only read, so every access value allows them", () => {
+    expect(SOURCE_METHODS).toEqual(["events_list", "probe"])
+    for (const access of ACCESS) {
+      for (const method of SOURCE_METHODS) expect({ access, method, effect: evaluate(defaultRules(access), `affinity_${method}`) }).toEqual({ access, method, effect: "allow" })
+    }
   })
 
   test("ask-changes allows a read and a playbook, and asks for everything else, a tool Affinity adds included", () => {

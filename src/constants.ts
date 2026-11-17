@@ -37,7 +37,9 @@ export const UNTESTED_EXAMPLE = "2.2.99"
  * Every code this plugin can raise, and where it appears: the one table the README and the guides are checked against.
  * - `setup`: the plugin refuses a bad option, a host outside the range, or reports a failed registration or rule insert;
  * - `status`: `/affinity-status`, the `/affinity` dialog and the status RPC;
- * - `rpc`: a refusal from the tools RPC for scripts, which `docs/scripting.md` tables.
+ * - `rpc`: a refusal from the tools RPC for scripts, which `docs/scripting.md` tables;
+ * - `source`: a refusal from the meetings source's `events_list` or `probe`, in the source contract's codes, which
+ *   `docs/scripting.md` tables too.
  *
  * The status RPC's own error name is `unavailable`, not a code. A code is never invented at a call site: `affinityError`
  * and `errorText` take `PluginCode`, so a code outside this table does not compile.
@@ -61,6 +63,14 @@ export const CODES = {
   TOOL_UNAVAILABLE: { surface: "rpc", when: "The server is connected but OpenCode does not list the tool." },
   UPSTREAM_ERROR: { surface: "rpc", when: "Affinity answered with an error, such as an invalid input or a rate limit." },
   CANCELLED: { surface: "rpc", when: "The request was cancelled." },
+  INPUT_INVALID: { surface: "source", when: "`events_list` or `probe` got an input it does not take, or no account." },
+  SOURCE_UNKNOWN: { surface: "source", when: "The input names a source other than `affinity`." },
+  ACCOUNT_MISMATCH: { surface: "source", when: "The account or cursor is another than the one Affinity is signed in to." },
+  CURSOR_INVALID: { surface: "source", when: "The cursor was not issued by this source for this account." },
+  NEEDS_SIGN_IN: { surface: "source", when: "The `affinity` server needs a sign-in." },
+  SCOPE_MISSING: { surface: "source", when: "The Affinity sign-in lacks a scope the read needs." },
+  RATE_LIMITED: { surface: "source", when: "Affinity refused a call for a rate limit or the firm's monthly API quota." },
+  UNAVAILABLE: { surface: "source", when: "Probe has not named the sign-in yet, or Affinity's answer could not be read." },
 } as const
 
 /** One code from {@link CODES}. */

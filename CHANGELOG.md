@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.5] - 2026-11-17
+
+Tested on OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
 
 ### Added
 
@@ -20,6 +22,41 @@ All notable changes to this project are documented here. The format follows [Kee
 - **For jelly:** a **Client ID** setting, free text, wired to the option; `jelly.admin` names both routes.
 - The README's Organisation rollout gives both routes, and Troubleshooting covers `Unknown client_id`
   (`SERVER-OAUTH-003`) and `invalid_scope` for either.
+- **A source for Memory, jelly and Artifacts:** `package.json` declares `sources` (source contract version 1, the
+  RPC `affinity.crm.tools`) with one events source, `affinity.meetings`, which reads `meeting`. Two new tools RPC
+  methods serve it, never tools the model sees, and the default rules allow both under every `access` value:
+  - `probe` (`affinity_probe`) makes one `get_current_user` call and names the account, `<organisation id>/<email>`,
+    its owner (`mailto:` and the email, labelled with the person's and the organisation's names) and the sign-in's
+    scopes. It records them for the current sign-in, in memory; a new or switched sign-in forgets them.
+  - `events_list` (`affinity_events_list`) lists, oldest first, the meetings the signed-in person organised, created
+    or attended, once each started an hour ago: the meeting's id, start, title and the people Affinity matched to a
+    person record (`affinity:person/<id>` and their name). `text` is always empty and `url` null: no notes,
+    transcripts, email addresses, phone numbers or relationship scores, and Affinity's meetings have no link. A listing
+    names the account `probe` named and is refused until `probe` has named it, so it never spends a call asking who is
+    signed in. A meeting logged in Affinity after a listing passed its start is listed once by a later listing,
+    wherever in the read-back it started, with a 10-minute margin for Affinity's index lag and clock skew. A listing
+    makes at most 10 `get_meetings` calls, usually one; one that runs out ends with what it listed and a cursor that
+    carries on, so a calendar backfill drains over several listings. Each page's `cost` counts its calls. It reads
+    back 90 days, by choice, to bound the quota: an older `since` answers `gap` `window-truncated`, a cursor more than
+    100 days old `gap` `expired`, each once; a meeting deleted before a listing reaches it is never listed. The cursor
+    is bound to the plugin, the source and the account. A meeting whose title holds a secret is refused for good. It
+    assumes Affinity shows a new meeting within about 10 minutes (a slower one can be skipped) and that `createdAt` is
+    when Affinity added the meeting, not when the calendar event was created (if not, meetings from a calendar
+    connected later than they happened are not listed); both are checked at the first live sign-in.
+  - The source contract's error codes: `INPUT_INVALID`, `SOURCE_UNKNOWN`, `ACCOUNT_MISMATCH`, `CURSOR_INVALID`,
+    `NEEDS_SIGN_IN`, `SCOPE_MISSING`, `RATE_LIMITED` and `UNAVAILABLE`.
+- `npm run conformance`, also a stage of `npm run check`: the source contract's conformance kit over the source,
+  offline, writing `reports/conformance-report.json` for the release kit to attach.
+
+### Changed
+
+- The tools RPC's transport is the source contract's `tools-rpc` module (`@we-the-rebel-alliance/source-contract`
+  v0.2.0, a devDependency bundled into `dist/index.js`), in place of the copy in `src/host/tools-rpc.ts`; Affinity's
+  part is `src/tools-rpc.ts`. Methods, ids, classes and codes are unchanged.
+- The admin step uses Affinity's own button names, **Client URL (CIMD)**, or **Add by Client URL (CIMD)** for someone
+  who can't create API keys, says it needs Affinity's `Manage all OAuth apps` permission (by default only
+  Administrators), and that the preview's warning about localhost redirect URIs is expected for OpenCode. The README,
+  the status's advice and `jelly.admin` use the same name.
 
 ## [0.0.4] - 2026-11-15
 

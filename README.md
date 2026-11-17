@@ -16,11 +16,13 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
   you set `allowUntestedHost`.
 - macOS or Linux.
 - An Affinity CRM account on the **Scale, Advanced or Enterprise** plan, which include API and MCP access.
-- **Once per Affinity organisation**, an Affinity admin adds OpenCode as an app: Settings → Manage Apps → New App →
-  **Client URL**, with `https://opencode.ai/oauth/opencode/client.json`, or registers the organisation's own **Public**
-  OAuth app and sets its client ID in the plugin's `clientId` option (see
-  [Organisation rollout](#organisation-rollout)). If the Client URL menu item is missing, ask your Affinity contact to
-  turn it on, or use the organisation's own app. Until then Affinity shows an error page instead of asking for access.
+- **Once per Affinity organisation**, someone with Affinity's `Manage all OAuth apps` permission (by default only
+  Administrators) adds OpenCode as an app: Settings → Manage Apps → New App → **Client URL (CIMD)** (**Add by Client
+  URL (CIMD)** for someone who can't create API keys), with `https://opencode.ai/oauth/opencode/client.json`, or
+  registers the organisation's own **Public** OAuth app and sets its client ID in the plugin's `clientId` option (see
+  [Organisation rollout](#organisation-rollout)). If the Client URL (CIMD) button is missing, ask your Affinity contact
+  to turn it on, or use the organisation's own app. Until then Affinity's sign-in shows
+  `Auth Error (SERVER-OAUTH-003) Unknown client_id` instead of asking for access.
 - What you can see follows your Affinity permissions. Note and file search need **Deal Assist**, and the meeting tools
   need **unified events**; ask your Affinity admin.
 - Every call counts against your organisation's monthly Affinity API quota, which the whole firm shares (100,000 calls a
@@ -30,18 +32,18 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.4
+opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.5
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/affinity-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.3`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.4`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }] }
 ```
 
 The plugin registers Affinity's MCP server under the name `affinity`, adds default permission rules, the
@@ -63,9 +65,9 @@ Affinity's consent screen lists three scopes, all ticked. **Untick `mcp` (change
 keep `offline_access`: reads work, Affinity refuses every change, and without `offline_access` the sign-in expires after
 a day. Sign in again with `mcp` ticked to allow changes.
 
-If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet, or, with
-the `clientId` option, its own app is not set up as that section says: ask an Affinity admin to follow
-[Organisation rollout](#organisation-rollout), then sign in again. OpenCode's sign-in waits for
+If Affinity shows `Unknown client_id` (SERVER-OAUTH-003) or another error page instead of the consent screen, your
+organisation has not added OpenCode yet, or, with the `clientId` option, its own app is not set up as that section
+says: ask an Affinity admin to follow [Organisation rollout](#organisation-rollout), then sign in again. OpenCode's sign-in waits for
 an answer that Affinity does not send, so close it and start again once the admin has added OpenCode.
 
 When the sign-in expires and cannot be renewed, `/connect` marks the Affinity account as needing a new sign-in, and
@@ -99,7 +101,8 @@ other tools unless you name the destination. It keeps calls few, because they co
 | `/affinity`, or "Affinity: Status" in the command palette | Opens the same report in a dialog. Press `r` to refresh it and `Esc` to close it. It also refreshes when Affinity's connection, the sign-in or the agents change. |
 
 The organisation and the grant in the report appear after the model's first account read (`affinity_get_current_user`)
-since OpenCode started; the plugin makes no Affinity call of its own.
+since OpenCode started, or a consumer's `probe`; the plugin makes no Affinity call of its own, only those a model, a
+script or a source's consumer asks for.
 
 Two skills teach the model to use Affinity well:
 
@@ -133,6 +136,36 @@ OpenCode's permission prompt.
 A script's reads run under the rules of the location it calls, not of a session's own location (a limit of the shared
 tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md).
 
+### The meetings source
+
+The plugin declares one source of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
+`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read your Affinity meetings with
+your consent: `affinity.meetings`, events of kind `meeting`. A consumer calls two tools RPC methods, never tools the
+model sees, and the default rules allow both under every `access` value, because they only read:
+
+- `probe` (`affinity_probe`) makes one `get_current_user` call and names who is signed in: the account
+  `<organisation id>/<email>`, its owner (`mailto:` and the email, labelled with your name and the organisation's) and
+  the sign-in's scopes. It remembers the answer for the current sign-in, in memory only.
+- `events_list` (`affinity_events_list`) lists, oldest first, the meetings you organised, created or attended, one
+  event per meeting: Affinity's meeting id, its start, its title, and the people on it whom Affinity matched to a
+  person record (`affinity:person/<id>` and their name). It carries no notes, transcripts, email addresses, phone
+  numbers, relationship scores or link (Affinity's meetings have none); its text is always empty. A meeting is listed
+  once it started an hour ago. A listing names the account `probe` named, and is refused until `probe` has named it
+  for the current sign-in; a new sign-in forgets it. A meeting whose title holds a secret is refused for good.
+- A meeting logged in Affinity after a listing passed its start (logged late, or a calendar connected later) is
+  listed by a later listing, once, wherever in the read-back it started. A 10-minute margin absorbs Affinity's indexing
+  lag and clock skew.
+- It reads back 90 days, by choice, to bound the quota. A `since` further back starts at 90 days with `gap`
+  `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
+
+Every call counts against the firm's monthly API quota, so a listing makes **at most 10 calls**, whatever it finds,
+and usually one: a consumer that reads every hour makes one call a listing, and so does a first read of the last day.
+A page that runs out of calls ends with what it listed, `more: true`, and a cursor that carries on, so a calendar
+backfill of thousands of meetings drains over several listings at no more than 10 calls each. Affinity lists every
+meeting you may see, colleagues' included, and the source keeps only yours, so a firm whose calendars Affinity shares
+widely uses more calls. Each page's `cost` says how many calls it made; a probe is one call. `npm run conformance` runs
+the contract's conformance kit over the source, and each release attaches its report.
+
 ## Permissions
 
 **Every tool is allowed by default.** The plugin adds one block to every agent, right after the agent's base rule that
@@ -148,7 +181,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -250,7 +283,9 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "allow" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -342,7 +377,9 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "ask" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -434,7 +471,9 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
-    { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }
+    { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" },
+    { "action": "affinity_events_list", "resource": "*", "effect": "allow" },
+    { "action": "affinity_probe", "resource": "*", "effect": "allow" }
 ]
 ```
 
@@ -493,7 +532,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -508,7 +547,8 @@ OAuth app, or an Affinity API key), permission recipes and every error.
 
 ## Organisation rollout
 
-An admin of your Affinity organisation, with permission to manage OAuth apps, takes one of two routes, once. Both
+An admin of your Affinity organisation, with Affinity's `Manage all OAuth apps` permission (by default only
+Administrators), takes one of two routes, once. Both
 sign in through `/connect` and keep a refresh token; members never handle a secret.
 
 ### Route 1: OpenCode's client URL
@@ -516,8 +556,11 @@ sign in through `/connect` and keep a refresh token; members never handle a secr
 OpenCode signs in to Affinity with its own client metadata document, so there is no client ID to distribute. Affinity
 accepts it only after the admin adds it:
 
-1. In Affinity, open Settings → Manage Apps → **New App** → **Client URL**.
-2. Paste `https://opencode.ai/oauth/opencode/client.json`, and choose **Preview**.
+1. In Affinity, open Settings → Manage Apps → **New App** → **Client URL (CIMD)**. Someone who can't create API keys
+   sees **Add by Client URL (CIMD)** instead.
+2. Paste `https://opencode.ai/oauth/opencode/client.json`, and choose **Preview**. The preview warns that every
+   redirect URI is on localhost: that is expected, because OpenCode is a desktop client that receives the sign-in on
+   your own machine.
 3. Allow the scopes `mcp`, `mcp.read` and `offline_access`, and choose **Add App**. Allowing only `mcp.read` makes every
    member's connection read-only; members then need the read-only entry in
    [Configuration](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/configuration.md#read-only-for-everyone),
@@ -551,7 +594,7 @@ dropdown options, which change every record of their type:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }],
   "permissions": [
     { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" }
@@ -564,7 +607,7 @@ With route 2, add the app's client ID to the same entry:
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "clientId": "<your app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "clientId": "<your app's client ID>" } }
   ]
 }
 ```
@@ -581,7 +624,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | Status or error | What to do |
 | --- | --- |
 | Connection: sign-in required | Run `/connect` and choose Affinity, then press `o` or Enter to open the link. In a terminal, `opencode mcp auth affinity` opens it automatically (from the project folder; see [Sign in](#sign-in)). |
-| Organisation setup row: Affinity shows an error page instead of asking for access | This is a first sign-in, and your organisation has not added OpenCode yet. Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL, as [Organisation rollout](#organisation-rollout) shows, then sign in again. With the `clientId` option, the admin checks your organisation's own app instead: a Public app with the redirect URIs and scopes that section lists. A sign-in that worked before and now needs one again is an expiry: run `/connect` again. |
+| Organisation setup row: Affinity shows an error page instead of asking for access | This is a first sign-in, and your organisation has not added OpenCode yet. Ask someone with Affinity's `Manage all OAuth apps` permission (by default an Administrator) to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL (CIMD), as [Organisation rollout](#organisation-rollout) shows, then sign in again. With the `clientId` option, the admin checks your organisation's own app instead: a Public app with the redirect URIs and scopes that section lists. A sign-in that worked before and now needs one again is an expiry: run `/connect` again. |
 | The sign-in fails with `invalid_scope` | The app Affinity sees (the Sign-in client row) does not allow every scope the sign-in asks for. Often your organisation allows only the read-only scope: use the read-only entry in Configuration, or ask the admin to allow `mcp` too. With the `clientId` option, ask the admin to allow `mcp`, `mcp.read` and `offline_access` on that app. |
 | Affinity answers `Unknown client_id` (`SERVER-OAUTH-003`) | Affinity does not know the client the sign-in names. With the `clientId` option, the ID is mistyped, or names an app of another Affinity organisation, or the app was deleted: copy the client ID again from Settings → Manage Apps, or remove the option to use OpenCode's client URL. Without it, your organisation has not added OpenCode's client URL yet: see [Organisation rollout](#organisation-rollout). |
 | Sign-in client: the `clientId` option is ignored because your entry wins | Your own `mcp.servers.affinity` decides how you sign in. Remove it to use the option, or put the client ID in its `oauth.client_id`. |
@@ -610,7 +653,7 @@ Run `/affinity-status` first. Its last line is the next step.
 ## Errors
 
 Every error reads `CODE: What happened. Next step: What to do.` The codes are the plugin's own one table. `setup` and
-`status` codes come from the plugin; `rpc` codes are a refusal from the tools RPC for scripts, which
+`status` codes come from the plugin; `rpc` and `source` codes are a refusal from the tools RPC for scripts, which
 [Scripting](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/scripting.md#errors) explains in detail.
 
 | Code | Surface | When |
@@ -633,6 +676,17 @@ Every error reads `CODE: What happened. Next step: What to do.` The codes are th
 | `TOOL_UNAVAILABLE` | rpc | The server is connected but OpenCode does not list the tool. |
 | `UPSTREAM_ERROR` | rpc | Affinity answered with an error, such as an invalid input or a rate limit. |
 | `CANCELLED` | rpc | The request was cancelled. |
+| `INPUT_INVALID` | source | `events_list` or `probe` got an input it does not take, or no account. |
+| `SOURCE_UNKNOWN` | source | The input names a source other than `affinity`. |
+| `ACCOUNT_MISMATCH` | source | The account or cursor is another than the one Affinity is signed in to. |
+| `CURSOR_INVALID` | source | The cursor was not issued by this source for this account. |
+| `NEEDS_SIGN_IN` | source | The `affinity` server needs a sign-in. |
+| `SCOPE_MISSING` | source | The Affinity sign-in lacks a scope the read needs. |
+| `RATE_LIMITED` | source | Affinity refused a call for a rate limit or the firm's monthly API quota. |
+| `UNAVAILABLE` | source | Probe has not named the sign-in yet, or Affinity's answer could not be read. |
+
+`source` codes are the source contract's own, from the meetings source's `events_list` and `probe` (see
+[The meetings source](#the-meetings-source)).
 
 The status RPC's own error is `unavailable`, with a next step, when the status cannot be read.
 
@@ -646,6 +700,17 @@ The status RPC's own error is `unavailable`, with a next step, when the status c
   make it. A script's reads follow the location it calls, not the session's location (a limit of the shared tools
   module).
 
+- **The meetings source** keeps a meeting only when your email is its organiser's, its creator's or one of the
+  attendees Affinity previews, at most 100; Affinity's docs don't say that your user id is your person id, so the
+  source doesn't match on it. You are not matched to a larger meeting where you are past the preview, or to one you
+  were invited to by an alias. A meeting deleted before a listing reaches it is never listed, and no gap says so (a
+  deletion after it was listed will be announced once consumers read the contract's `removals[]`). More than 1,000
+  visible meetings that start in the same second cannot be read whole, and `events_list` answers `UNAVAILABLE` for them.
+- **The meetings source makes two assumptions.** It allows 10 minutes for Affinity to show a newly added meeting in
+  `get_meetings`: a meeting that takes longer than about 10 minutes to appear after Affinity adds it can be skipped. It
+  also assumes a meeting's `createdAt` is when Affinity added it, not when the calendar event itself was created. If it
+  is the latter, meetings from a calendar connected later than they happened are not listed. Both are checked at the
+  first live sign-in.
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
   older Jelly refuses the plugin's whole declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
@@ -659,7 +724,7 @@ credential store.
 1. Sign out: `opencode mcp logout affinity` from the project folder. Right after OpenCode starts or reloads, it can
    answer `MCP server not found: affinity` for a few seconds; wait, then run it again.
 2. Check: `/connect` → **Affinity** shows no account; `opencode auth list` after step 3 shows no Affinity credential.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.4`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.5`, then `opencode reload`.
    `opencode mcp list` no longer lists `affinity`.
 4. Remove any Affinity rules you copied into your agents' own `permissions`. If you used an API key, revoke it in
    Affinity: Settings, Manage Apps. An admin who no longer wants OpenCode for anyone revokes its app there, which

@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4" }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -76,7 +76,7 @@ the whole organisation, set it once in the system config's plugin entry
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "clientId": "<the app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "clientId": "<the app's client ID>" } }
   ]
 }
 ```
@@ -402,7 +402,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Affinity's server and from OpenCode pass through unchanged, such as `Insufficient scope` on a read-only
@@ -424,7 +424,7 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `signInClient` | Whom Affinity sees signing in: `{ type: "app", id }` for the `clientId` option, with the ID's first 8 characters and `…`; `{ type: "client-url", url }` for OpenCode's client URL; `{ type: "own-entry", clientIdIgnored }` for your own `mcp.servers.affinity`, which the plugin does not read, with `clientIdIgnored` true when the option is set but your entry wins; `{ type: "none" }` for a conflict or no server. The `Sign-in client` row shows the same. |
 | `organisation` | The Affinity organisation's name, or `null` until the first `get_current_user` call since OpenCode started |
 | `grant` | `read-write`, `read-only` (Affinity refuses every change), `api-key` (a personal key, with full access), or `null` until read |
-| `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. With the `clientId` option, it is about that app instead: a Public app with OpenCode's redirect URIs and the scopes `mcp`, `mcp.read` and `offline_access`, and `Unknown client_id` means the option names no app of this organisation. |
+| `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL (CIMD), which needs Affinity's `Manage all OAuth apps` permission; until then Affinity's sign-in says `Unknown client_id` (SERVER-OAUTH-003)). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. With the `clientId` option, it is about that app instead: a Public app with OpenCode's redirect URIs and the scopes `mcp`, `mcp.read` and `offline_access`, and `Unknown client_id` means the option names no app of this organisation. |
 | `everConnected` | True once this `affinity` server has connected since OpenCode started |
 | `access` | `all`, `ask-changes` or `read-only`: the value the default rules were generated for |
 | `tools` | How many Affinity tools OpenCode lists that the plugin knows |

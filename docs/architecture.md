@@ -2,8 +2,10 @@
 
 The plugin is a thin layer over Affinity's official MCP server. OpenCode owns the MCP transport, OAuth, credentials,
 permission prompts and tool output limits. The plugin registers the server, names its `/connect` entry, adds default
-permission rules, reports status, ships two skills, and lets scripts call the known reads through a tools RPC. It
-adds no tool of its own, makes no Affinity call of its own, and has no runtime dependencies.
+permission rules, reports status, ships two skills, lets scripts call the known tools through a tools RPC, and serves
+one source of the source contract, `affinity.meetings`, through two more methods of that RPC. It adds no tool the
+model sees, makes no Affinity call that a model, a script or a source's consumer did not ask for, and has no runtime
+dependencies: the source contract's package is bundled into `dist/index.js`.
 
 ## Layout
 
@@ -20,7 +22,9 @@ adds no tool of its own, makes no Affinity call of its own, and has no runtime d
 | `src/status.ts` | The status model and text, `/affinity-status`, and the status RPC method |
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
 | `src/skills.ts` | Loading and registering the skills |
-| `src/host/tools-rpc.ts` | The tools RPC for scripts, `affinity.crm.tools`; a copy of a module shared by several plugins, with Affinity's part in one marked block |
+| `src/tools-rpc.ts` | Affinity's part of the tools RPC for scripts, `affinity.crm.tools`: its method table and its plugin value (next steps, the account read's result shaping, the source's own errors). The transport is the source contract's `tools-rpc` module |
+| `src/events.ts` | The meetings source, `affinity.meetings`: `events_list` and `probe` as tools RPC methods, on the source contract's `events` and `cursor` modules, with what `probe` read per sign-in |
+| `src/meetings.ts` | The only reader of Affinity's answers for the source: `get_meetings` pages and `get_current_user` |
 | `src/tui.ts` | The terminal UI part: the plugin `affinity.crm.tui` and the `/affinity` dialog |
 | `src/constants.ts` | IDs, the server name and URL, the OAuth scope, OpenCode's client URL that Affinity organisations add, the redirect URIs an organisation's own app registers, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
@@ -55,8 +59,10 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 7. `watchAccount` adds one `execute.after` hook, which reads the account from `affinity_get_current_user` results, and
    forgets it on `credential.switched` and when the server is no longer connected.
 8. `ctx.skill.transform`, `ctx.command.transform` (`/affinity-status`) and `ctx.rpc.register` (`affinity.crm/status`).
-9. `registerToolsRpc` registers the tools RPC, `affinity.crm.tools`, and its `evaluate` hook.
-10. `watchIntegration` starts. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
+9. `registerToolsRpc` (the source contract's) registers the tools RPC, `affinity.crm.tools`, and its `evaluate` hook:
+   every known tool, and the meetings source's `events_list` and `probe`.
+10. `watchIntegration` starts; a `credential.updated` or `credential.switched` also forgets what `probe` read, so the next
+    listing waits for a probe. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 
 Transforms are synchronous and never throw: a failure is kept as a problem for status, and cleared when the next replay
@@ -166,3 +172,38 @@ These facts about OpenCode 2.2.3 hold on 2.2.4, 2.2.5 and 2.2.6 too. Links point
 | UI part options | The UI part of a plugin listed in `opencode.json` gets no plugin options. | Observed on stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 |
 | Tool executors | `ctx.tool.list()` returns each MCP tool with a callable `execute`, which checks `<server>_<tool>` with the agent's and the session's rules and saved approvals, and gives the `evaluate` hook the call's `source`. A deny is a `Tool.Error` with a cause; the server's `isError` is one without. `execute.before` and `execute.after` hooks do not run for it. Not documented as an entry point: the package test checks it on stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/tool/mcp.ts) |
 | RPC input | An RPC input given as a Standard Schema is validated with it; a plain JSON Schema is decoded with Effect, which drops unknown keys of an object that has properties. The package test checks the envelope on stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. | `@opencode/core` 2.2.3, the RPC service's `parse` |
+
+## The meetings source
+
+`package.json`'s top-level `sources` declares `affinity.meetings` (contract version 1, the RPC `affinity.crm.tools`,
+the probe action `affinity_probe`). `probe` makes one `get_current_user` call, answers the account
+`<organisation id>/<email>` and its owner, and records them under OpenCode's credential for the server. `events_list`
+checks the account it is asked for against that record before any call, so it never spends a call on who is signed in.
+
+Affinity lists every meeting the person may see and promises no order within a page, so a listing reads a slice of
+start times whole (every page of one filter), sorts it, and keeps the meetings whose organiser, creator or previewed
+attendees include the signed-in email. Two feeds share the cursor:
+
+- the main feed lists the meetings that started after its position, oldest first;
+- the late feed lists meetings added to Affinity after an earlier listing passed their start. Listings run in
+  generations: a generation starts at a listing's clock G and owns the meetings added in [previous G − 10 minutes,
+  G − 10 minutes), over the whole read-back up to the main position when it started. Each meeting belongs to exactly one
+  generation, so it is listed once, and the margin absorbs Affinity's index lag and clock skew. A main-feed meeting added
+  within the current generation's margin is left to the next generation.
+
+A listing makes at most `MAX_CALLS` (10) calls. A slice that takes more than `ATTEMPT_PAGES` (5) pages is read again at
+half its span; a slice read in at most two pages lets the next one double. Both spans live in the cursor, so a
+backfill drains over several listings at a bounded cost each, and a listing whose budget runs out ends with what it
+listed, `more: true`, and its progress. While both spans are at their widest, the late feed's whole reach and the main
+feed's slice share one filter (`(… & createdAt>=…) | (…)`): a normal listing is one call. Only a second in which more
+than 1,000 visible meetings start cannot be read whole, and is `UNAVAILABLE`.
+
+The cursor, bound to the plugin, the source and the account by the contract's `cursor` module, holds the main
+position, the generation (G, the previous G, its reach's end and progress) and the two spans. The source reads back 90
+days, by choice, and answers `gap` (`window-truncated` for an older `since`, `expired` for a cursor more than 100 days
+old) once, on the page where it restarts. A meeting deleted before a listing reaches it is never listed, and no gap
+says so.
+
+`npm run conformance` (`scripts/conformance.ts`) runs the contract's kit over both methods against a fake Affinity
+(`test/support/conformance.ts`, answering from `test/fixtures/conformance.json`) and writes
+`reports/conformance-report.json`, which the release kit attaches.

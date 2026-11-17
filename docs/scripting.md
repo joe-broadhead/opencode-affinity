@@ -12,6 +12,7 @@ carries a class: the worst thing that tool can do.
 | `read` | Affinity's twelve workflow playbooks too, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each only returns text; what it can drive is the caller's own decision, under the caller's rules |
 | `write` | the twenty writes, such as `create_note`, `create_person`, `update_person` and `upsert_list_entry_field_values` | it changes the firm's shared CRM, or issues a file credential |
 | `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`, `send_feedback` | removes CRM data for good, or sends text to Affinity's team |
+| `read` | `events_list` and `probe`, the meetings source's two methods (`affinity_events_list` and `affinity_probe`), which the plugin runs itself: see [The meetings source](#the-meetings-source) | it only reads, and every `access` value allows it |
 | `describe` | none: lists the methods, their class, their permission action, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — given a session — whether that session may call it |
 
 The methods come from the plugin's one tool table, `src/affinity-tools.ts`: the known reads (`READ_TOOLS` in
@@ -36,6 +37,39 @@ method, even with an allow rule; `describe` reports it as unclassified.
 Results hold other people's personal data: contact details, relationship scores and notes about founders, investors
 and colleagues. Keep what a script writes where the people it is about would expect it, and only as long as you need
 it.
+
+## The meetings source
+
+`events_list` and `probe` are the source contract's methods for `affinity.meetings`, the source `package.json`
+declares under `sources`. They are for a consumer such as Memory, jelly or Artifacts, and for a script that keeps its
+own cursor. Call `probe` first: it makes one `get_current_user` call and answers the account, its owner and the
+sign-in's scopes, and the plugin remembers it for the current sign-in.
+
+```sh
+opencode api post /api/rpc/affinity.crm.tools/probe \
+  -H "x-opencode-directory:$PWD" \
+  -d '{"input":{"sessionID":"ses_…","input":{}}}'
+```
+
+Then list with that account, and pass each result's `cursor` to the next call:
+
+```sh
+opencode api post /api/rpc/affinity.crm.tools/events_list \
+  -H "x-opencode-directory:$PWD" \
+  -d '{"input":{"sessionID":"ses_…","input":{"account":"<organisation id>/<email>","since":"2026-11-01"}}}'
+```
+
+A page lists, oldest first, the meetings the signed-in person organised, created or attended, once each started an
+hour ago: the meeting's id, start, title, and the people Affinity matched to a person record (`affinity:person/<id>`
+and their name). Its `text` is always empty and its `url` null: no notes, transcripts, email addresses or relationship
+scores, and Affinity's meetings have no link. A meeting logged in Affinity after an earlier listing passed its start
+is listed once by a later listing, wherever in the read-back it started. `more` is true when another call now would
+list more. `cost` counts the `get_meetings` calls the page made, each against the firm's monthly quota: usually one,
+and never more than 10; a page that runs out of calls ends with what it listed and a cursor that carries on. The cursor
+is bound to the account, and another account's is refused. The source reads back 90 days, by choice, to bound the
+quota: a `since` further back answers `gap` `window-truncated`, and a cursor more than 100 days old `gap` `expired`,
+once, then reads on from 90 days back. A meeting deleted before a listing reaches it is never listed, and no gap says
+so.
 
 ## A script runs as a session
 
@@ -142,6 +176,19 @@ A refusal or failure is the RPC error `failed`, with a message `CODE: what happe
 | `TOOL_UNAVAILABLE` | The server is connected, but OpenCode does not list the tool, for example because a release of Affinity's server removed it. |
 | `UPSTREAM_ERROR` | Affinity answered with an error, such as an invalid input, an item that does not exist, a Deal Assist or unified-events access error, or `Rate limit exceeded`. The message holds the first line of Affinity's text, at most 300 characters, with tokens and URL query strings removed. |
 | `CANCELLED` | The request was cancelled. |
+
+`events_list` and `probe` refuse in the source contract's own codes:
+
+| Code | When |
+| --- | --- |
+| `INPUT_INVALID` | The input has a key the method does not take, a limit outside 1 to 500, or no account, or the account is not `<organisation id>/<email>`. |
+| `SOURCE_UNKNOWN` | The input names a source other than `affinity`. |
+| `ACCOUNT_MISMATCH` | The account, or the account a cursor was issued for, is another than the one Affinity is signed in to. |
+| `CURSOR_INVALID` | The cursor was not issued by this source for this account. Start again with `since`. |
+| `NEEDS_SIGN_IN` | The `affinity` server needs a sign-in. |
+| `SCOPE_MISSING` | Affinity says the sign-in lacks a scope the read needs. |
+| `RATE_LIMITED` | Affinity refused a call for its rate limit or the firm's monthly quota. Call again later, never in a loop. |
+| `UNAVAILABLE` | `probe` has not named the current sign-in yet (call it, then list again), the server is not Affinity's or not connected, Affinity's answer could not be read, or Affinity failed in another way. |
 
 OpenCode itself answers `rpc.method_not_found` for a method that does not exist, such as a tool Affinity added later,
 and `rpc.invalid_input` for a body that is not the envelope above, with one message per problem:

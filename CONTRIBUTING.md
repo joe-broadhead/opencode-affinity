@@ -40,12 +40,13 @@ npm run check
 | --- | --- |
 | `typecheck` | `tsc --noEmit` over `src/` and `test/`, strict, with unused names as errors |
 | `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, and the Jelly declaration |
+| `conformance` | `bun scripts/conformance.ts` (also `npm run conformance`): the source contract's conformance kit over `affinity.meetings`, against the offline fixture `test/fixtures/conformance.json`. Writes `reports/conformance-report.json`, which a release attaches, and fails unless it is ok |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the SVG is clean and exact, the 128 and 256 PNGs exist, and `opencode.icons` and `files` agree |
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
-| `copies` | `node scripts/check-copies.mjs`: the tools RPC's shared part in `src/host/tools-rpc.ts`, outside its `PLUGIN-SPECIFIC` block, and Jelly's setting rules in `test/support/jelly-settings.ts` match the copies every plugin carries |
+| `copies` | `node scripts/check-copies.mjs`: Jelly's setting rules in `test/support/jelly-settings.ts` and the release kit match the copies every plugin carries. The tools RPC is the source contract's package, not a copy |
 | `lint:actions` | `actionlint` over the workflows, when it is on PATH; CI runs it as its own job |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 
@@ -205,7 +206,8 @@ a `## [x.y.z] - YYYY-MM-DD` heading below it, newest first, and the npm history 
    `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
    releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
 2. Push that commit to `master`, and wait for CI to pass on it. A pull request's CI runs the Linux runners only; the
-   push to `master` runs every runner, macOS too, and the release stands on that run.
+   push to `master` runs every runner, Apple-silicon macOS (`macos-26`) too, and the release stands on that run. An
+   Intel Mac (`macos-26-intel`) is not required.
 3. Start the release with that commit's full sha:
    `gh workflow run release.yml --ref master -f sha=<full sha>`, or from Actions → release →
    Run workflow, on `master`.
@@ -318,5 +320,5 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.4" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }] }
 ```

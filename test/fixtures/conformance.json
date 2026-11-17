@@ -1,0 +1,317 @@
+{
+  "$comment": "Affinity's answers for the source-contract conformance kit and the events tests, offline, in the shapes of Affinity's API v2 (GET /v2/auth/whoami, GET /v2/meetings), which its MCP server's get_current_user and get_meetings return. No live call is made. Every organisation, person, address and meeting is invented. The signed-in user is Pilot Owner; meeting 1003 is a colleague's, which the source leaves out; meeting 1004's title holds a secret, which the source refuses; meeting 1006 started less than an hour before now, and 1007 is in the future; meeting 1008 started on the 12th but was logged in Affinity half an hour after now, so only a later listing sees it.",
+  "now": "2026-11-13T12:00:00.000Z",
+  "currentUser": {
+    "tenant": {
+      "id": 4821,
+      "name": "Example Ventures",
+      "subdomain": "example-ventures"
+    },
+    "user": {
+      "id": 77,
+      "firstName": "Pilot",
+      "lastName": "Owner",
+      "emailAddress": "Pilot.Owner@example.com"
+    },
+    "grant": {
+      "type": "access-token",
+      "scopes": [
+        "mcp",
+        "mcp.read",
+        "offline_access"
+      ],
+      "createdAt": "2026-11-01T09:00:00Z"
+    }
+  },
+  "meetings": [
+    {
+      "id": 1000,
+      "loggingType": "automated",
+      "title": "Quarterly LP update",
+      "startTime": "2026-11-03T10:00:00Z",
+      "endTime": "2026-11-03T11:00:00Z",
+      "allDay": false,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-10-20T08:00:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "kofi@harbour-lp.example",
+            "person": {
+              "id": 501,
+              "firstName": "Kofi",
+              "lastName": "Boateng",
+              "primaryEmailAddress": "kofi@harbour-lp.example",
+              "type": "external"
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    },
+    {
+      "id": 1001,
+      "loggingType": "automated",
+      "title": "Intro: Northwind Robotics",
+      "startTime": "2026-11-12T09:00:00Z",
+      "endTime": "2026-11-12T09:30:00Z",
+      "allDay": false,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-11-10T08:00:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "ama@northwind.example",
+            "person": {
+              "id": 502,
+              "firstName": "Ama",
+              "lastName": "Mensah",
+              "primaryEmailAddress": "ama@northwind.example",
+              "type": "external"
+            }
+          },
+          {
+            "emailAddress": "assistant@northwind.example",
+            "person": null
+          }
+        ],
+        "totalCount": 3
+      }
+    },
+    {
+      "id": 1002,
+      "loggingType": "manual",
+      "title": "Board prep",
+      "startTime": "2026-11-12T10:00:00Z",
+      "endTime": null,
+      "allDay": false,
+      "creator": {
+        "emailAddress": "dana@example.com",
+        "person": {
+          "id": 9002,
+          "firstName": "Dana",
+          "lastName": "Lee",
+          "primaryEmailAddress": "dana@example.com",
+          "type": "internal"
+        }
+      },
+      "organizer": null,
+      "createdAt": "2026-11-12T10:30:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "PILOT.OWNER@example.com",
+            "person": null
+          }
+        ],
+        "totalCount": 2
+      }
+    },
+    {
+      "id": 1003,
+      "loggingType": "automated",
+      "title": "Colleague's call",
+      "startTime": "2026-11-12T11:00:00Z",
+      "endTime": "2026-11-12T11:30:00Z",
+      "allDay": false,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "dana@example.com",
+        "person": {
+          "id": 9002,
+          "firstName": "Dana",
+          "lastName": "Lee",
+          "primaryEmailAddress": "dana@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-11-01T08:00:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "ama@northwind.example",
+            "person": {
+              "id": 502,
+              "firstName": "Ama",
+              "lastName": "Mensah",
+              "primaryEmailAddress": "ama@northwind.example",
+              "type": "external"
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    },
+    {
+      "id": 1004,
+      "loggingType": "manual",
+      "title": "The staging password is: Qv7mZr2pLx9T",
+      "startTime": "2026-11-12T13:00:00Z",
+      "endTime": "2026-11-12T13:15:00Z",
+      "allDay": false,
+      "creator": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "organizer": null,
+      "createdAt": "2026-11-12T13:20:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [],
+        "totalCount": 0
+      }
+    },
+    {
+      "id": 1005,
+      "loggingType": "automated",
+      "title": "Pipeline review",
+      "startTime": "2026-11-12T15:00:00Z",
+      "endTime": "2026-11-12T16:00:00Z",
+      "allDay": false,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "dana@example.com",
+        "person": {
+          "id": 9002,
+          "firstName": "Dana",
+          "lastName": "Lee",
+          "primaryEmailAddress": "dana@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-11-05T08:00:00Z",
+      "updatedAt": "2026-11-11T08:00:00Z",
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "pilot.owner@example.com",
+            "person": {
+              "id": 9001,
+              "firstName": "Pilot",
+              "lastName": "Owner",
+              "primaryEmailAddress": "pilot.owner@example.com",
+              "type": "internal"
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    },
+    {
+      "id": 1006,
+      "loggingType": "automated",
+      "title": "Stand-up",
+      "startTime": "2026-11-13T11:30:00Z",
+      "endTime": "2026-11-13T11:45:00Z",
+      "allDay": false,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-11-01T08:00:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [],
+        "totalCount": 1
+      }
+    },
+    {
+      "id": 1007,
+      "loggingType": "automated",
+      "title": "Next week's offsite",
+      "startTime": "2026-11-18T09:00:00Z",
+      "endTime": "2026-11-18T17:00:00Z",
+      "allDay": true,
+      "creator": null,
+      "organizer": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "createdAt": "2026-11-01T08:00:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [],
+        "totalCount": 1
+      }
+    },
+    {
+      "id": 1008,
+      "loggingType": "manual",
+      "title": "Call with Harbour LP",
+      "startTime": "2026-11-12T08:00:00Z",
+      "endTime": "2026-11-12T08:30:00Z",
+      "allDay": false,
+      "creator": {
+        "emailAddress": "pilot.owner@example.com",
+        "person": {
+          "id": 9001,
+          "firstName": "Pilot",
+          "lastName": "Owner",
+          "primaryEmailAddress": "pilot.owner@example.com",
+          "type": "internal"
+        }
+      },
+      "organizer": null,
+      "createdAt": "2026-11-13T12:30:00Z",
+      "updatedAt": null,
+      "attendeesPreview": {
+        "data": [
+          {
+            "emailAddress": "kofi@harbour-lp.example",
+            "person": {
+              "id": 501,
+              "firstName": "Kofi",
+              "lastName": "Boateng",
+              "primaryEmailAddress": "kofi@harbour-lp.example",
+              "type": "external"
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    }
+  ]
+}

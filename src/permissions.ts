@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { errorText, SERVER_NAME } from "./constants.js"
 import { reasonOf } from "./redact.js"
+import { EVENTS_LIST, PROBE } from "@we-the-rebel-alliance/source-contract/events"
 import { ALL_TOOLS, classify } from "./affinity-tools.js"
 
 export interface Rule {
@@ -28,14 +29,21 @@ const actionOf = (tool: string) => `${SERVER_NAME}_${tool}`
 const rule = (tool: string, effect: Rule["effect"]): Rule => ({ action: actionOf(tool), resource: "*", effect })
 
 /**
+ * The meetings source's two tools RPC methods, which only read: `events_list` (`affinity_events_list`) and `probe`
+ * (`affinity_probe`). They are never tools the model sees.
+ */
+export const SOURCE_METHODS: readonly string[] = [EVENTS_LIST, PROBE]
+
+/**
  * The block the plugin inserts, generated from the tool table and `access`. Broad first, narrow last, because the last
  * matching rule wins: the namespace pattern covers every Affinity tool, including one Affinity adds later, and each
- * known tool then gets its class's effect. With `access: "all"` every rule allows; `ask-changes` asks for anything but
- * a read; `read-only` denies anything but a read.
+ * known tool then gets its class's effect, and the source's methods are allowed as reads. With `access: "all"` every
+ * rule allows; `ask-changes` asks for anything but a read; `read-only` denies anything but a read.
  */
 export const defaultRules = (access: Access = "all"): Rule[] => [
   rule("*", access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"),
   ...ALL_TOOLS.map((tool) => rule(tool, effectOf(tool, access))),
+  ...SOURCE_METHODS.map((method) => rule(method, "allow")),
 ]
 
 const same = (a: Rule, b: Rule) => a.action === b.action && a.resource === b.resource && a.effect === b.effect

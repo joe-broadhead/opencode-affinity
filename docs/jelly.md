@@ -13,11 +13,13 @@ declaration contracts drop a top-level key they don't know, and refuse an unknow
 `contributes` entry, so the section uses only the keys Jelly reads.
 
 `jelly.admin` is the step Jelly shows on the plugin's review before it installs, after "Before anyone signs in, your
-admin needs to": "add an app in Affinity (Settings > Manage Apps): Client URL
+admin needs to": "add an app in Affinity (Settings > Manage Apps): Client URL (CIMD)
 https://opencode.ai/oauth/opencode/client.json, or a Public OAuth app for the Client ID setting; scopes mcp, mcp.read,
 offline_access". It names both routes within Jelly's 200 characters: OpenCode's client URL, or the organisation's own
 Public OAuth app, whose client ID goes in the **Client ID** setting below. It grants and blocks nothing; the README's
-Organisation rollout gives the steps.
+Organisation rollout gives the steps. Adding either needs Affinity's `Manage all OAuth apps` permission (by default
+only Administrators), and the client URL's preview warns that every redirect URI is on localhost, which is expected for
+a desktop client such as OpenCode.
 
 ## Icons and the vendor
 
@@ -88,7 +90,7 @@ API quota.
 
 `jelly.signIns` declares one sign-in, `affinity`, for Affinity's MCP server `affinity`, which signs in with OpenCode's
 MCP OAuth. Affinity accepts it once an Affinity admin has added OpenCode's client URL to the organisation, or, with the
-**Client ID** setting, once the organisation's own Public OAuth app is set up; until then Affinity shows an error page. A person who defines their own `mcp.servers.affinity` with `"oauth": false` and an API
+**Client ID** setting, once the organisation's own Public OAuth app is set up; until then Affinity's sign-in shows `Unknown client_id` (SERVER-OAUTH-003). A person who defines their own `mcp.servers.affinity` with `"oauth": false` and an API
 key has no sign-in for Jelly to show; that server signs in with its own headers.
 
 Jelly folds the declared sign-in into this plugin's one card, which shows it as Connected, Not signed in or Sign in again (expired or revoked), and starts, renews and signs out of it. An agent's `jelly_connection_request`, or a tool result that names this plugin's "Run /connect and choose …" next step, opens the same card. The plugin still signs in through OpenCode, as it does without Jelly; the declaration only tells Jelly which of the engine's integrations and servers are this plugin's.
