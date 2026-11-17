@@ -20,6 +20,33 @@ All notable changes to this project are documented here. The format follows [Kee
 - **For jelly:** a **Client ID** setting, free text, wired to the option; `jelly.admin` names both routes.
 - The README's Organisation rollout gives both routes, and Troubleshooting covers `Unknown client_id`
   (`SERVER-OAUTH-003`) and `invalid_scope` for either.
+- **A source for Memory, jelly and Artifacts:** `package.json` declares `sources` (source contract version 1, the
+  RPC `affinity.crm.tools`) with one events source, `affinity.meetings`, which reads `meeting`. Two new tools RPC
+  methods serve it, never tools the model sees, and the default rules allow both under every `access` value:
+  - `probe` (`affinity_probe`) makes one `get_current_user` call and names the account, `<organisation id>/<email>`,
+    its owner (`mailto:` and the email, labelled with the person's and the organisation's names) and the sign-in's
+    scopes. It records them for the current sign-in, in memory; a new or switched sign-in forgets them.
+  - `events_list` (`affinity_events_list`) lists, oldest first, the meetings the signed-in person organised, created
+    or attended, once each started an hour ago: the meeting's id, start, title, the people Affinity matched to a person
+    record (`affinity:person/<id>` and their name) and its Affinity link when Affinity gives one. `text` is always
+    empty: no notes, transcripts, email addresses, phone numbers or relationship scores. A listing names the account
+    `probe` named and is refused until `probe` has named it, so it never spends a call asking who is signed in. It
+    reads `get_meetings` a week of start times at a time, 100 meetings a call, and starts no new window after 10
+    calls, saying there is more; each page's `cost` counts its calls against the firm's monthly quota. Its first call
+    also asks for meetings logged in Affinity since the last listing that started up to 30 days before the cursor, and
+    lists them. It reads back 90 days, since Affinity deletes meetings: an older `since` answers `gap`
+    `window-truncated`, a cursor more than 100 days old `gap` `expired`, each once. The cursor is bound to the plugin,
+    the source and the account. A meeting whose title holds a secret is refused for good.
+  - The source contract's error codes: `INPUT_INVALID`, `SOURCE_UNKNOWN`, `ACCOUNT_MISMATCH`, `CURSOR_INVALID`,
+    `NEEDS_SIGN_IN`, `SCOPE_MISSING`, `RATE_LIMITED` and `UNAVAILABLE`.
+- `npm run conformance`, also a stage of `npm run check`: the source contract's conformance kit over the source,
+  offline, writing `reports/conformance-report.json` for the release kit to attach.
+
+### Changed
+
+- The tools RPC's transport is the source contract's `tools-rpc` module (`@we-the-rebel-alliance/source-contract`
+  v0.2.0, a devDependency bundled into `dist/index.js`), in place of the copy in `src/host/tools-rpc.ts`; Affinity's
+  part is `src/tools-rpc.ts`. Methods, ids, classes and codes are unchanged.
 
 ## [0.0.4] - 2026-11-15
 

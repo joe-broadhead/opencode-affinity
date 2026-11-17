@@ -25,7 +25,13 @@ OpenCode project.
   URL, and cuts a connection failure's reason to one line with no URL query.
 - The account capture keeps the organisation's name and the grant's scopes from a `get_current_user` result in
   memory only. It never reads your name, email or ids, or the organisation's id or subdomain, and forgets both when the
-  server is no longer connected, or the account is switched. The plugin never calls Affinity itself.
+  server is no longer connected, or the account is switched. The plugin never calls Affinity on its own.
+- The meetings source's `probe` reads your own email, name and organisation id from `get_current_user`, to name the
+  account a consumer such as Memory reads, and keeps them in memory for the current sign-in only. `events_list` lists
+  your own meetings as metadata: ids, start, title, the people Affinity matched to a person record (their Affinity id
+  and name) and a link. It reads attendees' email addresses only to tell your meetings from colleagues', and never
+  passes one on, nor any note, transcript, phone number or relationship score. A consumer reads it only with your
+  consent, under its own grant.
 - **The CRM holds other people's personal data.** Contact details, relationship scores and inferred connections of
   founders, investors and colleagues, notes, meeting attendees and transcripts reach the model as tool results, and the
   agent sends them to your model provider, like any other tool result in the session. The skills tell the model to read

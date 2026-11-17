@@ -1,8 +1,8 @@
 # Repository rules
 
 This repository builds `@joe-broadhead/opencode-affinity`, an OpenCode plugin that registers Affinity's official MCP
-server and adds default permission rules, a status command, a status dialog, two skills and a tools RPC for scripts.
-It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) before you change code, and
+server and adds default permission rules, a status command, a status dialog, two skills, a tools RPC for scripts, and
+one source of the source contract, `affinity.meetings`. It has no tool the model sees. Read [docs/architecture.md](docs/architecture.md) before you change code, and
 [CONTRIBUTING.md](CONTRIBUTING.md) for the checks and the release steps.
 
 ## Rules
@@ -64,11 +64,19 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   `tools/list` response (`{ "tools": [ { "name", "description", "inputSchema"?, "annotations"? } ] }`) holding what the
   server lists. Replacing it with a saved response is the whole reconcile, and the drift test names each difference;
   `npm run drift -- <saved.json>` reports the rest.
-- **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
-  between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
+- **The tools RPC.** The transport is the source contract's `tools-rpc` module, pinned in `package-lock.json` and
+  bundled; `src/tools-rpc.ts` holds only Affinity's part. Never copy the module. Its methods are every known tool
   in `src/affinity-tools.ts`, by exact name and with its class: the reads (the workflow playbooks among them), the writes
   and the ten destructive tools, and never an unknown tool. A write or a destructive tool is a method but runs only on a resolved
   `allow`. Keep the RPC id `affinity.crm.tools` and its method names stable: scripts call them by name.
+- **The meetings source.** `package.json`'s `sources` declares `affinity.meetings`; `src/events.ts` serves it with the
+  source contract's `events` and `cursor` modules, never copies. `permission.operations` is exactly what the reads
+  call, and `npm run conformance` must stay ok. An event carries metadata only: ids, start, title, the people Affinity
+  matched (their Affinity person id and name) and a link. Never an email address, phone number, note, transcript or
+  relationship score: `text` stays empty. Each read counts against the firm's quota, so a listing never asks who is
+  signed in (it checks what `probe` recorded) and starts no new window after `MAX_CALLS`. Declare or send no key a
+  consumer on source-contract 0.1 refuses (`removals[]`, `owner.verified`, `identityRules`, `accounts.server`,
+  `readsIdentity`, a price's `conditions` or `min`, an empty `identity`) until the consumers are on 0.2.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
   Every temp root of the host and pack tests is a git repository under the system's `/tmp`, never under `TMPDIR` or
@@ -105,8 +113,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   `permission.ask`;
 - the deprecated `ctx.generate.text` and `experimental.policies`;
 - importing `@opencode/ai`;
-- a permission hook, except the one `permission.hook("evaluate")` in `src/host/tools-rpc.ts` (and the bundle that
-  inlines it), exactly once each: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
+- a permission hook, except the one `permission.hook("evaluate")` of the source contract's `tools-rpc` module, in the
+  bundle that inlines it (`dist/index.js`), exactly once: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
   because no one can answer it, and touches nothing else;
 - references to private host source or host checkouts;
 - machine-local home and temp paths;
