@@ -17,9 +17,10 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 - macOS or Linux.
 - An Affinity CRM account on the **Scale, Advanced or Enterprise** plan, which include API and MCP access.
 - **Once per Affinity organisation**, an Affinity admin adds OpenCode as an app: Settings → Manage Apps → New App →
-  **Client URL**, with `https://opencode.ai/oauth/opencode/client.json` (see
-  [Organisation rollout](#organisation-rollout)). If that menu item is missing, ask your Affinity contact to turn it
-  on. Until then Affinity shows an error page instead of asking for access.
+  **Client URL**, with `https://opencode.ai/oauth/opencode/client.json`, or registers the organisation's own **Public**
+  OAuth app and sets its client ID in the plugin's `clientId` option (see
+  [Organisation rollout](#organisation-rollout)). If the Client URL menu item is missing, ask your Affinity contact to
+  turn it on, or use the organisation's own app. Until then Affinity shows an error page instead of asking for access.
 - What you can see follows your Affinity permissions. Note and file search need **Deal Assist**, and the meeting tools
   need **unified events**; ask your Affinity admin.
 - Every call counts against your organisation's monthly Affinity API quota, which the whole firm shares (100,000 calls a
@@ -62,8 +63,9 @@ Affinity's consent screen lists three scopes, all ticked. **Untick `mcp` (change
 keep `offline_access`: reads work, Affinity refuses every change, and without `offline_access` the sign-in expires after
 a day. Sign in again with `mcp` ticked to allow changes.
 
-If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet: ask an
-Affinity admin to follow [Organisation rollout](#organisation-rollout), then sign in again. OpenCode's sign-in waits for
+If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet, or, with
+the `clientId` option, its own app is not set up as that section says: ask an Affinity admin to follow
+[Organisation rollout](#organisation-rollout), then sign in again. OpenCode's sign-in waits for
 an answer that Affinity does not send, so close it and start again once the admin has added OpenCode.
 
 When the sign-in expires and cannot be renewed, `/connect` marks the Affinity account as needing a new sign-in, and
@@ -498,6 +500,7 @@ Set options with the object form of the plugin entry:
 | Option | Values | Default | Effect |
 | --- | --- | --- | --- |
 | `allowUntestedHost` | `true` or `false` | `false` | Starts on an OpenCode version outside `>=2.2.3 <2.4.0`, with a warning in status. |
+| `clientId` | the client ID (a UUID) of your organisation's own Public OAuth app in Affinity | none | Signs in as that app instead of with OpenCode's client URL. The plugin keeps Affinity's URL and the scope `mcp mcp.read offline_access`. Your own `mcp.servers.affinity` still wins. |
 
 [docs/configuration.md](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/docs/configuration.md) has the
 details, including your own `mcp.servers.affinity` entry (a read-only sign-in for everyone, your organisation's own
@@ -505,8 +508,13 @@ OAuth app, or an Affinity API key), permission recipes and every error.
 
 ## Organisation rollout
 
+An admin of your Affinity organisation, with permission to manage OAuth apps, takes one of two routes, once. Both
+sign in through `/connect` and keep a refresh token; members never handle a secret.
+
+### Route 1: OpenCode's client URL
+
 OpenCode signs in to Affinity with its own client metadata document, so there is no client ID to distribute. Affinity
-accepts it only after an admin of your Affinity organisation, with permission to manage OAuth apps, adds it once:
+accepts it only after the admin adds it:
 
 1. In Affinity, open Settings → Manage Apps → **New App** → **Client URL**.
 2. Paste `https://opencode.ai/oauth/opencode/client.json`, and choose **Preview**.
@@ -518,7 +526,26 @@ accepts it only after an admin of your Affinity organisation, with permission to
 Revoking that app in Manage Apps disconnects every member's OpenCode at once. Affinity's Settings → Affinity MCP page
 lists only Affinity's built-in clients, not OpenCode.
 
-Then put the plugin entry in the system config: `/Library/Application Support/opencode/opencode.json` on macOS, or
+### Route 2: your organisation's own OAuth app
+
+Where the Client URL route is not available, or the organisation prefers an app it owns:
+
+1. In Affinity, open Settings → Manage Apps → **New App** → **OAuth App**.
+2. Choose the **Public** client type: OpenCode signs in with PKCE and keeps no client secret.
+3. Add the redirect URIs `http://127.0.0.1/callback`, `http://localhost/callback` and
+   `http://127.0.0.1/mcp/oauth/callback`. Affinity matches a loopback redirect URI on any port, and OpenCode sends the
+   port it listens on.
+4. Allow the scopes `mcp`, `mcp.read` and `offline_access`, and save. Copy the app's client ID, a UUID; it is not a
+   secret.
+5. Set it as the plugin's `clientId` option, as below.
+
+The plugin then registers the server at `https://mcp.affinity.co/mcp` with that client ID and the scope
+`mcp mcp.read offline_access`, so nobody writes a server entry by hand. `/affinity-status` shows "Sign-in client: your
+organisation's OAuth app" and the ID's first 8 characters. Revoking the app disconnects every member at once.
+
+### Then, for everyone
+
+Put the plugin entry in the system config: `/Library/Application Support/opencode/opencode.json` on macOS, or
 `/etc/opencode/opencode.json` on Linux. This example also turns off two changes for everyone: new fields and new list
 dropdown options, which change every record of their type:
 
@@ -532,8 +559,18 @@ dropdown options, which change every record of their type:
 }
 ```
 
-Members then only sign in: run `/connect` and choose Affinity, then press `o` or Enter to open the link. An organisation
-that prefers its own OAuth app can register one and give members its client ID; see Configuration. Affinity API keys
+With route 2, add the app's client ID to the same entry:
+
+```json
+{
+  "plugins": [
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "clientId": "<your app's client ID>" } }
+  ]
+}
+```
+
+Members then only sign in: run `/connect` and choose Affinity, then press `o` or Enter to open the link. A member's own
+`mcp.servers.affinity` entry still wins over the option; their status then says the option is ignored. Affinity API keys
 are personal, so an organisation cannot set one for its members. Affinity's terms bar using Affinity data to train AI
 models; check your firm's AI policy before you turn this on.
 
@@ -544,8 +581,10 @@ Run `/affinity-status` first. Its last line is the next step.
 | Status or error | What to do |
 | --- | --- |
 | Connection: sign-in required | Run `/connect` and choose Affinity, then press `o` or Enter to open the link. In a terminal, `opencode mcp auth affinity` opens it automatically (from the project folder; see [Sign in](#sign-in)). |
-| Organisation setup row: Affinity shows an error page instead of asking for access | This is a first sign-in, and your organisation has not added OpenCode yet. Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL, as [Organisation rollout](#organisation-rollout) shows, then sign in again. A sign-in that worked before and now needs one again is an expiry: run `/connect` again. |
-| The sign-in fails with `invalid_scope` | Your organisation allows OpenCode only the read-only scope. Use the read-only entry in Configuration, or ask the admin to allow `mcp` too. |
+| Organisation setup row: Affinity shows an error page instead of asking for access | This is a first sign-in, and your organisation has not added OpenCode yet. Ask an Affinity admin to add `https://opencode.ai/oauth/opencode/client.json` under Settings → Manage Apps → New App → Client URL, as [Organisation rollout](#organisation-rollout) shows, then sign in again. With the `clientId` option, the admin checks your organisation's own app instead: a Public app with the redirect URIs and scopes that section lists. A sign-in that worked before and now needs one again is an expiry: run `/connect` again. |
+| The sign-in fails with `invalid_scope` | The app Affinity sees (the Sign-in client row) does not allow every scope the sign-in asks for. Often your organisation allows only the read-only scope: use the read-only entry in Configuration, or ask the admin to allow `mcp` too. With the `clientId` option, ask the admin to allow `mcp`, `mcp.read` and `offline_access` on that app. |
+| Affinity answers `Unknown client_id` (`SERVER-OAUTH-003`) | Affinity does not know the client the sign-in names. With the `clientId` option, the ID is mistyped, or names an app of another Affinity organisation, or the app was deleted: copy the client ID again from Settings → Manage Apps, or remove the option to use OpenCode's client URL. Without it, your organisation has not added OpenCode's client URL yet: see [Organisation rollout](#organisation-rollout). |
+| Sign-in client: the `clientId` option is ignored because your entry wins | Your own `mcp.servers.affinity` decides how you sign in. Remove it to use the option, or put the client ID in its `oauth.client_id`. |
 | Connection: connecting | Wait a few seconds, then run `/affinity-status` again. |
 | Connection: failed | Check your network, then run `/affinity-status` again. With your own entry that sends an API key, check the key (Affinity: Settings, Manage Apps). |
 | Connection: disabled | Enable `affinity` in `/mcps`, or remove `"disabled": true` from `mcp.servers.affinity` in `opencode.json`. |

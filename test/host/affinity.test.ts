@@ -13,7 +13,7 @@ import { CLIENT_URL, OAUTH_SCOPE, SUPPORTED_HOST, TESTED_HOSTS } from "../../src
 import { DESTRUCTIVE_TOOLS } from "../../src/affinity-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
-import { ADMIN_STEP, SIGN_IN, StatusRpc } from "../../src/status.js"
+import { ADMIN_STEP, adminStepApp, SIGN_IN, StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { ADVERTISED_SCOPE, MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
@@ -582,7 +582,8 @@ describe("a server that asks for a sign-in", () => {
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: sign-in required (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Organisation setup: done earlier: the sign-in has expired, so run /connect again\n")
-    expect(text).not.toContain("OpenCode's client URL")
+    // The Sign-in client row names OpenCode's client URL; the Organisation setup row gives no step for it.
+    expect(text.split("\n").find((line) => line.startsWith("- Organisation setup:"))).not.toContain("OpenCode's client URL")
     expect(text).toContain(`- Next step: ${SIGN_IN}`)
     expect(text).not.toContain("Northwind Capital")
   })
@@ -657,6 +658,98 @@ describe("the documented own entries", () => {
       expect(text).toContain("your own mcp.servers.affinity, used unchanged")
       // The client ID never reaches status.
       for (const shown of [text, JSON.stringify(output)]) expect(shown).not.toContain(CLIENT_ID)
+    })
+  })
+})
+
+// The clientId option: the plugin registers Affinity's server itself, with the organisation's own app's client ID and the
+// pinned scope, so OpenCode asks with that client and never with its client URL; a user's own entry still wins.
+describe("the clientId option", () => {
+  const CLIENT_ID = "00000000-1111-4222-8333-444444444444"
+  const oauth = (host: Host) =>
+    host.client.integration.oauth as unknown as {
+      connect: (input: object) => Promise<{ data: { attemptID: string; url: string } }>
+      cancel: (input: object) => Promise<void>
+    }
+  async function authorizeUrl(host: Host) {
+    const server = await until("the server needs a sign-in", async () => {
+      const { data } = await host.client.mcp.list({ location: host.location })
+      const found = data.find((item) => item.name === "affinity")
+      return found?.status.status === "needs_auth" && found.integrationID ? found : undefined
+    })
+    const integrationID = server.integrationID!
+    const { data: integration } = await host.client.integration.get({ integrationID, location: host.location })
+    const { data: attempt } = await oauth(host).connect({ integrationID, methodID: (integration.methods[0] as unknown as { id: string }).id, location: host.location })
+    return { integrationID, attempt, url: new URL(attempt.url) }
+  }
+
+  describe("with no entry of the user's", () => {
+    let host: Host
+    beforeAll(async () => {
+      host = await startHost({ oauth: true, challenge: true, options: { clientId: CLIENT_ID } })
+    })
+    afterAll(() => host?.close())
+
+    test("the registered server carries the client ID and the pinned scope, and status names the app by its first 8 characters", async () => {
+      // What OpenCode asks Affinity with is the server the plugin registered: its URL, the client ID and the pinned scope.
+      const { integrationID, attempt, url } = await authorizeUrl(host)
+      expect(url.origin + url.pathname).toBe(`${host.fake.origin}/auth/oauth2/authorize`)
+      expect(url.searchParams.get("client_id")).toBe(CLIENT_ID)
+      expect(url.searchParams.get("client_id")).not.toBe(CLIENT_URL)
+      expect(url.searchParams.get("scope")).toBe(OAUTH_SCOPE)
+      expect(url.searchParams.get("code_challenge_method")).toBe("S256")
+      const redirect = new URL(url.searchParams.get("redirect_uri")!)
+      expect({ protocol: redirect.protocol, hostname: redirect.hostname, pathname: redirect.pathname }).toEqual({ protocol: "http:", hostname: "127.0.0.1", pathname: "/callback" })
+      await oauth(host).cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
+      const output = await statusRpc(host)
+      expect(output).toMatchObject({ state: "sign_in_required", source: { type: "plugin", signIn: "oauth" }, signInClient: { type: "app", id: "00000000…" }, adminStep: adminStepApp("00000000…") })
+      const text = await status(host, await session(host))
+      expect(text).toContain("- Sign-in client: your organisation's OAuth app 00000000… (the clientId option)\n")
+      expect(text).toContain(`- Organisation setup: ${adminStepApp("00000000…")}\n`)
+      expect(text).not.toContain(CLIENT_URL)
+      // Only the first 8 characters of the client ID reach status.
+      for (const shown of [text, JSON.stringify(output)]) expect(shown).not.toContain(CLIENT_ID)
+    })
+  })
+
+  describe("with the user's own entry", () => {
+    let host: Host
+    beforeAll(async () => {
+      host = await startHost({
+        challenge: true,
+        options: { clientId: CLIENT_ID },
+        config: (url) => ({ mcp: { servers: { affinity: { type: "remote", url, oauth: { scope: "mcp.read offline_access" } } } } }),
+      })
+    })
+    afterAll(() => host?.close())
+
+    test("the user's entry wins unchanged, and status says the option is ignored", async () => {
+      const { integrationID, attempt, url } = await authorizeUrl(host)
+      // The entry sets no client ID, so OpenCode asks with its client URL and the entry's own scope.
+      expect(url.searchParams.get("client_id")).toBe(CLIENT_URL)
+      expect(url.searchParams.get("scope")).toBe("mcp.read offline_access")
+      await oauth(host).cancel({ integrationID, attemptID: attempt.attemptID, location: host.location })
+      const output = await statusRpc(host)
+      expect(output).toMatchObject({ state: "sign_in_required", source: { type: "adopted", signIn: "oauth" }, signInClient: { type: "own-entry", clientIdIgnored: true } })
+      const text = await status(host, await session(host))
+      expect(text).toContain("- Sign-in client: set by your own mcp.servers.affinity; the clientId option is ignored because your entry wins\n")
+      for (const shown of [text, JSON.stringify(output)]) expect(shown).not.toContain("00000000")
+    })
+  })
+
+  describe("with an invalid client ID", () => {
+    let host: Host
+    afterAll(() => host?.close())
+
+    test("the plugin does not start, and /plugins shows OPTIONS_INVALID with the first 8 characters only", async () => {
+      const failure = await startHost({ oauth: true, options: { clientId: "sk-fake-secret-0123456789abcdef" } }).then(
+        (started) => ((host = started), undefined),
+        (error: unknown) => String(error),
+      )
+      expect(failure).toContain("OPTIONS_INVALID")
+      expect(failure).toContain('The option "clientId" must be')
+      expect(failure).toContain("sk-fake-…")
+      expect(failure).not.toContain("secret-0123456789abcdef")
     })
   })
 })

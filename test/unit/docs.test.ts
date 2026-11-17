@@ -43,7 +43,8 @@ describe("docs", () => {
 
   // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v<x.y.z>`).
   test("the README names no version of the plugin, except its install spec", () => {
-    expect(text("README.md").replace(/opencode-affinity#v\d+\.\d+\.\d+/g, "")).not.toMatch(/opencode-affinity@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    // The loopback address in the own app's redirect URIs is not a version.
+    expect(text("README.md").replace(/opencode-affinity#v\d+\.\d+\.\d+/g, "").replaceAll("127.0.0.1", "")).not.toMatch(/opencode-affinity@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // R7 with R18: the block for each access value is in the README, generated from defaultRules(access).
@@ -322,6 +323,28 @@ describe("docs", () => {
     expect(guide).not.toContain("rationale")
   })
 
+
+  // The clientId option: both routes in the rollout, the Public client type and its redirect URIs, the organisation-wide
+  // entry, precedence, and the two sign-in errors an organisation's own app can meet.
+  test("the guides give both rollout routes, the clientId option, its precedence and the errors of an own app", () => {
+    const readme = text("README.md")
+    const configuration = text("docs/configuration.md")
+    for (const words of ["### Route 1: OpenCode's client URL", "### Route 2: your organisation's own OAuth app", "Choose the **Public** client type", "`Unknown client_id` (`SERVER-OAUTH-003`)", "`invalid_scope`", '"options": { "clientId": "<your app\'s client ID>" }']) {
+      expect({ words, found: readme.includes(words) }).toEqual({ words, found: true })
+    }
+    for (const file of ["README.md", "docs/configuration.md"]) {
+      for (const uri of ["http://127.0.0.1/callback", "http://localhost/callback", "http://127.0.0.1/mcp/oauth/callback"]) expect({ file, uri, found: text(file).includes(uri) }).toEqual({ file, uri, found: true })
+    }
+    expect(configuration).toContain("### `clientId`")
+    expect(configuration).toContain('"options": { "clientId": "<the app\'s client ID>" }')
+    expect(configuration).toContain("the `Sign-in client` row says \"the clientId option is ignored because your entry wins\"")
+    expect(text("docs/jelly.md")).toContain("`clientId`, labelled **Client ID**")
+    // The docs show a client ID only as an all-zero placeholder, never a real organisation's.
+    for (const file of FILES) {
+      const ids = text(file).match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? []
+      expect({ file, ids: ids.filter((id) => !/^0{8}-0{4}-[04]0{3}-[08]0{3}-0{12}$/.test(id)) }).toEqual({ file, ids: [] })
+    }
+  })
 
   test("the README states the shared quota, the admin step and the read-only consent", () => {
     const readme = text("README.md")

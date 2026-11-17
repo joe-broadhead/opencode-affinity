@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import { checkHost } from "../../src/host-version.js"
 import { defaultRules } from "../../src/permissions.js"
-import { ADMIN_STEP, buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, SIGN_IN, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { ADMIN_STEP, adminStepApp, buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, SIGN_IN, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
 import { shortReason } from "../../src/redact.js"
 import { VERSION } from "../../src/version.js"
 import { allow } from "./fake.js"
 
 const ADMIN_STEP_OWN = " If your own mcp.servers.affinity entry uses your organisation's own OAuth app, ask for that app to be allowed instead."
 const NOTHING_TO_DO = "Nothing to do."
+/** The Organisation setup row alone: the Sign-in client row names OpenCode's client URL in its own words. */
+const organisationRow = (status: Status) => formatStatus(status).split("\n").find((line) => line.startsWith("- Organisation setup:"))!
 /** The default rules as /affinity-status shows them: one rule a line, a JSON array body. */
 const AGENT_RULES = (access: "all" | "ask-changes" | "read-only" = "all") => defaultRules(access).map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
 
@@ -24,6 +26,7 @@ describe("buildStatus", () => {
       version: VERSION,
       state: "connected",
       source: { type: "plugin", url: URL, signIn: "oauth" },
+      signInClient: { type: "client-url", url: "https://opencode.ai/oauth/opencode/client.json" },
       organisation: "Northwind Capital",
       grant: "read-write",
       adminStep: null,
@@ -46,6 +49,7 @@ describe("buildStatus", () => {
         "- Connection: connected (https://mcp.affinity.co/mcp, registered by this plugin)",
         "- Account: Northwind Capital",
         "- Access: Affinity grant: read and write; access all: every Affinity tool is allowed, reads and changes alike; every agent has the block",
+        "- Sign-in client: OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json (an Affinity admin adds it once)",
         "- Organisation setup: done: this Affinity organisation lets OpenCode sign in",
         "- Tools: 1 available, 0 unknown",
         "- Agents without default rules: none",
@@ -76,7 +80,7 @@ describe("buildStatus", () => {
     const renewal = buildStatus({ ...base, server: { status: "needs_auth" }, everConnected: true })
     expect(renewal).toMatchObject({ state: "sign_in_required", adminStep: null, everConnected: true, nextStep: SIGN_IN })
     expect(formatStatus(renewal)).toContain("- Organisation setup: done earlier: the sign-in has expired, so run /connect again\n")
-    expect(formatStatus(renewal)).not.toContain("OpenCode's client URL")
+    expect(organisationRow(renewal)).not.toContain("OpenCode's client URL")
     // Other states carry no admin step: connected through OAuth says the organisation allows OpenCode.
     expect(buildStatus(base).adminStep).toBeNull()
     // DR-13: a server that has not reached a sign-in carries no first-sign-in advice, and a failed or conflicting one
@@ -84,7 +88,7 @@ describe("buildStatus", () => {
     for (const server of [{ status: "pending" }, { status: "disabled" }, { status: "failed", error: "x" }] as const) {
       const row = formatStatus(buildStatus({ ...base, server }))
       expect(row).toContain("- Organisation setup: not reached yet\n")
-      expect(row).not.toContain("client URL")
+      expect(row.split("\n").find((line) => line.startsWith("- Organisation setup:"))).not.toContain("client URL")
     }
     const conflict = buildStatus({ ...base, source: { type: "conflict", url: "https://other.example/mcp", expected: URL } })
     expect(formatStatus(conflict)).toContain("- Organisation setup: not reached yet\n")
@@ -92,6 +96,36 @@ describe("buildStatus", () => {
     const adopted = buildStatus({ ...base, server: { status: "needs_auth" }, source: { type: "adopted", url: URL, signIn: "oauth" } })
     expect(adopted.adminStep).toBe(ADMIN_STEP + ADMIN_STEP_OWN)
     expect(formatStatus(buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "own" } }))).toContain("- Organisation setup: not needed: your own entry signs in with an API key\n")
+  })
+
+  // The clientId option: status names the sign-in client by the ID's first 8 characters, never the whole ID, and the
+  // first-sign-in advice is about the organisation's own app, not OpenCode's client URL.
+  test("names the sign-in client: the organisation's own app by its first 8 characters, OpenCode's client URL, or the user's entry", () => {
+    const CLIENT_ID = "00000000-1111-4222-8333-444444444444"
+    const app = buildStatus({ ...base, clientId: CLIENT_ID })
+    expect(app.signInClient).toEqual({ type: "app", id: "00000000…" })
+    expect(formatStatus(app)).toContain("- Sign-in client: your organisation's OAuth app 00000000… (the clientId option)\n")
+    const first = buildStatus({ ...base, clientId: CLIENT_ID, server: { status: "needs_auth" } })
+    expect(first.adminStep).toBe(adminStepApp("00000000…"))
+    expect(first.adminStep).toContain("must be a Public app in Affinity, under Settings, Manage Apps, with the redirect URIs http://127.0.0.1/callback, http://localhost/callback and http://127.0.0.1/mcp/oauth/callback and the scopes mcp, mcp.read and offline_access")
+    expect(first.adminStep).toContain("Unknown client_id")
+    expect(first.adminStep).not.toContain("client URL")
+    expect(organisationRow(first)).not.toContain("opencode.ai/oauth")
+    for (const shown of [formatStatus(app), JSON.stringify(app), formatStatus(first), JSON.stringify(first)]) expect(shown).not.toContain(CLIENT_ID)
+    // Without the option, OpenCode's client URL, and the admin step to add it.
+    expect(formatStatus(buildStatus(base))).toContain("- Sign-in client: OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json (an Affinity admin adds it once)\n")
+    // The user's own entry wins: the option is ignored, and status says so.
+    const adopted = { type: "adopted", url: URL, signIn: "oauth" } as const
+    const own = buildStatus({ ...base, source: adopted, clientId: CLIENT_ID, server: { status: "needs_auth" } })
+    expect(own.signInClient).toEqual({ type: "own-entry", clientIdIgnored: true })
+    expect(own.adminStep).toBe(ADMIN_STEP + ADMIN_STEP_OWN)
+    expect(formatStatus(own)).toContain("- Sign-in client: set by your own mcp.servers.affinity; the clientId option is ignored because your entry wins\n")
+    expect(formatStatus(own)).not.toContain("00000000")
+    expect(formatStatus(buildStatus({ ...base, source: adopted }))).toContain("- Sign-in client: set by your own mcp.servers.affinity\n")
+    expect(formatStatus(buildStatus({ ...base, source: { ...adopted, signIn: "own" } }))).toContain("- Sign-in client: set by your own mcp.servers.affinity, which signs in with an API key\n")
+    // A conflict, or no source, has no client of the plugin's.
+    expect(buildStatus({ ...base, clientId: CLIENT_ID, source: { type: "conflict", url: "https://other.example/mcp", expected: URL } }).signInClient).toEqual({ type: "none" })
+    expect(formatStatus(buildStatus({ host }))).toContain("- Sign-in client: none\n")
   })
 
   test("shows a failure's reason on one short line, without URL queries, and never the text of a needed sign-in", () => {
@@ -200,9 +234,9 @@ describe("buildStatus", () => {
     expect(text.match(/Next step/g)).toHaveLength(1)
   })
 
-  test("the rows come in the standard order, with Organisation setup between Access and Tools", () => {
+  test("the rows come in the standard order, with Sign-in client and Organisation setup between Access and Tools", () => {
     const rows = formatStatus(buildStatus(base)).split("\n").filter((line) => line.startsWith("- ")).map((line) => line.slice(2, line.indexOf(":")))
-    expect(rows).toEqual(["Connection", "Account", "Access", "Organisation setup", "Tools", "Agents without default rules", "OpenCode", "Next step"])
+    expect(rows).toEqual(["Connection", "Account", "Access", "Sign-in client", "Organisation setup", "Tools", "Agents without default rules", "OpenCode", "Next step"])
   })
 
   test("a skill of the same id at another path shadows the plugin's: status names it, after any other next step", () => {

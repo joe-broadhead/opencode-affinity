@@ -13,9 +13,11 @@ declaration contracts drop a top-level key they don't know, and refuse an unknow
 `contributes` entry, so the section uses only the keys Jelly reads.
 
 `jelly.admin` is the step Jelly shows on the plugin's review before it installs, after "Before anyone signs in, your
-admin needs to": "add OpenCode as an app in Affinity (Settings > Manage Apps > New App > Client URL
-https://opencode.ai/oauth/opencode/client.json) with the scopes mcp, mcp.read and offline_access". It grants and blocks
-nothing; the README's Organisation rollout gives the steps.
+admin needs to": "add an app in Affinity (Settings > Manage Apps): Client URL
+https://opencode.ai/oauth/opencode/client.json, or a Public OAuth app for the Client ID setting; scopes mcp, mcp.read,
+offline_access". It names both routes within Jelly's 200 characters: OpenCode's client URL, or the organisation's own
+Public OAuth app, whose client ID goes in the **Client ID** setting below. It grants and blocks nothing; the README's
+Organisation rollout gives the steps.
 
 ## Icons and the vendor
 
@@ -85,18 +87,26 @@ API quota.
 ## Signing in
 
 `jelly.signIns` declares one sign-in, `affinity`, for Affinity's MCP server `affinity`, which signs in with OpenCode's
-MCP OAuth. Affinity accepts it once an Affinity admin has added OpenCode's client URL to the organisation; until then
-Affinity shows an error page. A person who defines their own `mcp.servers.affinity` with `"oauth": false` and an API
+MCP OAuth. Affinity accepts it once an Affinity admin has added OpenCode's client URL to the organisation, or, with the
+**Client ID** setting, once the organisation's own Public OAuth app is set up; until then Affinity shows an error page. A person who defines their own `mcp.servers.affinity` with `"oauth": false` and an API
 key has no sign-in for Jelly to show; that server signs in with its own headers.
 
 Jelly folds the declared sign-in into this plugin's one card, which shows it as Connected, Not signed in or Sign in again (expired or revoked), and starts, renews and signs out of it. An agent's `jelly_connection_request`, or a tool result that names this plugin's "Run /connect and choose …" next step, opens the same card. The plugin still signs in through OpenCode, as it does without Jelly; the declaration only tells Jelly which of the engine's integrations and servers are this plugin's.
 
 ## Settings
 
-`jelly.contributes.settings` declares one setting, `access`, the option of the same name, as a choice of three:
-**Allowed** (`all`, the default), **Ask before changes** (`ask-changes`) and **Read only** (`read-only`), with Jelly's
-own line for each. Jelly draws it as a choice, never as free text, and saves only one of the three. A Jelly that does
-not know declared choices yet refuses the whole declaration, so this needs a Jelly that does.
+`jelly.contributes.settings` declares two settings.
+
+- `access`, the option of the same name, as a choice of three: **Allowed** (`all`, the default), **Ask before changes**
+  (`ask-changes`) and **Read only** (`read-only`), with Jelly's own line for each. Jelly draws it as a choice, never as
+  free text, and saves only one of the three. A Jelly that does not know declared choices yet refuses the whole
+  declaration, so this needs a Jelly that does.
+- `clientId`, labelled **Client ID**, the option of the same name: a `string` with no choices and no default, which
+  Jelly draws as free text. It is the client ID, a UUID, of the organisation's own Public OAuth app in Affinity; empty,
+  the plugin signs in with OpenCode's client URL. Jelly's settings have no pattern, so Jelly saves any text up to its
+  8192 characters; the plugin checks the value when it starts, and refuses anything but a UUID with `OPTIONS_INVALID`.
+  A cleared field is saved as an empty string, which the plugin treats as unset. It is not a `secret`: a client ID is
+  public, and status shows its first 8 characters.
 
 ## Versions
 

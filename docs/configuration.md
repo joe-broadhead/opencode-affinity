@@ -50,8 +50,47 @@ range in its `OpenCode` row, for example `2.2.5 (tested; supported range >=2.2.3
 - **Outside the range with `"allowUntestedHost": true`:** it starts anyway, and `/affinity-status` and `/affinity` show
   a warning.
 
-There is no other option. To narrow what the model may do in Affinity, use permission rules, or a read-only sign-in;
-see [Permissions](#permissions) and [Read-only for everyone](#read-only-for-everyone).
+To narrow what the model may do in Affinity, use permission rules, or a read-only sign-in; see
+[Permissions](#permissions) and [Read-only for everyone](#read-only-for-everyone).
+
+### `clientId`
+
+- Type: a string, the client ID of your organisation's own **Public** OAuth app in Affinity: a UUID such as
+  `00000000-0000-0000-0000-000000000000`.
+- Default: none. OpenCode signs in with its client URL, `https://opencode.ai/oauth/opencode/client.json`.
+
+Set it when your organisation signs in through its own OAuth app instead of adding OpenCode's client URL; the README's
+[Organisation rollout](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#organisation-rollout)
+says how to register the app (Public, PKCE and no secret; the redirect URIs `http://127.0.0.1/callback`,
+`http://localhost/callback` and `http://127.0.0.1/mcp/oauth/callback`; the scopes `mcp`, `mcp.read` and
+`offline_access`). The plugin then registers the server with the app's client ID:
+
+```json
+{ "type": "remote", "url": "https://mcp.affinity.co/mcp", "oauth": { "client_id": "<the app's client ID>", "scope": "mcp mcp.read offline_access" } }
+```
+
+The URL and the scope stay the plugin's, so the option can't point the server elsewhere or drop `offline_access`. For
+the whole organisation, set it once in the system config's plugin entry
+(`/Library/Application Support/opencode/opencode.json` on macOS, `/etc/opencode/opencode.json` on Linux):
+
+```json
+{
+  "plugins": [
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.4", "options": { "clientId": "<the app's client ID>" } }
+  ]
+}
+```
+
+- **Precedence:** a user's own [`mcp.servers.affinity`](#your-own-mcpserversaffinity) wins. The plugin adopts it
+  unchanged, ignores the option, and the `Sign-in client` row says "the clientId option is ignored because your entry
+  wins".
+- **Validation:** surrounding spaces are trimmed, and an empty value counts as unset (Jelly saves a cleared setting
+  that way). Anything else that is not a UUID stops the plugin with `OPTIONS_INVALID`, which shows only the value's
+  first 8 characters, or only its type when it is not text.
+- **Not a secret:** a client ID is public, like the client URL, but status shows only its first 8 characters, such as
+  "Sign-in client: your organisation's OAuth app 00000000… (the clientId option)".
+- Credentials are kept per server name and URL, so switching between the client URL and the option keeps the stored
+  sign-in. If Affinity refuses the stored token for the other client, sign in again.
 
 ## Your own `mcp.servers.affinity`
 
@@ -61,11 +100,13 @@ If your config defines no server named `affinity`, the plugin registers one:
 { "type": "remote", "url": "https://mcp.affinity.co/mcp", "oauth": { "scope": "mcp mcp.read offline_access" } }
 ```
 
+With the [`clientId`](#clientid) option, `oauth` also carries `client_id`.
+
 The scope is the one Affinity's sign-in challenge asks for: changes (`mcp`), reads (`mcp.read`) and a refresh token
 (`offline_access`). The plugin pins it, so a change to Affinity's challenge can't drop the refresh token. OpenCode signs
 in with its own client metadata document, `https://opencode.ai/oauth/opencode/client.json`, which an Affinity admin
-adds once per organisation (see the README's Organisation rollout). There is no client ID to set, and OpenCode's
-defaults apply to everything else.
+adds once per organisation (see the README's Organisation rollout), unless `clientId` names your organisation's own
+app. OpenCode's defaults apply to everything else.
 
 To change anything else, define `mcp.servers.affinity` yourself at Affinity's URL. The plugin then **adopts** your entry
 unchanged, and `/affinity-status` shows "Connection: connected (…, your own mcp.servers.affinity, used unchanged)". The
@@ -103,9 +144,12 @@ both scopes, sign out and sign in again. Run it from the project folder where th
 
 ### Your organisation's own OAuth app
 
-An organisation that prefers its own app to OpenCode's client metadata document registers a public OAuth app in
-Affinity (Settings, Manage Apps), with the redirect URI `http://127.0.0.1/callback`; Affinity accepts a loopback
-redirect URI on any port, and OpenCode sends the port it listens on. Give members the app's client ID:
+An organisation that prefers its own app to OpenCode's client metadata document registers a Public OAuth app in
+Affinity (Settings, Manage Apps), with the redirect URIs `http://127.0.0.1/callback`, `http://localhost/callback` and
+`http://127.0.0.1/mcp/oauth/callback`; Affinity accepts a loopback redirect URI on any port, and OpenCode sends the port
+it listens on. Set its client ID in the [`clientId`](#clientid) option: the plugin then writes this entry itself, with
+the right URL and a scope that keeps `offline_access`. Write it by hand only when you need to change something else in
+it:
 
 ```json
 {
@@ -377,9 +421,10 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `state` | `connected`, `sign_in_required`, `connecting`, `disabled`, `failed`, `not_configured` or `conflict`. The `Connection` row shows the same states as `connected`, `sign-in required`, `connecting`, `disabled`, `failed`, `not configured` and `conflict`. |
 | `error` | For a failed connection only: OpenCode's reason, on one line of at most 160 characters, with any URL cut before its query. The text for a needed sign-in can hold an authorization URL, so it is never shown. |
 | `source` | `type` (`plugin`, `adopted` or `conflict`), `url`, `signIn` (`oauth`, or `own` for your own entry with `"oauth": false`), and for a conflict the `expected` URL |
+| `signInClient` | Whom Affinity sees signing in: `{ type: "app", id }` for the `clientId` option, with the ID's first 8 characters and `…`; `{ type: "client-url", url }` for OpenCode's client URL; `{ type: "own-entry", clientIdIgnored }` for your own `mcp.servers.affinity`, which the plugin does not read, with `clientIdIgnored` true when the option is set but your entry wins; `{ type: "none" }` for a conflict or no server. The `Sign-in client` row shows the same. |
 | `organisation` | The Affinity organisation's name, or `null` until the first `get_current_user` call since OpenCode started |
 | `grant` | `read-write`, `read-only` (Affinity refuses every change), `api-key` (a personal key, with full access), or `null` until read |
-| `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. |
+| `adminStep` | While a sign-in is required and this server has not connected since OpenCode started: the advice for a first sign-in that Affinity may refuse, because the organisation has never added OpenCode's client URL (`https://opencode.ai/oauth/opencode/client.json`, under Settings, Manage Apps, New App, Client URL). It is advice, not a finding: OpenCode tells plugins nothing about a refused sign-in. A sign-in that worked earlier and now needs one again is a renewal, and the field is `null`. For your own `mcp.servers.affinity` entry, it also points at your organisation's own OAuth app, if that is what the entry uses. With the `clientId` option, it is about that app instead: a Public app with OpenCode's redirect URIs and the scopes `mcp`, `mcp.read` and `offline_access`, and `Unknown client_id` means the option names no app of this organisation. |
 | `everConnected` | True once this `affinity` server has connected since OpenCode started |
 | `access` | `all`, `ask-changes` or `read-only`: the value the default rules were generated for |
 | `tools` | How many Affinity tools OpenCode lists that the plugin knows |
@@ -394,8 +439,15 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The `Organisation setup` row shows `adminStep` while a sign-in is required and nothing has connected yet:
-"If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL." After a sign-in that
-worked, a later one is a renewal, and the row says so instead.
+"If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL." With the `clientId`
+option it reads "If this is the first sign-in here, your organisation's OAuth app 00000000… (the clientId option) must
+be a Public app in Affinity", with its redirect URIs and scopes. After a sign-in that worked, a later one is a renewal,
+and the row says so instead.
+
+The `Sign-in client` row, just above it, names whom Affinity sees signing in: "your organisation's OAuth app 00000000…
+(the clientId option)", "OpenCode's client URL, https://opencode.ai/oauth/opencode/client.json (an Affinity admin adds
+it once)", or "set by your own mcp.servers.affinity", with "; the clientId option is ignored because your entry wins"
+when the option is set too.
 
 The organisation and the grant come from `tenant.name`, `grant.type` and `grant.scopes` of a `get_current_user` result,
 made by the model or by a script, and are kept in memory only. Of the scopes, only `mcp`, `mcp.read`, `api` and
