@@ -706,6 +706,11 @@ The status RPC's own error is `unavailable`, with a next step, when the status c
   were invited to by an alias. A meeting deleted before a listing reaches it is never listed, and no gap says so (a
   deletion after it was listed will be announced once consumers read the contract's `removals[]`). More than 1,000
   visible meetings that start in the same second cannot be read whole, and `events_list` answers `UNAVAILABLE` for them.
+- **The meetings source makes two assumptions.** It allows 10 minutes for Affinity to show a newly added meeting in
+  `get_meetings`: a meeting that takes longer than about 10 minutes to appear after Affinity adds it can be skipped. It
+  also assumes a meeting's `createdAt` is when Affinity added it, not when the calendar event itself was created. If it
+  is the latter, meetings from a calendar connected later than they happened are not listed. Both are checked at the
+  first live sign-in.
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
   older Jelly refuses the plugin's whole declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.

@@ -39,7 +39,10 @@ Tested on OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
     carries on, so a calendar backfill drains over several listings. Each page's `cost` counts its calls. It reads
     back 90 days, by choice, to bound the quota: an older `since` answers `gap` `window-truncated`, a cursor more than
     100 days old `gap` `expired`, each once; a meeting deleted before a listing reaches it is never listed. The cursor
-    is bound to the plugin, the source and the account. A meeting whose title holds a secret is refused for good.
+    is bound to the plugin, the source and the account. A meeting whose title holds a secret is refused for good. It
+    assumes Affinity shows a new meeting within about 10 minutes (a slower one can be skipped) and that `createdAt` is
+    when Affinity added the meeting, not when the calendar event was created (if not, meetings from a calendar
+    connected later than they happened are not listed); both are checked at the first live sign-in.
   - The source contract's error codes: `INPUT_INVALID`, `SOURCE_UNKNOWN`, `ACCOUNT_MISMATCH`, `CURSOR_INVALID`,
     `NEEDS_SIGN_IN`, `SCOPE_MISSING`, `RATE_LIMITED` and `UNAVAILABLE`.
 - `npm run conformance`, also a stage of `npm run check`: the source contract's conformance kit over the source,
