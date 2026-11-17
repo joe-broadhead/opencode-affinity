@@ -66,7 +66,7 @@ describe("the jelly declaration", () => {
     expect(jelly.admin).toBe(jelly.admin.trim())
     expect(jelly.admin).not.toContain("\n")
     // Both routes: OpenCode's client URL, or the organisation's own Public OAuth app for the Client ID setting.
-    expect(jelly.admin).toContain("Client URL https://opencode.ai/oauth/opencode/client.json")
+    expect(jelly.admin).toContain("Client URL (CIMD) https://opencode.ai/oauth/opencode/client.json")
     expect(jelly.admin).toContain("a Public OAuth app for the Client ID setting")
     expect(jelly.admin).toContain("offline_access")
   })

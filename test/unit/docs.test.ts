@@ -156,7 +156,7 @@ describe("docs", () => {
     for (const file of FILES) {
       expect({ file, claim: /simulated|reproduced only against|known only from|first live sign-in confirms|confirmed at the first live sign-in|is still unverified|not yet verified/i.exec(text(file))?.[0] }).toEqual({ file, claim: undefined })
     }
-    expect(text("README.md")).toContain("If Affinity shows an error page instead of the consent screen, your organisation has not added OpenCode yet")
+    expect(text("README.md")).toContain("If Affinity shows `Unknown client_id` (SERVER-OAUTH-003) or another error page instead of the consent screen, your organisation has not added OpenCode yet")
     expect(text("docs/configuration.md")).toContain("After a sign-in that worked, a later one is a renewal, and the row says so instead")
   })
 
@@ -350,7 +350,7 @@ describe("docs", () => {
   test("the README states the shared quota, the admin step and the read-only consent", () => {
     const readme = text("README.md")
     expect(readme).toContain("Every call counts against your organisation's monthly Affinity API quota, which the whole firm shares")
-    expect(readme).toContain("Settings → Manage Apps → New App → **Client URL**")
+    expect(readme).toContain("Settings → Manage Apps → New App → **Client URL (CIMD)**")
     expect(readme).toContain("**Untick `mcp` (changes) for a read-only connection**")
     expect(readme).toContain("Unofficial; not affiliated with Affinity.")
   })

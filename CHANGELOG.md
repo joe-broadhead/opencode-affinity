@@ -47,6 +47,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - The tools RPC's transport is the source contract's `tools-rpc` module (`@we-the-rebel-alliance/source-contract`
   v0.2.0, a devDependency bundled into `dist/index.js`), in place of the copy in `src/host/tools-rpc.ts`; Affinity's
   part is `src/tools-rpc.ts`. Methods, ids, classes and codes are unchanged.
+- The admin step uses Affinity's own button names, **Client URL (CIMD)**, or **Add by Client URL (CIMD)** for someone
+  who can't create API keys, says it needs Affinity's `Manage all OAuth apps` permission (by default only
+  Administrators), and that the preview's warning about localhost redirect URIs is expected for OpenCode. The README,
+  the status's advice and `jelly.admin` use the same name.
 
 ## [0.0.4] - 2026-11-15
 

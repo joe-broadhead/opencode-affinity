@@ -126,7 +126,7 @@ export const SIGN_IN = `Run /connect and choose Affinity, then press o or Enter 
  * `Organisation setup` row while a sign-in is required and this server has not connected yet. It names no error code,
  * because nothing detects it, and holds no "Next step", because the status has exactly one.
  */
-export const ADMIN_STEP = `If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL, with the scopes mcp, mcp.read and offline_access.`
+export const ADMIN_STEP = `If this is the first sign-in here, an Affinity admin must first add OpenCode's client URL, ${CLIENT_URL}, under Settings, Manage Apps, New App, Client URL (CIMD), with the scopes mcp, mcp.read and offline_access.`
 
 /**
  * The advice for a first sign-in with the `clientId` option: the organisation's own app must be a Public app with

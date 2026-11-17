@@ -147,7 +147,7 @@
     "title": "Affinity",
     "summary": "Your firm's Affinity CRM: companies, people, deals, notes and relationships.",
     "icon": "assets/icon.svg",
-    "admin": "add an app in Affinity (Settings > Manage Apps): Client URL https://opencode.ai/oauth/opencode/client.json, or a Public OAuth app for the Client ID setting; scopes mcp, mcp.read, offline_access",
+    "admin": "add an app in Affinity (Settings > Manage Apps): Client URL (CIMD) https://opencode.ai/oauth/opencode/client.json, or a Public OAuth app for the Client ID setting; scopes mcp, mcp.read, offline_access",
     "tools": [
       {
         "name": "affinity.get_current_user",
