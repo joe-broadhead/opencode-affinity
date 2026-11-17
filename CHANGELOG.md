@@ -27,16 +27,17 @@ All notable changes to this project are documented here. The format follows [Kee
     its owner (`mailto:` and the email, labelled with the person's and the organisation's names) and the sign-in's
     scopes. It records them for the current sign-in, in memory; a new or switched sign-in forgets them.
   - `events_list` (`affinity_events_list`) lists, oldest first, the meetings the signed-in person organised, created
-    or attended, once each started an hour ago: the meeting's id, start, title, the people Affinity matched to a person
-    record (`affinity:person/<id>` and their name) and its Affinity link when Affinity gives one. `text` is always
-    empty: no notes, transcripts, email addresses, phone numbers or relationship scores. A listing names the account
-    `probe` named and is refused until `probe` has named it, so it never spends a call asking who is signed in. It
-    reads `get_meetings` a week of start times at a time, 100 meetings a call, and starts no new window after 10
-    calls, saying there is more; each page's `cost` counts its calls against the firm's monthly quota. Its first call
-    also asks for meetings logged in Affinity since the last listing that started up to 30 days before the cursor, and
-    lists them. It reads back 90 days, since Affinity deletes meetings: an older `since` answers `gap`
-    `window-truncated`, a cursor more than 100 days old `gap` `expired`, each once. The cursor is bound to the plugin,
-    the source and the account. A meeting whose title holds a secret is refused for good.
+    or attended, once each started an hour ago: the meeting's id, start, title and the people Affinity matched to a
+    person record (`affinity:person/<id>` and their name). `text` is always empty and `url` null: no notes,
+    transcripts, email addresses, phone numbers or relationship scores, and Affinity's meetings have no link. A listing
+    names the account `probe` named and is refused until `probe` has named it, so it never spends a call asking who is
+    signed in. A meeting logged in Affinity after a listing passed its start is listed once by a later listing,
+    wherever in the read-back it started, with a 10-minute margin for Affinity's index lag and clock skew. A listing
+    makes at most 10 `get_meetings` calls, usually one; one that runs out ends with what it listed and a cursor that
+    carries on, so a calendar backfill drains over several listings. Each page's `cost` counts its calls. It reads
+    back 90 days, by choice, to bound the quota: an older `since` answers `gap` `window-truncated`, a cursor more than
+    100 days old `gap` `expired`, each once; a meeting deleted before a listing reaches it is never listed. The cursor
+    is bound to the plugin, the source and the account. A meeting whose title holds a secret is refused for good.
   - The source contract's error codes: `INPUT_INVALID`, `SOURCE_UNKNOWN`, `ACCOUNT_MISMATCH`, `CURSOR_INVALID`,
     `NEEDS_SIGN_IN`, `SCOPE_MISSING`, `RATE_LIMITED` and `UNAVAILABLE`.
 - `npm run conformance`, also a stage of `npm run check`: the source contract's conformance kit over the source,

@@ -60,14 +60,16 @@ opencode api post /api/rpc/affinity.crm.tools/events_list \
 ```
 
 A page lists, oldest first, the meetings the signed-in person organised, created or attended, once each started an
-hour ago: the meeting's id, start, title, the people Affinity matched to a person record (`affinity:person/<id>` and
-their name) and its Affinity link when there is one. Its `text` is always empty: no notes, transcripts, email addresses
-or relationship scores. `more` is true when another call now would list more. `cost` counts the `get_meetings` calls
-the page made, each against the firm's monthly quota: one per week of start times read and per 100 meetings in it; after
-10 calls the page starts no new window. The first call's filter also asks for meetings logged in Affinity since the last
-listing that started up to 30 days before the cursor, and the page lists them too. The cursor is bound to the account,
-and another account's is refused. The source reads back 90 days: a `since` further back answers `gap`
-`window-truncated`, and a cursor more than 100 days old `gap` `expired`, once, then reads on from 90 days back.
+hour ago: the meeting's id, start, title, and the people Affinity matched to a person record (`affinity:person/<id>`
+and their name). Its `text` is always empty and its `url` null: no notes, transcripts, email addresses or relationship
+scores, and Affinity's meetings have no link. A meeting logged in Affinity after an earlier listing passed its start
+is listed once by a later listing, wherever in the read-back it started. `more` is true when another call now would
+list more. `cost` counts the `get_meetings` calls the page made, each against the firm's monthly quota: usually one,
+and never more than 10; a page that runs out of calls ends with what it listed and a cursor that carries on. The cursor
+is bound to the account, and another account's is refused. The source reads back 90 days, by choice, to bound the
+quota: a `since` further back answers `gap` `window-truncated`, and a cursor more than 100 days old `gap` `expired`,
+once, then reads on from 90 days back. A meeting deleted before a listing reaches it is never listed, and no gap says
+so.
 
 ## A script runs as a session
 

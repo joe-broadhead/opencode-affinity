@@ -3,13 +3,14 @@
 import { describe, expect, test } from "bun:test"
 import { encodeBoundCursor, encodeCursor } from "@we-the-rebel-alliance/source-contract/cursor"
 import { resultProblems, type EventsListResult } from "@we-the-rebel-alliance/source-contract/events"
-import { EventsFailure, EXPIRE_DAYS, LATE_DAYS, MAX_BYTES, MAX_CALLS, PROBE_ACTION, READ_BACK_DAYS, EVENTS_ACTION, accountOf, eventsMethod, probeMethod, signIns, type SignIns } from "../../src/events.js"
+import { EventsFailure, EXPIRE_DAYS, MARGIN_MS, MAX_BYTES, MAX_CALLS, PROBE_ACTION, READ_BACK_DAYS, EVENTS_ACTION, accountOf, eventsMethod, probeMethod, signIns, type SignIns } from "../../src/events.js"
 import { readCurrentUser, readMeetingsPage } from "../../src/meetings.js"
 import { pluginError } from "../../src/tools-rpc.js"
 import { ACCOUNT, CREDENTIAL, FIXTURE, NOW, OPEN, call, fakeDeps, type FakeOptions, type Fixture } from "../support/conformance.js"
 
 const SINCE = "2026-11-01T00:00:00Z"
 const DAY = 86_400_000
+const HOUR = 3_600_000
 
 /** A sign-in probe has named, as a consumer's bind leaves it. */
 async function probed(fixture: Fixture = FIXTURE): Promise<SignIns> {
@@ -139,15 +140,16 @@ describe("events_list", () => {
   test("costs one get_meetings call for a collector that runs every hour", async () => {
     const calls: FakeOptions["calls"] = []
     const first = await list({ account: ACCOUNT, since: "2026-11-12T00:00:00Z" })
-    const page = await list({ account: ACCOUNT, cursor: first.cursor }, { calls, now: NOW + 3_600_000 })
+    const page = await list({ account: ACCOUNT, cursor: first.cursor }, { calls, now: NOW + HOUR })
     // An hour later, the stand-up that started at 11:30 has settled, and the call logged at 12:30 for the 12th's 08:00
-    // is listed late, by its start, from the same call.
+    // is listed late, before it, from the same call.
     expect(ids(page)).toEqual(["1008", "1006"])
     expect(calls).toHaveLength(1)
-    expect(String(calls[0]!.input["filter_expr"])).toMatch(/^\(startTime>=\S+ & startTime<=\S+\) \| \(startTime>=\S+ & startTime<=\S+ & createdAt>=2026-11-13T12:00:00Z\)$/)
+    // The late reach (the whole read-back, added since 10 minutes before the last listing) and the main slice, joined.
+    expect(String(calls[0]!.input["filter_expr"])).toMatch(/^\(startTime>=2026-08-15T13:00:00Z & startTime<=\S+ & createdAt>=2026-11-13T11:50:00Z\) \| \(startTime>=\S+ & startTime<=\S+\)$/)
     expect(page.cost).toEqual({ units: [{ per: "call", count: 1 }] })
     // The next listing lists neither again.
-    const again = await list({ account: ACCOUNT, cursor: page.cursor }, { now: NOW + 2 * 3_600_000 })
+    const again = await list({ account: ACCOUNT, cursor: page.cursor }, { now: NOW + 2 * HOUR })
     expect(ids(again)).toEqual([])
   })
 
@@ -159,22 +161,45 @@ describe("events_list", () => {
     const seen: string[] = []
     let cursor = first.cursor
     for (let page = 0; page < 6; page++) {
-      const result = await list({ account: ACCOUNT, cursor, limit: 2 }, { fixture, signIns: known, now: NOW + 3_600_000 })
+      const result = await list({ account: ACCOUNT, cursor, limit: 2 }, { fixture, signIns: known, now: NOW + HOUR })
       seen.push(...ids(result))
       cursor = result.cursor
       if (!result.more) break
     }
-    // The three late ones, two at a time by when they were logged, then what settled since.
-    expect(seen.sort()).toEqual(["1006", "1008", "4001", "4002", "4003"])
+    // The three late ones and 1008, two at a time by start, then what settled since.
+    expect(seen).toEqual(["4003", "4002", "4001", "1008", "1006"])
   })
 
-  test("a meeting logged more than the late reach before the position is past it", async () => {
+  test("the late feed covers the whole read-back: a meeting logged 60 days late is listed, one started before it is not", async () => {
     const known = await probed()
-    const old = { ...meeting(4100, new Date(NOW - (LATE_DAYS + 2) * DAY).toISOString()), createdAt: "2026-11-13T12:10:00Z" }
-    const fixture = { ...FIXTURE, meetings: [...FIXTURE.meetings, old] }
-    const first = await list({ account: ACCOUNT, since: SINCE }, { fixture, signIns: known })
-    const page = await list({ account: ACCOUNT, cursor: first.cursor }, { fixture, signIns: known, now: NOW + 3_600_000 })
-    expect(ids(page)).not.toContain("4100")
+    const late = { ...meeting(4100, new Date(NOW - 60 * DAY).toISOString()), createdAt: "2026-11-13T12:10:00Z" }
+    const beyond = { ...meeting(4101, new Date(NOW - (READ_BACK_DAYS + 5) * DAY).toISOString()), createdAt: "2026-11-13T12:10:00Z" }
+    const fixture = { ...FIXTURE, meetings: [...FIXTURE.meetings, late, beyond] }
+    const first = await list({ account: ACCOUNT, since: "2026-11-12T00:00:00Z" }, { fixture, signIns: known })
+    const page = await list({ account: ACCOUNT, cursor: first.cursor }, { fixture, signIns: known, now: NOW + HOUR })
+    expect(ids(page)).toContain("4100")
+    expect(ids(page)).not.toContain("4101")
+    expect(page.gap).toBeUndefined()
+  })
+
+  test("Affinity's index lag or clock skew up to the margin skips nothing, and a meeting logged mid-listing is listed once", async () => {
+    const known = await probed()
+    // Logged 30 seconds before the listing, by the plugin's clock, but Affinity shows it only a minute later.
+    const lagging = { ...meeting(4200, new Date(NOW - 2 * DAY).toISOString()), createdAt: new Date(NOW - 30_000).toISOString() }
+    // Logged two seconds after the listing read its clock, and already visible to its call.
+    const during = { ...meeting(4201, new Date(NOW - 2 * DAY).toISOString()), createdAt: new Date(NOW + 2_000).toISOString() }
+    const fixture = { ...FIXTURE, meetings: [...FIXTURE.meetings, lagging, during] }
+    const at = (plugin: number, affinity: number) => ({ ...fakeDeps(fixture, OPEN, { signIns: known, now: affinity }), now: () => plugin })
+    const first = (await eventsMethod(at(NOW, NOW - MARGIN_MS / 10)).run({ account: ACCOUNT, since: SINCE }, call())) as EventsListResult
+    const seen = ids(first)
+    expect(seen).not.toContain("4200")
+    let cursor = first.cursor
+    for (let hour = 1; hour <= 3; hour++) {
+      const page = (await eventsMethod(at(NOW + hour * HOUR, NOW + hour * HOUR)).run({ account: ACCOUNT, cursor }, call())) as EventsListResult
+      seen.push(...ids(page))
+      cursor = page.cursor
+    }
+    expect(seen.filter((id) => id === "4200" || id === "4201").sort()).toEqual(["4200", "4201"])
   })
 
   test("an empty page still names the owner and carries a cursor", async () => {
@@ -182,38 +207,102 @@ describe("events_list", () => {
     expect(page.events).toEqual([])
     expect(page.owner.id).toBe("mailto:pilot.owner@example.com")
     expect(page.cursor.length).toBeGreaterThan(0)
+    expect(page.cursor.length).toBeLessThanOrEqual(1024)
     expect(page.more).toBe(false)
   })
 
-  test("reads back 90 days: an older cursor restarts there with a gap, once, at most ten calls a page", async () => {
-    const aged = (days: number) => encodeBoundCursor({ plugin: "affinity", source: "affinity", account: ACCOUNT }, { a: ACCOUNT, t: NOW - days * DAY, i: 0, w: NOW - days * DAY, k: 0 })
+  test("reads back 90 days: an older cursor restarts there with a gap, once", async () => {
+    const known = await probed()
+    const aged = async (days: number) => (await list({ account: ACCOUNT, since: new Date(NOW - (days + 1) * DAY).toISOString() }, { signIns: known, now: NOW - days * DAY })).cursor
     const calls: FakeOptions["calls"] = []
-    const page = await list({ account: ACCOUNT, cursor: aged(365) }, { calls })
+    const page = await list({ account: ACCOUNT, cursor: await aged(365) }, { calls, signIns: known })
     const horizon = new Date(NOW - READ_BACK_DAYS * DAY).toISOString()
     expect(page.gap).toEqual({ reason: "expired", since: horizon })
     expect(String(calls[0]!.input["filter_expr"])).toStartWith(`startTime>=${horizon.replace(".000Z", "Z")} `)
-    expect(calls).toHaveLength(MAX_CALLS)
-    expect(page.more).toBe(true)
+    expect(calls.length).toBeLessThanOrEqual(MAX_CALLS)
+    expect(ids(page)).toEqual(["1000", "1001", "1002", "1005"])
     // The rest of the read answers no gap again.
-    const next = await list({ account: ACCOUNT, cursor: page.cursor })
+    const next = await list({ account: ACCOUNT, cursor: page.cursor }, { signIns: known })
     expect(next.gap).toBeUndefined()
-    expect(ids(next)).toEqual(["1000", "1001", "1002", "1005"])
+    expect(ids(next)).toEqual([])
     // A cursor inside the margin is read as it is.
-    expect((await list({ account: ACCOUNT, cursor: aged(EXPIRE_DAYS - 1) })).gap).toBeUndefined()
+    expect((await list({ account: ACCOUNT, cursor: await aged(EXPIRE_DAYS - 2) }, { signIns: known })).gap).toBeUndefined()
     // A since before the horizon starts at it, and says so.
     expect((await list({ account: ACCOUNT, since: "2026-01-01" })).gap).toEqual({ reason: "window-truncated", since: horizon })
   })
 
-  test("a busy week is read again a day at a time; a day that cannot be read whole is UNAVAILABLE", async () => {
-    const busy = { ...FIXTURE, meetings: Array.from({ length: 7 }, (_, index) => meeting(2000 + index, `2026-11-0${index + 2}T10:00:00Z`)) }
-    const calls: FakeOptions["calls"] = []
-    const page = await list({ account: ACCOUNT, since: SINCE }, { fixture: busy, pageSize: 2, calls })
-    // The week takes more than three pages of two, so it is read a day at a time from the start.
-    expect(ids(page)).toEqual(busy.meetings.map((entry) => String(entry.id)))
-    expect(calls.length).toBeLessThanOrEqual(MAX_CALLS + 20)
-    const crowded = { ...FIXTURE, meetings: Array.from({ length: 50 }, (_, index) => meeting(3000 + index, "2026-11-02T10:00:00Z")) }
-    expect(await code(list({ account: ACCOUNT, since: SINCE }, { fixture: crowded, pageSize: 2 }))).toBe("UNAVAILABLE")
-  })
+  /** Hourly listings from a cursor until `done` or `limit` listings; every listing's calls, and what it listed. */
+  async function drain(fixture: Fixture, known: SignIns, cursor: string, done: (seen: string[]) => boolean, limit: number) {
+    const seen: string[] = []
+    const costs: number[] = []
+    for (let hour = 1; hour <= limit && !done(seen); hour++) {
+      const calls: FakeOptions["calls"] = []
+      const page = await list({ account: ACCOUNT, cursor }, { fixture, signIns: known, now: NOW + hour * HOUR, calls })
+      expect(page.cost).toEqual({ units: [{ per: "call", count: calls.length }] })
+      costs.push(calls.length)
+      seen.push(...ids(page))
+      cursor = page.cursor
+    }
+    return { seen, costs }
+  }
+
+  test.each([2_000, 10_000])("a backfill of %i colleagues' meetings logged at once drains at no more than MAX_CALLS calls a listing", async (count) => {
+    const known = await probed()
+    const colleague = (id: number, start: number) => ({
+      ...meeting(id, new Date(start).toISOString()),
+      createdAt: new Date(NOW + 10 * 60_000).toISOString(),
+      organizer: { emailAddress: "dana@example.com", person: { id: 9002, firstName: "Dana", lastName: "Lee" } },
+    })
+    const spread = (20 * DAY) / count
+    const backfill = Array.from({ length: count }, (_, n) => colleague(100_000 + n, NOW - 20 * DAY + n * spread))
+    // Three of mine in the backfill, and one ordinary meeting of mine that starts after the first listing.
+    const mine = [5001, 5002, 5003].map((id, n) => ({ ...meeting(id, new Date(NOW - (3 + n * 5) * DAY).toISOString()), createdAt: new Date(NOW + 10 * 60_000).toISOString() }))
+    const next = { ...meeting(5004, new Date(NOW + 30 * 60_000).toISOString()), createdAt: new Date(NOW - DAY).toISOString() }
+    const fixture = { ...FIXTURE, meetings: [...FIXTURE.meetings, ...backfill, ...mine, next] }
+    const first = await list({ account: ACCOUNT, since: "2026-11-12T00:00:00Z" }, { fixture, signIns: known })
+    const wanted = ["5001", "5002", "5003", "5004"]
+    const { seen, costs } = await drain(fixture, known, first.cursor, (listed) => wanted.every((id) => listed.includes(id)), 60)
+    expect(wanted.filter((id) => !seen.includes(id))).toEqual([])
+    expect(new Set(seen).size).toBe(seen.length)
+    expect(Math.max(...costs)).toBeLessThanOrEqual(MAX_CALLS)
+    // Drained: every page of the backfill read, at a bounded cost.
+    expect(costs.reduce((sum, cost) => sum + cost, 0)).toBeLessThanOrEqual(costs.length * MAX_CALLS)
+    // Once drained, a listing is one call again.
+    const after = await drain(fixture, known, (await list({ account: ACCOUNT, since: "2026-11-13T10:00:00Z" }, { fixture, signIns: known, now: NOW + 70 * HOUR })).cursor, () => false, 3)
+    expect(after.costs.at(-1)).toBe(1)
+  }, 120_000)
+
+  test("a slice too crowded to read whole is read again narrower, never past the budget; one second that cannot be read whole is UNAVAILABLE", async () => {
+    const known = await probed()
+    const spread = { ...FIXTURE, meetings: Array.from({ length: 300 }, (_, n) => meeting(6000 + n, new Date(Date.parse(SINCE) + n * 600_000).toISOString())) }
+    const pages: EventsListResult[] = []
+    const costs: number[] = []
+    let input: Record<string, unknown> = { account: ACCOUNT, since: SINCE }
+    for (let n = 0; n < 80; n++) {
+      const calls: FakeOptions["calls"] = []
+      const page = await list(input, { fixture: spread, signIns: known, pageSize: 2, calls })
+      pages.push(page)
+      costs.push(calls.length)
+      if (!page.more) break
+      input = { account: ACCOUNT, cursor: page.cursor }
+    }
+    expect(pages.flatMap(ids)).toEqual(spread.meetings.map((entry) => String(entry.id)))
+    expect(Math.max(...costs)).toBeLessThanOrEqual(MAX_CALLS)
+    const crowded = { ...FIXTURE, meetings: Array.from({ length: 25 }, (_, n) => meeting(7000 + n, "2026-11-02T10:00:00Z")) }
+    let cursor: string | undefined
+    let failed: string | undefined
+    for (let n = 0; n < 40 && failed === undefined; n++) {
+      const calls: FakeOptions["calls"] = []
+      try {
+        const page = await list(cursor === undefined ? { account: ACCOUNT, since: SINCE } : { account: ACCOUNT, cursor }, { fixture: crowded, signIns: known, pageSize: 2, calls })
+        cursor = page.cursor
+      } catch (error) {
+        failed = error instanceof EventsFailure ? error.problem.code : String(error)
+      }
+      expect(calls.length).toBeLessThanOrEqual(MAX_CALLS)
+    }
+    expect(failed).toBe("UNAVAILABLE")
+  }, 120_000)
 
   test("refuses what it cannot read before any call", async () => {
     const calls: FakeOptions["calls"] = []
@@ -285,7 +374,7 @@ describe("Affinity's answers", () => {
     expect(readMeetingsPage({ content: "No meetings." })).toBeUndefined()
   })
 
-  test("a meeting without an id or a zoned start is not dated; a link counts only on Affinity's hosts", () => {
+  test("a meeting without an id or a zoned start is not dated, and no link is read: Affinity's meetings have none", () => {
     const page = readMeetingsPage({
       output: {
         data: [
@@ -295,9 +384,9 @@ describe("Affinity's answers", () => {
         ],
       },
     })
-    expect(page?.meetings.map((entry) => [entry.id, entry.time, entry.url])).toEqual([
-      ["8", undefined, "https://example-ventures.affinity.co/meetings/8"],
-      ["9", Date.parse("2026-11-12T09:00:00Z"), undefined],
+    expect(page?.meetings.map((entry) => [entry.id, entry.time, "url" in entry])).toEqual([
+      ["8", undefined, false],
+      ["9", Date.parse("2026-11-12T09:00:00Z"), false],
     ])
   })
 

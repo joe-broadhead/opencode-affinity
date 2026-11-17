@@ -29,7 +29,7 @@ OpenCode project.
 - The meetings source's `probe` reads your own email, name and organisation id from `get_current_user`, to name the
   account a consumer such as Memory reads, and keeps them in memory for the current sign-in only. `events_list` lists
   your own meetings as metadata: ids, start, title, the people Affinity matched to a person record (their Affinity id
-  and name) and a link. It reads attendees' email addresses only to tell your meetings from colleagues', and never
+  and name). It reads attendees' email addresses only to tell your meetings from colleagues', and never
   passes one on, nor any note, transcript, phone number or relationship score. A consumer reads it only with your
   consent, under its own grant.
 - **The CRM holds other people's personal data.** Contact details, relationship scores and inferred connections of

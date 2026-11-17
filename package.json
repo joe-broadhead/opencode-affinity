@@ -122,11 +122,7 @@
             "usd": 0
           }
         },
-        "maxBytes": 65536,
-        "urlHosts": [
-          "affinity.co",
-          "*.affinity.co"
-        ]
+        "maxBytes": 65536
       }
     ]
   },

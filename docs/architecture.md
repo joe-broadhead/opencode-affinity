@@ -178,16 +178,31 @@ These facts about OpenCode 2.2.3 hold on 2.2.4, 2.2.5 and 2.2.6 too. Links point
 `package.json`'s top-level `sources` declares `affinity.meetings` (contract version 1, the RPC `affinity.crm.tools`,
 the probe action `affinity_probe`). `probe` makes one `get_current_user` call, answers the account
 `<organisation id>/<email>` and its owner, and records them under OpenCode's credential for the server. `events_list`
-checks the account it is asked for against that record before any call, so it never spends a call on who is signed in,
-then reads `get_meetings` by start time, a week at a time (a day at a time after a week of more than 300 meetings),
-every page of a window, because Affinity promises no order within one; it sorts the window, keeps the meetings whose
-organiser, creator or attendees include the signed-in email, and lists them as events with no text. It stops starting
-new windows after 10 calls. The cursor, bound to the plugin, the source and the account by the contract's `cursor`
-module, holds the start and id of the last meeting listed, or the end of the last window read, and a watermark: when
-the last listing ran. The first call's filter adds `(startTime` in the 30 days before the position `& createdAt>=`
-the watermark`)`, so a meeting logged late is listed by the next listing at no extra call. Affinity deletes meetings,
-so the source reads back only 90 days and answers `gap` (`window-truncated` for an older `since`, `expired` for a
-cursor more than 100 days old) once, on the page where it restarts.
+checks the account it is asked for against that record before any call, so it never spends a call on who is signed in.
+
+Affinity lists every meeting the person may see and promises no order within a page, so a listing reads a slice of
+start times whole (every page of one filter), sorts it, and keeps the meetings whose organiser, creator or previewed
+attendees include the signed-in email. Two feeds share the cursor:
+
+- the main feed lists the meetings that started after its position, oldest first;
+- the late feed lists meetings added to Affinity after an earlier listing passed their start. Listings run in
+  generations: a generation starts at a listing's clock G and owns the meetings added in [previous G − 10 minutes,
+  G − 10 minutes), over the whole read-back up to the main position when it started. Each meeting belongs to exactly one
+  generation, so it is listed once, and the margin absorbs Affinity's index lag and clock skew. A main-feed meeting added
+  within the current generation's margin is left to the next generation.
+
+A listing makes at most `MAX_CALLS` (10) calls. A slice that takes more than `ATTEMPT_PAGES` (5) pages is read again at
+half its span; a slice read in at most two pages lets the next one double. Both spans live in the cursor, so a
+backfill drains over several listings at a bounded cost each, and a listing whose budget runs out ends with what it
+listed, `more: true`, and its progress. While both spans are at their widest, the late feed's whole reach and the main
+feed's slice share one filter (`(… & createdAt>=…) | (…)`): a normal listing is one call. Only a second in which more
+than 1,000 visible meetings start cannot be read whole, and is `UNAVAILABLE`.
+
+The cursor, bound to the plugin, the source and the account by the contract's `cursor` module, holds the main
+position, the generation (G, the previous G, its reach's end and progress) and the two spans. The source reads back 90
+days, by choice, and answers `gap` (`window-truncated` for an older `since`, `expired` for a cursor more than 100 days
+old) once, on the page where it restarts. A meeting deleted before a listing reaches it is never listed, and no gap
+says so.
 
 `npm run conformance` (`scripts/conformance.ts`) runs the contract's kit over both methods against a fake Affinity
 (`test/support/conformance.ts`, answering from `test/fixtures/conformance.json`) and writes

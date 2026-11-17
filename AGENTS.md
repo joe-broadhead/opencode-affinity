@@ -72,9 +72,10 @@ one source of the source contract, `affinity.meetings`. It has no tool the model
 - **The meetings source.** `package.json`'s `sources` declares `affinity.meetings`; `src/events.ts` serves it with the
   source contract's `events` and `cursor` modules, never copies. `permission.operations` is exactly what the reads
   call, and `npm run conformance` must stay ok. An event carries metadata only: ids, start, title, the people Affinity
-  matched (their Affinity person id and name) and a link. Never an email address, phone number, note, transcript or
+  matched (their Affinity person id and name); `url` stays null, since Affinity's meetings have no link. Never an email address, phone number, note, transcript or
   relationship score: `text` stays empty. Each read counts against the firm's quota, so a listing never asks who is
-  signed in (it checks what `probe` recorded) and starts no new window after `MAX_CALLS`. Declare or send no key a
+  signed in (it checks what `probe` recorded) and never makes more than `MAX_CALLS` calls: one that runs out returns
+  what it listed with a cursor that carries on, never an error. Declare or send no key a
   consumer on source-contract 0.1 refuses (`removals[]`, `owner.verified`, `identityRules`, `accounts.server`,
   `readsIdentity`, a price's `conditions` or `min`, an empty `identity`) until the consumers are on 0.2.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with

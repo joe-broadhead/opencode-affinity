@@ -147,23 +147,24 @@ model sees, and the default rules allow both under every `access` value, because
   `<organisation id>/<email>`, its owner (`mailto:` and the email, labelled with your name and the organisation's) and
   the sign-in's scopes. It remembers the answer for the current sign-in, in memory only.
 - `events_list` (`affinity_events_list`) lists, oldest first, the meetings you organised, created or attended, one
-  event per meeting: Affinity's meeting id, its start, its title, the people on it whom Affinity matched to a person
-  record (`affinity:person/<id>` and their name), and its Affinity link when Affinity gives one. It carries no notes,
-  transcripts, email addresses, phone numbers or relationship scores; its text is always empty. A meeting is listed
-  once it started an hour ago, and a meeting logged in Affinity after a listing passed its start is listed by the next
-  one, when it started at most 30 days before. A listing names the account `probe` named, and is refused until `probe`
-  has named it for the current sign-in; a new sign-in forgets it. A meeting whose title holds a secret is refused for
-  good.
-- It reads back 90 days, because Affinity's meeting history is not permanent: a meeting can be deleted before a
-  consumer reads it. A `since` further back starts at 90 days with `gap` `window-truncated`, and a cursor more than 100
-  days old restarts there with `gap` `expired`, each once.
+  event per meeting: Affinity's meeting id, its start, its title, and the people on it whom Affinity matched to a
+  person record (`affinity:person/<id>` and their name). It carries no notes, transcripts, email addresses, phone
+  numbers, relationship scores or link (Affinity's meetings have none); its text is always empty. A meeting is listed
+  once it started an hour ago. A listing names the account `probe` named, and is refused until `probe` has named it
+  for the current sign-in; a new sign-in forgets it. A meeting whose title holds a secret is refused for good.
+- A meeting logged in Affinity after a listing passed its start (logged late, or a calendar connected later) is
+  listed by a later listing, once, wherever in the read-back it started. A 10-minute margin absorbs Affinity's indexing
+  lag and clock skew.
+- It reads back 90 days, by choice, to bound the quota. A `since` further back starts at 90 days with `gap`
+  `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
 
-Every call counts against the firm's monthly API quota. `events_list` reads `get_meetings` a week of start times at a
-time, 100 meetings a call, and its first call also asks, in the same filter, for the meetings logged late: a consumer that reads every hour makes one call a page, a first read of the last day makes
-one, and a page that catches up on a long gap starts no new window after 10 calls and says there is more. Affinity lists every
+Every call counts against the firm's monthly API quota, so a listing makes **at most 10 calls**, whatever it finds,
+and usually one: a consumer that reads every hour makes one call a listing, and so does a first read of the last day.
+A page that runs out of calls ends with what it listed, `more: true`, and a cursor that carries on, so a calendar
+backfill of thousands of meetings drains over several listings at no more than 10 calls each. Affinity lists every
 meeting you may see, colleagues' included, and the source keeps only yours, so a firm whose calendars Affinity shares
-widely uses more calls per week read. Each page's `cost` says how many calls it made; a probe is one call.
-`npm run conformance` runs the contract's conformance kit over the source, and each release attaches its report.
+widely uses more calls. Each page's `cost` says how many calls it made; a probe is one call. `npm run conformance` runs
+the contract's conformance kit over the source, and each release attaches its report.
 
 ## Permissions
 
@@ -699,6 +700,12 @@ The status RPC's own error is `unavailable`, with a next step, when the status c
   make it. A script's reads follow the location it calls, not the session's location (a limit of the shared tools
   module).
 
+- **The meetings source** keeps a meeting only when your email is its organiser's, its creator's or one of the
+  attendees Affinity previews, at most 100; Affinity's docs don't say that your user id is your person id, so the
+  source doesn't match on it. You are not matched to a larger meeting where you are past the preview, or to one you
+  were invited to by an alias. A meeting deleted before a listing reaches it is never listed, and no gap says so (a
+  deletion after it was listed will be announced once consumers read the contract's `removals[]`). More than 1,000
+  visible meetings that start in the same second cannot be read whole, and `events_list` answers `UNAVAILABLE` for them.
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
   older Jelly refuses the plugin's whole declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.

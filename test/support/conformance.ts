@@ -46,7 +46,7 @@ export interface FakeOptions {
 
 /**
  * The filters the source sends, in Affinity's filter language: `startTime>=<ISO> & startTime<=<ISO>`, or that in
- * parentheses `|` a late reach, `(startTime>=<ISO> & startTime<=<ISO> & createdAt>=<ISO>)`. Returns the test a meeting
+ * parentheses `|` a late reach, `(startTime>=<ISO> & startTime<=<ISO> & createdAt>=<ISO>)`, or either alone. Returns the test a meeting
  * passes; anything else is Affinity's refusal of the filter.
  */
 function matcher(filter: unknown): (meeting: Record<string, unknown>) => boolean {
@@ -152,14 +152,16 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
   const list = (input: Readonly<Record<string, unknown>>, session: SessionContext) => eventsMethod(deps(session)).run(input, call())
   const first = (await eventsMethod(fakeDeps(fixture, OPEN, { signIns: known })).run({ account: ACCOUNT, since: "2026-11-01T00:00:00Z", limit: 2 }, call())) as { cursor: string }
   const bound = (binding: { plugin: string; source: string; account: string }) => encodeBoundCursor(binding, { a: binding.account, t: Date.parse("2026-11-01T00:00:00Z"), i: 0, w: NOW, k: 0 })
-  const aged = (days: number) => encodeBoundCursor({ plugin: "affinity", source: SOURCE, account: ACCOUNT }, { a: ACCOUNT, t: NOW - days * 86_400_000, i: 0, w: NOW - days * 86_400_000, k: 0 })
+  // A cursor a listing wrote 120 days ago.
+  const then = NOW - 120 * 86_400_000
+  const aged = ((await eventsMethod(fakeDeps(fixture, OPEN, { signIns: known, now: then })).run({ account: ACCOUNT, since: new Date(then - 86_400_000).toISOString() }, call())) as { cursor: string }).cursor
   const cases: PageCase[] = [
     { name: "a first listing for the account probe names, a colleague's meeting left out and one meeting refused for a secret", input: { source: SOURCE, account: ACCOUNT, since: "2026-11-01T00:00:00Z" } },
     { name: "the first two meetings, then more", input: { account: ACCOUNT, since: "2026-11-01T00:00:00Z", limit: 2 } },
     { name: "what came after the first two", input: { account: ACCOUNT, cursor: first.cursor } },
     { name: "an empty page still carries a cursor", input: { account: ACCOUNT, since: "2026-11-13T00:00:00Z" }, expect: "empty" },
     // 120 days old: past the 100 days a cursor lasts, so the read restarts 90 days back, says so once, and reads on.
-    { name: "a cursor older than the source reads back answers a gap and reads on", input: { account: ACCOUNT, cursor: aged(120) }, expect: "expired" },
+    { name: "a cursor older than the source reads back answers a gap and reads on", input: { account: ACCOUNT, cursor: aged }, expect: "expired" },
     { name: "a since before the 90 days the source reads back starts there, with a gap", input: { account: ACCOUNT, since: "2026-01-01T00:00:00Z" } },
     { name: "a listing that names no account", input: { since: "2026-11-01T00:00:00Z" }, expect: { refuses: "INPUT_INVALID" } },
     { name: "another account than the one signed in", input: { account: "4821/someone@example.com", since: "2026-11-01T00:00:00Z" }, expect: { refuses: "ACCOUNT_MISMATCH" } },

@@ -10,7 +10,8 @@
  *
  * Each reader takes the answer's structured output or its JSON text, at the top level or one level down, and returns
  * nothing rather than guess. Email addresses are read only to tell whether the signed-in person took part in a
- * meeting; none leaves this module.
+ * meeting; none leaves this module. Affinity's meeting has no link, so none is read. Affinity previews at most 100
+ * attendees, so a person past the preview of a larger meeting, or invited by an alias, is not matched to it.
  */
 
 /** A person Affinity names on a meeting: their Affinity person id, and their name when Affinity gives one. */
@@ -29,7 +30,6 @@ export interface MeetingFacts {
   readonly time?: number
   /** Epoch milliseconds: when the meeting was added to Affinity, which can be after it started (a meeting logged late). */
   readonly created?: number
-  readonly url?: string
   /** The organizer, the creator and the attendees Affinity matched to a person record, in that order. */
   readonly people: readonly MeetingPerson[]
   /** Every email address on the meeting, lowercase: only to tell the signed-in person's meetings apart. */
@@ -100,18 +100,6 @@ const timeOf = (value: unknown) => {
 }
 const nameOf = (first: unknown, last: unknown) => [nonEmpty(first), nonEmpty(last)].filter(Boolean).join(" ") || undefined
 
-/** A meeting's link, only on Affinity's own hosts. */
-function urlOf(value: unknown): string | undefined {
-  const text = nonEmpty(value)
-  if (text === undefined) return undefined
-  try {
-    const url = new URL(text)
-    return url.protocol === "https:" && (url.hostname === "affinity.co" || url.hostname.endsWith(".affinity.co")) && url.username === "" && url.password === "" ? url.href : undefined
-  } catch {
-    return undefined
-  }
-}
-
 /** One attendee: its person, when Affinity matched one, and its email addresses. */
 function attendee(value: unknown, role: MeetingPerson["role"], emails: Set<string>): MeetingPerson | undefined {
   if (!record(value)) return undefined
@@ -140,8 +128,7 @@ function meetingFacts(value: unknown): MeetingFacts | undefined {
   const title = nonEmpty(value.title)
   const time = timeOf(value.startTime)
   const created = timeOf(value.createdAt)
-  const url = urlOf(value.url ?? value.webUrl)
-  return { id, ...(title ? { title } : {}), ...(time === undefined ? {} : { time }), ...(created === undefined ? {} : { created }), ...(url ? { url } : {}), people, emails }
+  return { id, ...(title ? { title } : {}), ...(time === undefined ? {} : { time }), ...(created === undefined ? {} : { created }), people, emails }
 }
 
 /** The next page's cursor: `nextCursor`, or the `cursor` query parameter of `nextUrl`, in `pagination` or beside it. */
