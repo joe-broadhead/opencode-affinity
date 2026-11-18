@@ -12,7 +12,7 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Outside that range the plugin does not start, unless
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux.
 - An Affinity CRM account on the **Scale, Advanced or Enterprise** plan, which include API and MCP access.
@@ -643,7 +643,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | `429` or `Rate limit exceeded` | Your organisation's monthly API quota, or a short burst limit, is used up. Affinity shows usage in Settings; the quota is shared by the whole firm. |
 | An answer misses records a colleague can see | Results follow your own Affinity permissions. Ask the colleague or an Affinity admin. |
 | Agents without default rules | Put the default rules shown by `/affinity-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Affinity tools. |
-| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 or 2.3.0. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Affinity misbehaves, use a tested release. |
+| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 or 2.3.2. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Affinity misbehaves, use a tested release. |
 | Signed in to the wrong Affinity organisation | Run `opencode mcp logout affinity` from the project folder (or remove the account in `/connect` → Affinity; see [Sign in](#sign-in)), then sign in again and choose the other organisation. |
 | An Affinity tool is refused in `opencode run` | Nobody could answer its prompt. Add an `allow` rule for that **read** to the agent's own `permissions`, if you want it unattended. A change needs an interactive session: run it there, where the prompt can be answered. |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `affinity`, replaces the plugin's. Rename or move it. |
