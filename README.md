@@ -12,7 +12,7 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Outside that range the plugin does not start, unless
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux.
 - An Affinity CRM account on the **Scale, Advanced or Enterprise** plan, which include API and MCP access.
@@ -32,18 +32,18 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.5
+opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.6
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/affinity-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.4`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.5`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }] }
 ```
 
 The plugin registers Affinity's MCP server under the name `affinity`, adds default permission rules, the
@@ -181,7 +181,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -532,7 +532,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -594,7 +594,7 @@ dropdown options, which change every record of their type:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }],
   "permissions": [
     { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" }
@@ -607,7 +607,7 @@ With route 2, add the app's client ID to the same entry:
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "clientId": "<your app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "clientId": "<your app's client ID>" } }
   ]
 }
 ```
@@ -643,7 +643,7 @@ Run `/affinity-status` first. Its last line is the next step.
 | `429` or `Rate limit exceeded` | Your organisation's monthly API quota, or a short burst limit, is used up. Affinity shows usage in Settings; the quota is shared by the whole firm. |
 | An answer misses records a colleague can see | Results follow your own Affinity permissions. Ask the colleague or an Affinity admin. |
 | Agents without default rules | Put the default rules shown by `/affinity-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Affinity tools. |
-| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 or 2.3.0. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Affinity misbehaves, use a tested release. |
+| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 or 2.3.2. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Affinity misbehaves, use a tested release. |
 | Signed in to the wrong Affinity organisation | Run `opencode mcp logout affinity` from the project folder (or remove the account in `/connect` → Affinity; see [Sign in](#sign-in)), then sign in again and choose the other organisation. |
 | An Affinity tool is refused in `opencode run` | Nobody could answer its prompt. Add an `allow` rule for that **read** to the agent's own `permissions`, if you want it unattended. A change needs an interactive session: run it there, where the prompt can be answered. |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `affinity`, replaces the plugin's. Rename or move it. |
@@ -724,7 +724,7 @@ credential store.
 1. Sign out: `opencode mcp logout affinity` from the project folder. Right after OpenCode starts or reloads, it can
    answer `MCP server not found: affinity` for a few seconds; wait, then run it again.
 2. Check: `/connect` → **Affinity** shows no account; `opencode auth list` after step 3 shows no Affinity credential.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.5`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.6`, then `opencode reload`.
    `opencode mcp list` no longer lists `affinity`.
 4. Remove any Affinity rules you copied into your agents' own `permissions`. If you used an API key, revoke it in
    Affinity: Settings, Manage Apps. An admin who no longer wants OpenCode for anyone revokes its app there, which

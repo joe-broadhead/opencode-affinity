@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5" }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -34,7 +34,7 @@ from the model. The classes come from `src/affinity-tools.ts`, so the value deci
 - Default: `false`.
 
 The plugin supports OpenCode `>=2.2.3 <2.4.0`, the range `opencode.host` in `package.json` declares, and every check
-runs on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0, the tested releases. Status shows the version, whether it is tested and the supported
+runs on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2, the tested releases. Status shows the version, whether it is tested and the supported
 range in its `OpenCode` row, for example `2.2.5 (tested; supported range >=2.2.3 <2.4.0)`.
 
 - **A tested release:** the plugin starts.
@@ -76,7 +76,7 @@ the whole organisation, set it once in the system config's plugin entry
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "clientId": "<the app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "clientId": "<the app's client ID>" } }
   ]
 }
 ```
@@ -402,7 +402,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.5", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Affinity's server and from OpenCode pass through unchanged, such as `Insufficient scope` on a read-only
@@ -434,7 +434,7 @@ model. It holds no token, no header and no URL query, and makes no Affinity call
 | `unknownCount`, `unknownTools` | How many of them the plugin does not know, and at most 20 of their names, only those made of lowercase letters, digits and `_` |
 | `unguardedAgents` | Agents with a base allow and no block, under `ask-changes` or `read-only`; empty under `all`, and empty for an agent whose own rules already ask or deny for every Affinity tool. |
 | `shadowedSkills` | Present only when a skill with one of the plugin's ids, such as your own `affinity` skill, replaces the plugin's: each `id` and the `path` OpenCode loads instead |
-| `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0) |
+| `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
 | `problems` | Setup problems, each `CODE: What happened. Next step: What to do.` |
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
