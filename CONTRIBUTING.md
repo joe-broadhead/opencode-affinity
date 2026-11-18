@@ -40,7 +40,7 @@ npm run check
 | --- | --- |
 | `typecheck` | `tsc --noEmit` over `src/` and `test/`, strict, with unused names as errors |
 | `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, and the Jelly declaration |
-| `conformance` | `bun scripts/conformance.ts` (also `npm run conformance`): the source contract's conformance kit over `affinity.meetings`, against the offline fixture `test/fixtures/conformance.json`. Writes `reports/conformance-report.json`, which a release attaches, and fails unless it is ok |
+| `conformance` | `bun scripts/conformance.ts` (also `npm run conformance`): the source contract's conformance kit over `affinity.meetings` and `affinity.companies`, against the offline fixture `test/fixtures/conformance.json`. Writes `reports/conformance-report.json`, which a release attaches, and fails unless it is ok |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the SVG is clean and exact, the 128 and 256 PNGs exist, and `opencode.icons` and `files` agree |
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |

@@ -123,6 +123,45 @@
           }
         },
         "maxBytes": 65536
+      },
+      {
+        "id": "affinity.companies",
+        "kind": "snapshot",
+        "tool": "events_list",
+        "input": {
+          "source": "affinity",
+          "list": "companies"
+        },
+        "output": "list",
+        "accounts": {
+          "named": true
+        },
+        "permission": {
+          "tool": "affinity_events_list",
+          "operations": [
+            "get_current_user",
+            "search_all_companies"
+          ],
+          "identity": [
+            "get_current_user"
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "metered",
+          "units": [
+            {
+              "per": "call",
+              "usd": 0
+            }
+          ],
+          "probe": {
+            "per": "call",
+            "usd": 0
+          }
+        },
+        "maxAgeSec": 900,
+        "maxBytes": 65536
       }
     ]
   },

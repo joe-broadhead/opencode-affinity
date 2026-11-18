@@ -3,7 +3,7 @@
 The plugin is a thin layer over Affinity's official MCP server. OpenCode owns the MCP transport, OAuth, credentials,
 permission prompts and tool output limits. The plugin registers the server, names its `/connect` entry, adds default
 permission rules, reports status, ships two skills, lets scripts call the known tools through a tools RPC, and serves
-one source of the source contract, `affinity.meetings`, through two more methods of that RPC. It adds no tool the
+two sources of the source contract, `affinity.meetings` and the list snapshot `affinity.companies`, through two more methods of that RPC. It adds no tool the
 model sees, makes no Affinity call that a model, a script or a source's consumer did not ask for, and has no runtime
 dependencies: the source contract's package is bundled into `dist/index.js`.
 
@@ -23,8 +23,9 @@ dependencies: the source contract's package is bundled into `dist/index.js`.
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
 | `src/skills.ts` | Loading and registering the skills |
 | `src/tools-rpc.ts` | Affinity's part of the tools RPC for scripts, `affinity.crm.tools`: its method table and its plugin value (next steps, the account read's result shaping, the source's own errors). The transport is the source contract's `tools-rpc` module |
-| `src/events.ts` | The meetings source, `affinity.meetings`: `events_list` and `probe` as tools RPC methods, on the source contract's `events` and `cursor` modules, with what `probe` read per sign-in |
-| `src/meetings.ts` | The only reader of Affinity's answers for the source: `get_meetings` pages and `get_current_user` |
+| `src/events.ts` | The meetings source, `affinity.meetings`, and the list snapshot `affinity.companies`: `events_list` and `probe` as tools RPC methods, on the source contract's `events` and `cursor` modules, with what `probe` read per sign-in |
+| `src/meetings.ts` | The reader of Affinity's meeting answers: `get_meetings` pages and `get_current_user` |
+| `src/companies.ts` | The reader of Affinity's `search_all_companies` page for the list snapshot: id, name and primary domain |
 | `src/tui.ts` | The terminal UI part: the plugin `affinity.crm.tui` and the `/affinity` dialog |
 | `src/constants.ts` | IDs, the server name and URL, the OAuth scope, OpenCode's client URL that Affinity organisations add, the redirect URIs an organisation's own app registers, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
@@ -175,7 +176,7 @@ These facts about OpenCode 2.2.3 hold on 2.2.4, 2.2.5 and 2.2.6 too. Links point
 
 ## The meetings source
 
-`package.json`'s top-level `sources` declares `affinity.meetings` (contract version 1, the RPC `affinity.crm.tools`,
+`package.json`'s top-level `sources` declares `affinity.meetings` and the list snapshot `affinity.companies` (contract version 1, the RPC `affinity.crm.tools`,
 the probe action `affinity_probe`). `probe` makes one `get_current_user` call, answers the account
 `<organisation id>/<email>` and its owner, and records them under OpenCode's credential for the server. `events_list`
 checks the account it is asked for against that record before any call, so it never spends a call on who is signed in.

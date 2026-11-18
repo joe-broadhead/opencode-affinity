@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **List snapshot** `affinity.companies` (`output: "list"`). An app can bind it and render the firm's companies without knowing Affinity. It calls the existing `search_all_companies` read through `events_list`, not a second client. `affinity.meetings` stays the events source and is not renamed. No write is declared. The source-contract pin stays v0.2.0: `list` is already in that pin, and this change sends none of the keys a consumer on an older pin refuses.
+
 ## [0.0.6] - 2026-11-18
 
 ### Changed
