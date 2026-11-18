@@ -40,8 +40,8 @@ it.
 
 ## The meetings source
 
-`events_list` and `probe` are the source contract's methods for `affinity.meetings`, the source `package.json`
-declares under `sources`. They are for a consumer such as Memory, jelly or Artifacts, and for a script that keeps its
+`events_list` and `probe` are the source contract's methods for `affinity.meetings` and the list snapshot
+`affinity.companies`, the sources `package.json` declares under `sources`. They are for a consumer such as Memory, jelly or Artifacts, and for a script that keeps its
 own cursor. Call `probe` first: it makes one `get_current_user` call and answers the account, its owner and the
 sign-in's scopes, and the plugin remembers it for the current sign-in.
 
@@ -70,6 +70,11 @@ is bound to the account, and another account's is refused. The source reads back
 quota: a `since` further back answers `gap` `window-truncated`, and a cursor more than 100 days old `gap` `expired`,
 once, then reads on from 90 days back. A meeting deleted before a listing reaches it is never listed, and no gap says
 so.
+
+`affinity.companies` is the same `events_list` method with `{ "source": "affinity", "list": "companies" }` and the
+account `probe` named. It returns the contract's `list` output, not events: the first page of the firm's companies,
+at most 50, from one `search_all_companies` read. Each item is the company id, the name, and the primary domain as a
+note. `editable` is false. A name or domain that holds a secret is left out. It does not replace `affinity.meetings`.
 
 ## A script runs as a session
 
