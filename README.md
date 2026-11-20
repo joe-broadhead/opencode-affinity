@@ -138,10 +138,11 @@ tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinit
 
 ### The meetings source
 
-The plugin declares one source of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
-`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read your Affinity meetings with
-your consent: `affinity.meetings`, events of kind `meeting`. A consumer calls two tools RPC methods, never tools the
-model sees, and the default rules allow both under every `access` value, because they only read:
+The plugin declares sources of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
+`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read them with your consent:
+`affinity.meetings`, events of kind `meeting`, and `affinity.companies`, a `list` snapshot of the firm's companies.
+A consumer calls two tools RPC methods, never tools the model sees, and the default rules allow both under every
+`access` value, because they only read:
 
 - `probe` (`affinity_probe`) makes one `get_current_user` call and names who is signed in: the account
   `<organisation id>/<email>`, its owner (`mailto:` and the email, labelled with your name and the organisation's) and
@@ -157,6 +158,12 @@ model sees, and the default rules allow both under every `access` value, because
   lag and clock skew.
 - It reads back 90 days, by choice, to bound the quota. A `since` further back starts at 90 days with `gap`
   `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
+- `affinity.companies` is a snapshot. Its `tool` is `events_list`, its `output` is `list`, and its `input` is
+  `{ "source": "affinity", "list": "companies" }`. A read returns the first page of the firm's companies, at most 50,
+  as `{ data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary domain as a
+  note. It calls the existing `search_all_companies` read, not a second client, and names the account `probe` named.
+  No fields, email addresses or scores. A name or domain that holds a secret is left out. It is not editable.
+  `affinity.meetings` is not renamed.
 
 Every call counts against the firm's monthly API quota, so a listing makes **at most 10 calls**, whatever it finds,
 and usually one: a consumer that reads every hour makes one call a listing, and so does a first read of the last day.

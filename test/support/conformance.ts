@@ -12,6 +12,7 @@ import { encodeBoundCursor } from "@we-the-rebel-alliance/source-contract/cursor
 import { readInstalledDescriptor, type InstalledDescriptor } from "@we-the-rebel-alliance/source-contract/descriptor"
 import { SOURCES_SCHEMA } from "@we-the-rebel-alliance/source-contract/schema"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import { COMPANIES_ID } from "../../src/companies.js"
 import { PACKAGE, SOURCE, eventsMethod, probeMethod, signIns, type EventsDeps, type SignIns } from "../../src/events.js"
 import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 
@@ -21,6 +22,7 @@ export interface Fixture {
   readonly now: string
   readonly currentUser: Record<string, unknown>
   readonly meetings: readonly Record<string, unknown>[]
+  readonly companies: { readonly data: readonly Record<string, unknown>[] }
 }
 
 export const FIXTURE = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "conformance.json"), "utf8")) as Fixture
@@ -84,6 +86,7 @@ export function fakeTools(fixture: Fixture, permission: SessionContext["permissi
   const answers: Record<string, (input: Record<string, unknown>) => string> = {
     get_current_user: () => JSON.stringify(fixture.currentUser),
     get_meetings: (input) => options.unreadable ?? meetingsAnswer(fixture, input, options),
+    search_all_companies: () => JSON.stringify(fixture.companies),
   }
   return Object.entries(answers).map(([tool, answer]) => ({
     id: `affinity_${tool}`,
@@ -172,18 +175,37 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
   ]
   const reports: ConformanceReport[] = []
   for (const source of sources.items) {
-    if (source.id !== "affinity.meetings") throw new Error(`${source.id} is declared and the conformance run has no calls for it`)
+    if (source.id === "affinity.meetings") {
+      reports.push(
+        await sourceConformance({
+          plugin: PACKAGE,
+          source,
+          tools: declaredTools(),
+          calls: { list, probe: (input, session) => probeMethod(deps(session)).run(input, call()) },
+          cases,
+          account: ACCOUNT,
+          sources: { rpc: sources.rpc, probe: sources.probe },
+          describe: { id: TOOLS_RPC_ID },
+          atomicPages: { reason: ATOMIC },
+        }),
+      )
+      continue
+    }
+    if (source.id !== COMPANIES_ID) throw new Error(`${source.id} is declared and the conformance run has no calls for it`)
     reports.push(
       await sourceConformance({
         plugin: PACKAGE,
         source,
         tools: declaredTools(),
-        calls: { list, probe: (input, session) => probeMethod(deps(session)).run(input, call()) },
-        cases,
+        calls: {
+          snapshot: (input, session) => eventsMethod(deps(session)).run(input, call()),
+          probe: (input, session) => probeMethod(deps(session)).run(input, call()),
+        },
+        snapshotCases: [{ ...(source.input ?? {}), account: ACCOUNT }],
+        cases: [],
         account: ACCOUNT,
         sources: { rpc: sources.rpc, probe: sources.probe },
         describe: { id: TOOLS_RPC_ID },
-        atomicPages: { reason: ATOMIC },
       }),
     )
   }

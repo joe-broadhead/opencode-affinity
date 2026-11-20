@@ -2,7 +2,7 @@
 
 This repository builds `@joe-broadhead/opencode-affinity`, an OpenCode plugin that registers Affinity's official MCP
 server and adds default permission rules, a status command, a status dialog, two skills, a tools RPC for scripts, and
-one source of the source contract, `affinity.meetings`. It has no tool the model sees. Read [docs/architecture.md](docs/architecture.md) before you change code, and
+two sources of the source contract, `affinity.meetings` and the list snapshot `affinity.companies`. It has no tool the model sees. Read [docs/architecture.md](docs/architecture.md) before you change code, and
 [CONTRIBUTING.md](CONTRIBUTING.md) for the checks and the release steps.
 
 ## Rules
@@ -69,7 +69,7 @@ one source of the source contract, `affinity.meetings`. It has no tool the model
   in `src/affinity-tools.ts`, by exact name and with its class: the reads (the workflow playbooks among them), the writes
   and the ten destructive tools, and never an unknown tool. A write or a destructive tool is a method but runs only on a resolved
   `allow`. Keep the RPC id `affinity.crm.tools` and its method names stable: scripts call them by name.
-- **The meetings source.** `package.json`'s `sources` declares `affinity.meetings`; `src/events.ts` serves it with the
+- **The meetings source.** `package.json`'s `sources` declares `affinity.meetings` and the list snapshot `affinity.companies` (`output: "list"`, the existing `search_all_companies` read through `events_list`, not a second client). `affinity.meetings` is not renamed. `src/events.ts` serves both with the
   source contract's `events` and `cursor` modules, never copies. `permission.operations` is exactly what the reads
   call, and `npm run conformance` must stay ok. An event carries metadata only: ids, start, title, the people Affinity
   matched (their Affinity person id and name); `url` stays null, since Affinity's meetings have no link. Never an email address, phone number, note, transcript or
