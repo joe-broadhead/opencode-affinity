@@ -9,7 +9,7 @@ carries a class: the worst thing that tool can do.
 | Class | Methods | What the class means |
 | --- | --- | --- |
 | `read` | one per known read: `search_persons`, `get_lists`, `search_list_entries`, `get_notes_for_entity`, `get_current_user` and the others | it only reads |
-| `read` | Affinity's twelve workflow playbooks too, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each only returns text; what it can drive is the caller's own decision, under the caller's rules |
+| `read` | Affinity's seventeen workflow playbooks too, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each only returns text; what it can drive is the caller's own decision, under the caller's rules |
 | `write` | the twenty writes, such as `create_note`, `create_person`, `update_person` and `upsert_list_entry_field_values` | it changes the firm's shared CRM, or issues a file credential |
 | `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`, `send_feedback` | removes CRM data for good, or sends text to Affinity's team |
 | `read` | `events_list` and `probe`, the meetings source's two methods (`affinity_events_list` and `affinity_probe`), which the plugin runs itself: see [The meetings source](#the-meetings-source) | it only reads, and every `access` value allows it |
@@ -73,7 +73,7 @@ so.
 
 `affinity.companies` is the same `events_list` method with `{ "source": "affinity", "list": "companies" }` and the
 account `probe` named. It answers the family's snapshot envelope around the contract's `list` output, not events:
-`{ account, data: { items, editable: false }, asOf, trust }`. The first page of the firm's companies, at most 50, from
+`{ source: "affinity", account, data: { items, editable: false }, asOf, trust }`. The first page of the firm's companies, at most 50, from
 one `search_all_companies` read. Each item is the company id, the name, and the primary domain as a note. A name or
 domain that holds a secret is screened whole and only then cut; a repeated id is listed once and the answer stops
 before the declared `maxBytes`. `events_list` declares both answers, the events page and this list, so the host

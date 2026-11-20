@@ -266,8 +266,9 @@ const LIST_DATA = {
 export const COMPANIES_OUTPUT = {
   type: "object",
   additionalProperties: false,
-  required: ["account", "data", "asOf", "trust"],
+  required: ["source", "account", "data", "asOf", "trust"],
   properties: {
+    source: { type: "string", const: SOURCE },
     account: STRING,
     data: LIST_DATA,
     asOf: { type: "string", description: "When the list was read, UTC ISO." },
@@ -734,6 +735,7 @@ async function companiesSnapshot(read: Read, signedIn: SignedIn | undefined, inp
   if (companies === undefined) throw fail("UNAVAILABLE", "Affinity's search_all_companies did not answer with a list of companies.", "Call events_list again; if it keeps failing, run /affinity-status.")
   const items = companyItems(companies)
   return {
+    source: SOURCE,
     account,
     data: { items, editable: false },
     asOf: new Date(now).toISOString(),

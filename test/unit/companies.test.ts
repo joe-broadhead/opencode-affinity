@@ -46,8 +46,9 @@ describe("affinity.companies", () => {
     const result = (await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: known, calls })).run(
       { source: "affinity", list: "companies", account: ACCOUNT },
       call(),
-    )) as { data: { items: { id: string; text: string }[]; editable: boolean }; trust: string; account: string; asOf: string }
+    )) as { source: string; data: { items: { id: string; text: string }[]; editable: boolean }; trust: string; account: string; asOf: string }
     expect(calls).toEqual([{ tool: "search_all_companies", input: { limit: 50 } }])
+    expect(result.source).toBe("affinity")
     expect(result.account).toBe(ACCOUNT)
     expect(result.trust).toBe("untrusted")
     expect(result.data.editable).toBe(false)

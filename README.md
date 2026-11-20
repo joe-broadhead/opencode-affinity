@@ -128,7 +128,7 @@ opencode api post /api/rpc/affinity.crm.tools/get_lists \
   -d '{"input":{"sessionID":"ses_…","input":{"term":"Pipeline"}}}'
 ```
 
-OpenCode also lists Affinity's twelve workflow playbooks as `/affinity:<name>` commands, such as
+OpenCode also lists Affinity's seventeen workflow playbooks as `/affinity:<name>` commands, such as
 `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. A run is your request for that routine; the text it adds
 is Affinity's, so its steps are guidance, and any change still needs your own sentence; at `ask-changes` it also needs
 OpenCode's permission prompt.
@@ -160,7 +160,7 @@ A consumer calls two tools RPC methods, never tools the model sees, and the defa
   `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
 - `affinity.companies` is a snapshot. Its `tool` is `events_list`, its `output` is `list`, and its `input` is
   `{ "source": "affinity", "list": "companies" }`. A read returns the first page of the firm's companies, at most 50,
-  as `{ account, data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary
+  as `{ source, account, data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary
   domain as a note. It calls the existing `search_all_companies` read, not a second client, and names the account
   `probe` named. No fields, email addresses or scores. A name or domain that holds a secret is screened whole and only
   then cut, so a secret cannot pass as the start of a cut title; a repeated id is listed once and the answer stops

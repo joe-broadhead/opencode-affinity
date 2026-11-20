@@ -214,7 +214,7 @@ after that rule. The README prints the whole block for all three `access` values
 [Permissions](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#permissions); `/affinity-status`
 prints the one in force, and its `Agents without default rules` row prints it as a list to paste.
 
-`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its twelve workflow playbooks such as
+`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its seventeen workflow playbooks such as
 `affinity_affinity_meeting_prep`, which return Affinity's instructions for a task as text. `WRITE_TOOLS` lists its
 write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool that Affinity adds later matches only
 `affinity_*`, so it takes the value's own effect: allowed under `all`, asked about under `ask-changes`, denied under
