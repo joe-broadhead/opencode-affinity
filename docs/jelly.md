@@ -36,13 +36,13 @@ family's own drawing, not Affinity's logo, shape or brand colour.
 
 ## Tools and permissions
 
-Every tool in `src/affinity-tools.ts` is declared: each read tool, Affinity's workflow playbooks included, as
-read-only with `allow`, each write tool with `ask`, and each denied tool with `deny`. Jelly's agents have no base
-"allow everything" rule, so this plugin's own default rules, which it puts after that rule, never reach them. Jelly
-writes each declared effect as that tool's default (the person's own choice replaces it). Every tool is declared
-`allow`, the family's default, so a Jelly agent can create a note, upsert a deal's field values, merge two companies or
-delete a reminder without a prompt. A Jelly admin restricts one tool by setting its effect to `ask` or `deny` in the
-card.
+Every tool in `src/affinity-tools.ts` is declared, Affinity's workflow playbooks included. Each read is
+read-only. Every tool, writes included, is declared `allow`, which is what `package.json` and
+`test/unit/jelly.test.ts` check. Jelly's agents have no base "allow everything" rule, so this plugin's own
+default rules, which it puts after that rule, never reach them. Jelly writes each declared effect as that tool's
+default (the person's own choice replaces it). A Jelly agent can create a note, upsert a deal's field values, merge
+two companies or delete a reminder without a prompt. A Jelly admin restricts one tool by setting its effect to `ask`
+or `deny` in the card.
 
 - The seven deletes remove CRM data for good: `affinity_delete_company`, `affinity_delete_person`,
   `affinity_delete_opportunity`, `affinity_delete_note`, `affinity_delete_list_entries`,
