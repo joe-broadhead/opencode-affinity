@@ -395,12 +395,13 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(fake.calls.length).toBe(before)
   })
 
-  test("events_list runs the packed plugin's own spec, and waits for probe before any Affinity call", async () => {
+  test("events_list runs the packed plugin's own spec, and with no probe first reads who is signed in, stopping at an answer it cannot read", async () => {
     const from = fake.calls.length
+    // The fake's tenant id is not Affinity's numeric id, so the identity read cannot name the account: one call, and no meeting is read.
     const result = await call("build", "events_list", { account: "4821/jane.doe@example.com", since: "2026-11-01" })
     expect(result).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
-    expect(String(result.message)).toContain("no probe has named this sign-in's account")
-    expect(toolCalls(from)).toEqual([])
+    expect(String(result.message)).toContain("get_current_user did not name the organisation and the signed-in email")
+    expect(toolCalls(from)).toEqual(["get_current_user"])
   })
 
   test("probe runs the packed plugin's own spec, reads get_current_user through OpenCode, and refuses an answer that names no Affinity organisation id", async () => {

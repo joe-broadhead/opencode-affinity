@@ -73,8 +73,10 @@ two sources of the source contract, `affinity.meetings` and the list snapshot `a
   source contract's `events` and `cursor` modules, never copies. `permission.operations` is exactly what the reads
   call, and `npm run conformance` must stay ok. An event carries metadata only: ids, start, title, the people Affinity
   matched (their Affinity person id and name); `url` stays null, since Affinity's meetings have no link. Never an email address, phone number, note, transcript or
-  relationship score: `text` stays empty. Each read counts against the firm's quota, so a listing never asks who is
-  signed in (it checks what `probe` recorded) and never makes more than `MAX_CALLS` calls: one that runs out returns
+  relationship score: `text` stays empty. Each read counts against the firm's quota, so a listing asks who is signed
+  in only when no record exists for the sign-in (after a restart, which nothing keeps: one `get_current_user` call, the
+  declared identity operation, kept for the sign-in; never make a listing depend on a probe in this process, because
+  Memory probes only at bind; listings at once share one call, and a read that started before a clear stores nothing) and never makes more than `MAX_CALLS` calls to read meetings: one that runs out returns
   what it listed with a cursor that carries on, never an error. Declare or send no key a
   consumer on source-contract 0.1 refuses (`removals[]`, `owner.verified`, `identityRules`, `accounts.server`,
   `readsIdentity`, a price's `conditions` or `min`, an empty `identity`) until the consumers are on 0.2.

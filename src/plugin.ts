@@ -128,7 +128,7 @@ export function createAffinityPlugin(seam: AffinitySeam) {
         methods: [...METHODS, eventsMethod(events), probeMethod(events)],
         mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" },
       })
-      // A new or switched sign-in forgets what probe read for every sign-in: the next listing waits for a probe.
+      // A new or switched sign-in forgets what probe read for every sign-in: the next listing reads who is signed in again.
       const stopWatch = watchIntegration(ctx, owned, () => events.signIns.clear())
       return async () => {
         await stopWatch()

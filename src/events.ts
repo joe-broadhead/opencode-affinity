@@ -26,7 +26,7 @@ import type { JsonSchema, OwnedMethod, ToolCall } from "@we-the-rebel-alliance/s
 import { captureAccount } from "./account.js"
 import { COMPANIES_LIST, LIST_CAP, companyItems, readCompanies } from "./companies.js"
 import { errorText, SERVER_NAME, type PluginCode } from "./constants.js"
-import { readCurrentUser, readMeetingsPage, type MeetingFacts } from "./meetings.js"
+import { readCurrentUser, readMeetingsPage, type CurrentUser, type MeetingFacts } from "./meetings.js"
 import { shortReason } from "./redact.js"
 
 /**
@@ -41,8 +41,9 @@ import { shortReason } from "./redact.js"
  * - `probe` reads `get_current_user`, the source's one identity operation, and records who is signed in for the
  *   current sign-in.
  *
- * `events_list` never asks Affinity who is signed in: every listing names its account, `<tenant id>/<email>` as probe
- * answers it, and is refused until probe has named that account for the current sign-in. Affinity lists every meeting
+ * Every listing names its account, `<tenant id>/<email>` as probe answers it, and compares it with who the sign-in is:
+ * what probe or an earlier listing kept for it, else the one `get_current_user` call (the source's declared identity
+ * operation) the listing makes itself, so it needs no probe before it and survives a restart. Affinity lists every meeting
  * the person may see, colleagues' included, and promises no order within a page, so the listing reads a slice of
  * start times whole (every page of one `filter_expr`), sorts it, and keeps a meeting only when the signed-in email is
  * its organiser's, its creator's or one of the attendees Affinity previews.
@@ -308,12 +309,22 @@ export interface SignedIn {
 }
 
 /**
- * What probe has read, per sign-in (OpenCode's credential for the `affinity` server): a listing compares the account it
- * is asked for with this, so it never labels a page with an account it has not seen signed in, and never spends a call
- * asking. One per plugin instance, in memory: after a restart or a new sign-in, a listing waits for the next probe.
+ * Who each sign-in is (OpenCode's credential for the `affinity` server), as probe or a listing read it: a listing
+ * compares the account it is asked for with this, so it never labels a page with an account it has not seen signed in.
+ * One per plugin instance, in memory: after a restart or a new sign-in, the next listing reads it again.
  */
-export type SignIns = Map<string, SignedIn>
-export const signIns = (): SignIns => new Map()
+export class SignIns extends Map<string, SignedIn> {
+  /** Counts the clears: a read that started before one never stores its answer. */
+  generation = 0
+  /** The identity read in flight per sign-in, so listings at once share one call against the firm's quota. */
+  readonly pending = new Map<string, Promise<SignedIn>>()
+  override clear(): void {
+    this.generation++
+    this.pending.clear()
+    super.clear()
+  }
+}
+export const signIns = (): SignIns => new SignIns()
 
 /** An account as this source names it: `<tenant id>/<email>`, lowercase; undefined when the value is not one. */
 export function accountOf(value: string): string | undefined {
@@ -337,7 +348,7 @@ export interface EventsDeps {
   readonly owned: () => boolean
   /** OpenCode's credential for the `affinity` server, which keys `signIns`; undefined when there is none. */
   readonly signIn: () => Promise<string | undefined>
-  /** What probe has read, per sign-in. */
+  /** Who each sign-in is, as probe or a listing read it. */
   readonly signIns: SignIns
   /** The clock; tests fix it. */
   readonly now?: () => number
@@ -540,11 +551,11 @@ function toEvent(account: string, meeting: Dated): SourceEvent {
 }
 
 /**
- * One page of events for the account the input names. `signedIn` is what probe read for the current sign-in. Throws
- * EventsFailure for the caller's mistakes and Affinity's failures; the input, the account and the cursor are checked
- * before any read.
+ * One page of events for the account the input names. `who` resolves who is signed in for the current sign-in: what
+ * probe or an earlier listing kept, else Affinity's identity read. Throws EventsFailure for the caller's mistakes and
+ * Affinity's failures; the input, the account and the cursor are checked before any read, `who` included.
  */
-export async function listEvents(read: Read, signedIn: SignedIn | undefined, input: unknown, now: number): Promise<EventsListResult> {
+export async function listEvents(read: Read, who: () => Promise<SignedIn>, input: unknown, now: number): Promise<EventsListResult> {
   const parsed = parseEventsListInput(input)
   if (!parsed.ok) throw fail("INPUT_INVALID", `The events_list input is invalid: ${parsed.problems.join("; ")}.`, "Pass account, as probe names it, and only since, cursor, limit (1 to 500) and source besides.")
   const request = parsed.value
@@ -553,9 +564,7 @@ export async function listEvents(read: Read, signedIn: SignedIn | undefined, inp
   const account = accountOf(request.account)
   if (account === undefined) throw fail("INPUT_INVALID", "The events_list account is not <tenant id>/<email>.", "Pass account, the <tenant id>/<email> account that probe names.")
   const given = request.cursor === undefined ? undefined : stateOf(request.cursor, account)
-  if (signedIn === undefined) {
-    throw fail("UNAVAILABLE", "The plugin does not know yet who is signed in to Affinity: no probe has named this sign-in's account since it was made or OpenCode started.", "Call probe for the affinity source, then call events_list again.")
-  }
+  const signedIn = await who()
   if (signedIn.account !== account) {
     throw fail("ACCOUNT_MISMATCH", `Affinity is signed in to another account than ${account}.`, `Sign in to Affinity as that account (/connect, Affinity), or read ${signedIn.account}, the account probe names.`)
   }
@@ -672,6 +681,20 @@ export async function listEvents(read: Read, signedIn: SignedIn | undefined, inp
 }
 
 /**
+ * Who is signed in to Affinity: one `get_current_user` call, the source's one identity operation (`permission.identity`).
+ * The account is `<tenant id>/<email>`, and the owner `mailto:` and the email, labelled with the names. `probe` and a
+ * listing that does not know the sign-in yet make this same read. An answer that names no organisation and email is
+ * UNAVAILABLE.
+ */
+async function identityRead(read: Read): Promise<{ signedIn: SignedIn; user: CurrentUser }> {
+  const result = await read("get_current_user", {})
+  captureAccount(result)
+  const user = readCurrentUser(result)
+  if (user === undefined) throw fail("UNAVAILABLE", "Affinity's get_current_user did not name the organisation and the signed-in email.", STATUS_NEXT)
+  return { signedIn: { account: `${user.tenant}/${user.email}`, owner: ownerOf(user.email, user.name, user.tenantName), email: user.email }, user }
+}
+
+/**
  * `probe`: who is signed in to Affinity, from one get_current_user call, the source's identity operation. It records
  * the answer for the sign-in, so a listing can check its account without a call of its own. A caller that names
  * another account than the signed-in one is ACCOUNT_MISMATCH.
@@ -681,11 +704,7 @@ export async function affinityProbe(read: Read, input: unknown, record: (signedI
   if (!parsed.ok) throw fail("INPUT_INVALID", `The probe input is invalid: ${parsed.problems.join("; ")}.`, "Pass only source and account, or an empty object.")
   const source = parsed.value.source ?? SOURCE
   if (source !== SOURCE) throw fail("SOURCE_UNKNOWN", `This plugin lists one source, ${SOURCE}.`, `Leave source out, or pass "${SOURCE}".`)
-  const result = await read("get_current_user", {})
-  captureAccount(result)
-  const user = readCurrentUser(result)
-  if (user === undefined) throw fail("UNAVAILABLE", "Affinity's get_current_user did not name the organisation and the signed-in email.", STATUS_NEXT)
-  const signedIn: SignedIn = { account: `${user.tenant}/${user.email}`, owner: ownerOf(user.email, user.name, user.tenantName), email: user.email }
+  const { signedIn, user } = await identityRead(read)
   record(signedIn)
   if (parsed.value.account !== undefined && (accountOf(parsed.value.account) ?? parsed.value.account) !== signedIn.account) {
     throw fail("ACCOUNT_MISMATCH", `Affinity is signed in to another account than ${parsed.value.account}.`, `Sign in to Affinity as that account (/connect, Affinity), or read as ${signedIn.account}, the signed-in account.`)
@@ -712,11 +731,39 @@ const signInOf = async (deps: EventsDeps) => (await deps.signIn().catch(() => un
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
 
 /**
- * The companies list snapshot: the first page of the firm's companies, as the contract's `list` output. It uses the
- * same host executor as `events_list`, one `search_all_companies` read, and never asks who is signed in: the account
- * is checked against what `probe` recorded. Not editable. A company whose name or domain holds a secret is left out.
+ * Who the current sign-in is: what probe or an earlier listing kept for it, else read now with the one identity read
+ * `probe` makes, and kept for the process. So a listing needs no probe before it, also after a restart, when nothing
+ * is kept and a consumer such as Memory probes only at bind. Reads at once share one call. A read that fails keeps
+ * nothing and fails the listing with its own code; a read that started before the kept sign-ins were cleared keeps
+ * nothing either; the identity operation is in `permission.identity`, so this asks for no new grant.
  */
-async function companiesSnapshot(read: Read, signedIn: SignedIn | undefined, input: unknown, now: number) {
+async function signedInFor(deps: EventsDeps, read: Read): Promise<SignedIn> {
+  const key = await signInOf(deps)
+  const known = deps.signIns.get(key)
+  if (known !== undefined) return known
+  const joined = deps.signIns.pending.get(key)
+  if (joined !== undefined) return joined
+  const generation = deps.signIns.generation
+  const reading = identityRead(read).then(({ signedIn }) => {
+    // A clear (a new or switched sign-in) while the read ran: the answer is for the old sign-in, so it is not kept.
+    if (deps.signIns.generation === generation) deps.signIns.set(key, signedIn)
+    return signedIn
+  })
+  deps.signIns.pending.set(key, reading)
+  try {
+    return await reading
+  } finally {
+    // Only this read's own entry: a clear may have dropped it and a newer read taken its place.
+    if (deps.signIns.pending.get(key) === reading) deps.signIns.pending.delete(key)
+  }
+}
+
+/**
+ * The companies list snapshot: the first page of the firm's companies, as the contract's `list` output. It uses the
+ * same host executor as `events_list`, one `search_all_companies` read, and checks the account as `events_list` does:
+ * against who is signed in (`who`), read once with the identity call when nothing is recorded. Not editable. A company whose name or domain holds a secret is left out.
+ */
+async function companiesSnapshot(read: Read, who: () => Promise<SignedIn>, input: unknown, now: number) {
   const data = isRecord(input) ? input : {}
   const asked = typeof data["account"] === "string" ? data["account"] : undefined
   if (asked === undefined) throw fail("INPUT_INVALID", "A list of companies names the account it reads, and this events_list call names none.", "Pass account, the <tenant id>/<email> account that probe names.")
@@ -724,9 +771,7 @@ async function companiesSnapshot(read: Read, signedIn: SignedIn | undefined, inp
   if (account === undefined) throw fail("INPUT_INVALID", "The events_list account is not <tenant id>/<email>.", "Pass account, the <tenant id>/<email> account that probe names.")
   if (data["source"] !== undefined && data["source"] !== SOURCE) throw fail("SOURCE_UNKNOWN", `This plugin lists one source, ${SOURCE}.`, `Leave source out, or pass "${SOURCE}".`)
   if (data["list"] !== COMPANIES_LIST) throw fail("SOURCE_UNKNOWN", `A list read names "${COMPANIES_LIST}", not "${String(data["list"] ?? "")}".`, `Pass "list" as "${COMPANIES_LIST}".`)
-  if (signedIn === undefined) {
-    throw fail("UNAVAILABLE", "The plugin does not know yet who is signed in to Affinity: no probe has named this sign-in's account since it was made or OpenCode started.", "Call probe for the affinity source, then call events_list again.")
-  }
+  const signedIn = await who()
   if (signedIn.account !== account) {
     throw fail("ACCOUNT_MISMATCH", `Affinity is signed in to another account than ${account}.`, `Sign in to Affinity as that account (/connect, Affinity), or read ${signedIn.account}, the account probe names.`)
   }
@@ -746,17 +791,20 @@ async function companiesSnapshot(read: Read, signedIn: SignedIn | undefined, inp
 /** events_list's one run: asserts affinity_events_list for the caller, then lists meetings, or the companies snapshot. */
 export async function runEvents(deps: EventsDeps, input: unknown, context: ToolContext): Promise<EventsListResult | Awaited<ReturnType<typeof companiesSnapshot>>> {
   await assertAction(deps, EVENTS_ACTION, context)
-  const signedIn = deps.signIns.get(await signInOf(deps))
   const reader = affinityReader(deps, context, EVENTS_LIST)
-  if (isRecord(input) && input["list"] !== undefined) return companiesSnapshot(reader, signedIn, input, (deps.now ?? Date.now)())
-  return listEvents(reader, signedIn, input, (deps.now ?? Date.now)())
+  const who = () => signedInFor(deps, reader)
+  if (isRecord(input) && input["list"] !== undefined) return companiesSnapshot(reader, who, input, (deps.now ?? Date.now)())
+  return listEvents(reader, who, input, (deps.now ?? Date.now)())
 }
 
 /** probe's one run: asserts affinity_probe for the caller, then reads who is signed in and records it for the sign-in. */
 export async function runProbe(deps: EventsDeps, input: unknown, context: ToolContext): Promise<ProbeResult> {
   await assertAction(deps, PROBE_ACTION, context)
   const signIn = await signInOf(deps)
-  return affinityProbe(affinityReader(deps, context, PROBE), input, (signedIn) => void deps.signIns.set(signIn, signedIn))
+  const generation = deps.signIns.generation
+  return affinityProbe(affinityReader(deps, context, PROBE), input, (signedIn) => {
+    if (deps.signIns.generation === generation) deps.signIns.set(signIn, signedIn)
+  })
 }
 
 /** The tools RPC's events_list method: its own run, as the envelope's session. */

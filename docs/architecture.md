@@ -63,7 +63,7 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 9. `registerToolsRpc` (the source contract's) registers the tools RPC, `affinity.crm.tools`, and its `evaluate` hook:
    every known tool, and the meetings source's `events_list` and `probe`.
 10. `watchIntegration` starts; a `credential.updated` or `credential.switched` also forgets what `probe` read, so the next
-    listing waits for a probe. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
+    listing reads who is signed in again. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 
 Transforms are synchronous and never throw: a failure is kept as a problem for status, and cleared when the next replay
@@ -179,7 +179,10 @@ These facts about OpenCode 2.2.3 hold on 2.2.4, 2.2.5 and 2.2.6 too. Links point
 `package.json`'s top-level `sources` declares `affinity.meetings` and the list snapshot `affinity.companies` (contract version 1, the RPC `affinity.crm.tools`,
 the probe action `affinity_probe`). `probe` makes one `get_current_user` call, answers the account
 `<organisation id>/<email>` and its owner, and records them under OpenCode's credential for the server. `events_list`
-checks the account it is asked for against that record before any call, so it never spends a call on who is signed in.
+checks the account it is asked for against that record before any read of its own. When the record is missing (after
+a restart, which keeps nothing, or a new sign-in), it makes the same one `get_current_user` call itself, the source's
+declared identity operation, and records the answer; it never depends on a `probe` in the same process, because Memory
+probes only at bind. A failed read records nothing and fails the listing with its own code.
 
 Affinity lists every meeting the person may see and promises no order within a page, so a listing reads a slice of
 start times whole (every page of one filter), sorts it, and keeps the meetings whose organiser, creator or previewed
