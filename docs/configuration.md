@@ -224,7 +224,7 @@ write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool th
 **Every tool is allowed by default**, so nothing is switched off for you. The destructive class deserves its own
 sentences before you decide:
 
-- the seven deletes remove CRM data for good. `affinity_delete_reminder` and
+- the eight deletes remove CRM data for good. `affinity_delete_reminder` and
   `affinity_delete_list_field_dropdown_option` have no confirmation step in Affinity; the others first return a preview
   and change nothing until they are called again with `confirm: true`. Deleting a list entry on a deal list deletes the
   deal;
@@ -322,7 +322,7 @@ No recipe here makes a change run without a prompt. Answering "Always allow" at 
 moment, and it applies to every agent in the project.
 
 A strict agent where every Affinity tool asks, reads included: put these in that agent's own `permissions`, after the
-block. The last match wins, so the `affinity_*` ask alone would turn the ten destructive tools into asks too; repeating
+block. The last match wins, so the `affinity_*` ask alone would turn the eleven destructive tools into asks too; repeating
 their denies after it keeps them off:
 
 ```json
@@ -335,6 +335,7 @@ their denies after it keeps them off:
   { "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" },
   { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" },
   { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
+  { "action": "affinity_delete_field", "resource": "*", "effect": "deny" },
   { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
   { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
   { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }

@@ -185,7 +185,7 @@ describe("buildStatus", () => {
   test("the Access row says whether the default rules are in place, from what status can see", () => {
     expect(formatStatus(buildStatus(base))).toContain("- Access: Affinity grant not read yet; access all: every Affinity tool is allowed, reads and changes alike; every agent has the block\n")
     const missing = buildStatus({ ...base, access: "read-only", agents: [{ id: "reviewer", permissions: [allow("*")] }] })
-    expect(formatStatus(missing)).toContain("- Access: Affinity grant not read yet; access read-only: reads run without asking; the 20 writes and the 10 destructive tools are denied; default rules missing in the agents listed below\n")
+    expect(formatStatus(missing)).toContain("- Access: Affinity grant not read yet; access read-only: reads run without asking; the 24 writes and the 11 destructive tools are denied; default rules missing in the agents listed below\n")
     const problem = "RULES_NOT_ADDED: Affinity's default permission rules could not be added (boom). Next step: Restart OpenCode."
     expect(formatStatus(buildStatus({ ...base, account: { grant: "read-write" }, problems: [problem] }))).toContain("- Access: Affinity grant: read and write; access all: every Affinity tool is allowed, reads and changes alike; default rules not added (see the OpenCode row)\n")
   })

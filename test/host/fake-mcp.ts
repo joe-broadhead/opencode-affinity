@@ -29,7 +29,7 @@ export const UPSTREAM_FAILURE = "Affinity refused https://files.affinity.co/a.pn
 
 /** A fake account, in the shape of Affinity's whoami, which get_current_user returns. */
 export const ACCOUNT = {
-  tenant: { id: "4821", name: "Northwind Capital", subdomain: "northwind-fake" },
+  tenant: { id: "tenant_fake_1", name: "Northwind Capital", subdomain: "northwind-fake" },
   user: { id: "u_fake_1", firstName: "Jane", lastName: "Doe", emailAddress: "jane.doe@example.com" },
   grant: { type: "access-token", scopes: ["mcp.read", "offline_access"], createdAt: "2026-01-01T00:00:00Z" },
 }
@@ -56,6 +56,11 @@ export const ADVERTISED_SCOPE = "mcp mcp.read mcp.write api api.read offline_acc
 export interface FakeMcpOptions {
   /** `affinity` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "affinity"
+  /**
+   * Answer `get_current_user` with a numeric organisation id, as Affinity's is. The default id is not numeric, so the
+   * account the plugin records cannot be named and `probe` refuses the answer.
+   */
+  readonly numericTenant?: boolean
   /** The scope the 401 challenge asks for; the wider list by default. */
   readonly challengeScope?: string
   /**
@@ -131,7 +136,10 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         called.push({ tool: name, path })
         const args = message.params?.arguments ?? {}
         inputs.push({ tool: name, arguments: args })
-        if (name === "get_current_user") return reply({ content: [{ type: "text", text: JSON.stringify(ACCOUNT) }], structuredContent: ACCOUNT })
+        if (name === "get_current_user") {
+          const account = options.numericTenant ? { ...ACCOUNT, tenant: { ...ACCOUNT.tenant, id: "4821" } } : ACCOUNT
+          return reply({ content: [{ type: "text", text: JSON.stringify(account) }], structuredContent: account })
+        }
         if (name === "search_all_companies") return reply({ content: [{ type: "text", text: JSON.stringify(COMPANIES) }], structuredContent: COMPANIES })
         if (name === "get_meetings") return reply({ content: [{ type: "text", text: JSON.stringify({ data: [], pagination: { prevUrl: null, nextUrl: null } }) }], structuredContent: { data: [], pagination: { prevUrl: null, nextUrl: null } } })
         if (String(args.query ?? "").startsWith("fail")) return reply({ content: [{ type: "text", text: UPSTREAM_FAILURE }], isError: true })

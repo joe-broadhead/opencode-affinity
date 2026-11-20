@@ -6,12 +6,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- **Affinity's 21 newer tools are classified.** The live server lists them and the plugin knew none: `get_calls`, `get_chat_messages`, `get_emails` and `get_interactions_for_entity` are reads of logged communications, and the `affinity` skill now treats them as other people's personal data, as it does transcripts; `get_intro_paths`, `render_intro_paths_graph`, `get_opportunities_info`, `get_suggested_field_updates`, `get_suggested_field_updates_task`, `list_suggested_field_updates` and `list_suggested_field_updates_tasks` are reads; `data_quality_audit`, `founder_references`, `passed_deal_review`, `portfolio_check_in` and `ready_to_raise_indicator` are workflow playbooks, classified as the other twelve are; `update_field`, `apply_suggested_field_updates`, `dismiss_suggested_field_updates` and `suggest_field_updates` are writes that ask under `ask-changes` and are denied under `read-only`; `delete_field` is destructive. `suggest_field_updates` starts a long-running generation run, which the skill says and the read pair `get_suggested_field_updates_task` and `list_suggested_field_updates_tasks` follows. `jelly.tools` declares all 21, so Jelly shows each one's effect and read-only flag, and the status unknown list no longer names them.
 - **List snapshot** `affinity.companies` (`output: "list"`). An app can bind it and render the firm's companies without knowing Affinity. It calls the existing `search_all_companies` read through `events_list`, not a second client. It reads the first page of the firm's companies, `{ id, name, domain }` each, in one `search_all_companies` call and at most 50: the name is the item's text, the primary domain its note, and a name or domain that holds a secret is left out. `affinity.meetings` stays the events source and is not renamed. No write is declared.
 
 ### Fixed
 
 - **The companies list can be read through the tools RPC on every host.** `events_list` declared the events page as its answer, and OpenCode validates a tools-RPC method's answer against that declaration, so a list read was refused `rpc.invalid_output` and no consumer could read it. The method now declares both answers, the events page and the list. A host test reads the list through the tools RPC on every tested OpenCode release, so it cannot regress.
 - A company's name and domain are screened whole and only then cut to the item's length, so a secret that straddles the cut can no longer pass as the start of a title. Control characters are dropped, a repeated company id is listed once, and the list stops before the answer passes the declared `maxBytes`.
+
+### Changed
+
+- The source-contract devDependency is pinned at v0.3.0. Nothing is sent new: the plugin declares no fact, hint or routine, so every page reads the same for a consumer still on v0.2.0.
 
 ## [0.0.6] - 2026-11-18
 

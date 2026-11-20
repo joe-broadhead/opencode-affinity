@@ -64,7 +64,7 @@ describe("npm run drift", () => {
     }
     const { code, out } = drift({ tools }, "--strict")
     expect([code, out.trim().split("\n").at(-1)]).toEqual([0, "No drift."])
-    expect(out).toContain("The list holds 82 tools: 52 read, 20 write, 10 destructive, 0 unclassified.")
+    expect(out).toContain("The list holds 103 tools: 68 read, 24 write, 11 destructive, 0 unclassified.")
   })
 
   test("OpenCode's form of the same list shows no drift, and a playbook keeps its own affinity_ name", () => {

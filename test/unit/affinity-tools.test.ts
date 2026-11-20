@@ -12,8 +12,8 @@ describe("Affinity's tool lists", () => {
     expect(ALL.filter((name) => name.startsWith("affinity_") && !WORKFLOW_TOOLS.includes(name))).toEqual([])
   })
 
-  test("52 reads, of them 12 workflow playbooks; 20 writes; 10 denied", () => {
-    expect([READ_TOOLS.length, WORKFLOW_TOOLS.length, WRITE_TOOLS.length, DESTRUCTIVE_TOOLS.length]).toEqual([52, 12, 20, 10])
+  test("68 reads, of them 17 workflow playbooks; 24 writes; 11 denied", () => {
+    expect([READ_TOOLS.length, WORKFLOW_TOOLS.length, WRITE_TOOLS.length, DESTRUCTIVE_TOOLS.length]).toEqual([68, 17, 24, 11])
     for (const tool of WORKFLOW_TOOLS) expect(READ_TOOLS).toContain(tool)
     // A playbook takes one optional file, and returns text.
     for (const tool of WORKFLOW_TOOLS) expect(PARAMETERS[tool]).toEqual(["file:string|null"])
@@ -27,7 +27,7 @@ describe("Affinity's tool lists", () => {
   })
 
   test("reads never change anything: no create, send, update or other change verb is a read", () => {
-    const change = /^(create|send|update|upsert|issue|delete|merge)_/
+    const change = /^(create|send|update|upsert|issue|delete|merge|apply|dismiss|suggest)_/
     expect(READ_TOOLS.filter((tool) => change.test(tool))).toEqual([])
     expect(WRITE_TOOLS.filter((tool) => !change.test(tool))).toEqual([])
   })
@@ -35,6 +35,6 @@ describe("Affinity's tool lists", () => {
   test("the account read is a known read; every delete, every merge and feedback to Affinity are denied", () => {
     expect(READ_TOOLS).toContain("get_current_user")
     expect(ALL.filter((tool) => /^(delete|merge)_/.test(tool) || tool === "send_feedback").sort()).toEqual([...DESTRUCTIVE_TOOLS].sort())
-    expect(DESTRUCTIVE_TOOLS).toHaveLength(10)
+    expect(DESTRUCTIVE_TOOLS).toHaveLength(11)
   })
 })

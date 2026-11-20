@@ -2949,6 +2949,1382 @@
     "readOnlyHint": true,
     "destructiveHint": false
    }
+  },
+  {
+   "name": "get_calls",
+   "description": "Get the logged calls that the current user can see, with their dates and attendees.\n\nEach call has a `startTime`: the date and time of the call that the user gave\nwhen they logged it. `createdAt` is when the record was created in Affinity,\nnot when the call took place. To select calls by the day they took place,\nfilter on `startTime`. The results include only the calls that the current\nuser has permission to see, so a count of them is not an organization total.\n\nCalls come in id order, which is the order in which Affinity stored them, not\nthe order of their dates. The first page holds the calls that Affinity stored\nfirst. To get recent calls, filter on `startTime`.\n\nTo get the calls of one company, person, or opportunity, use\nget_interactions_for_entity. It returns calls newest first.\n\nArgs:\n    filter_expr: Filter expression using Affinity query language. Available fields:\n        - id: unique identifier for the call (operators: =)\n          Example: \"id=1\" or \"(id=1 | id=2)\"\n        - startTime: When the call took place (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"startTime>=2025-01-01T00:00:00Z\"\n        - createdAt: When the call was created in Affinity (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"createdAt>=2025-01-01T00:00:00Z\"\n        - updatedAt: When the call was last updated (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"updatedAt<=2025-12-31T23:59:59Z\"\n\n        Date range example:\n        \"startTime>=2025-01-01T00:00:00Z & startTime<2025-02-01T00:00:00Z\"\n\n        Boolean logic: & (AND), | (OR), () for grouping\n        Full filtering spec: https://developer.affinity.co/pages/external-api-v2/filtering\n\n    cursor: Cursor for the next or previous page. Pass the value of\n        `pagination.nextCursor` or `pagination.prevCursor` from a prior\n        response. Do NOT parse or modify the cursor string.\n    limit: Number of items to include in the page. Default is 20, max is 20.\n        To get more calls, page through with `cursor`.\n\nReturns:\n    A dict with `data` (list of calls) and `pagination` with\n    `nextCursor` / `prevCursor` strings (pass directly to the `cursor`\n    param; absent when there is no such page) and `nextUrl` / `prevUrl`\n    full URLs (null when there is no such page).\n    Each call has `id`, `title` (null when the call has no title, \"********\"\n    when the user cannot see it), `startTime`, `endTime` (can be null),\n    `allDay`, `loggingType` (always \"manual\"), `creator` (an attendee, or\n    null), `createdAt`, `updatedAt` (can be null), and `attendeesPreview`\n    (`data`, a list of attendees, and `totalCount`). Each attendee has\n    `emailAddress` and `person`, which is null when no person in Affinity\n    has that address.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Filter Expr"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "get_callsArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_chat_messages",
+   "description": "Get the logged chat messages that the current user can see, with their dates, direction, and participants.\n\nThe API returns no message text. A user logs a chat message by hand, and the\ntext they enter is kept as a note on the message. get_interactions_for_entity\nreturns the ids of these notes. To read the text of a note, use query_notes\nwith filter_expr \"id=<note id>\".\n\nChat messages come newest first by `createdAt`, which is when a user logged\nthe message in Affinity, not when it was sent. To select messages by the\ndate they were sent, filter on `sentAt`.\n\nTo get the chat messages of one company, person, or opportunity, use\nget_interactions_for_entity. It returns chat messages newest first by the\ndate they were sent.\n\nArgs:\n    filter_expr: Filter expression using Affinity query language. Available fields:\n        - id: unique identifier for the chat message (operators: =)\n          Example: \"id=1\" or \"(id=1 | id=2)\"\n        - sentAt: When the message was sent (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"sentAt>=2025-01-01T00:00:00Z\"\n        - createdAt: When the message was logged in Affinity (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"createdAt>=2025-01-01T00:00:00Z\"\n        - updatedAt: When the message was last updated (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"updatedAt<=2025-12-31T23:59:59Z\"\n\n        Date range example:\n        \"sentAt>=2025-01-01T00:00:00Z & sentAt<2025-02-01T00:00:00Z\"\n\n        Boolean logic: & (AND), | (OR), () for grouping\n        Full filtering spec: https://developer.affinity.co/pages/external-api-v2/filtering\n\n    cursor: Cursor for the next or previous page. Pass the value of\n        `pagination.nextCursor` or `pagination.prevCursor` from a prior\n        response. Do NOT parse or modify the cursor string.\n    limit: Number of items to include in the page. Default is 20, max is 100.\n\nReturns:\n    A dict with `data` (list of chat messages) and `pagination` with\n    `nextCursor` / `prevCursor` strings (pass directly to the `cursor`\n    param; absent when there is no such page) and `nextUrl` / `prevUrl`\n    full URLs (null when there is no such page).\n    Each chat message has `id`, `sentAt`, `direction` (\"sent\" or\n    \"received\"), `loggingType` (always \"manual\"), `creator`, `createdAt`,\n    `updatedAt` (can be null), and `participantsPreview` (`data`, a list of\n    persons, and `totalCount`).\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Filter Expr"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "get_chat_messagesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_emails",
+   "description": "Get the emails that the current user can see, with their dates, subjects, direction, and participants.\n\nIMPORTANT: The API never returns email bodies, only metadata. If the user cannot\nsee the subject of an email, `subject` is \"********\".\n\nEmails come in id order, which is the order in which Affinity stored them, not\nthe order of their dates. The first page holds the emails that Affinity stored\nfirst. To get recent emails, filter on `sentAt`.\n\nTo get the emails of one company, person, or opportunity, use\nget_interactions_for_entity. It returns emails newest first.\n\nArgs:\n    filter_expr: Filter expression using Affinity query language. Available fields:\n        - id: unique identifier for the email (operators: =)\n          Example: \"id=1\" or \"(id=1 | id=2)\"\n        - sentAt: When the email was sent (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"sentAt>=2025-01-01T00:00:00Z\"\n        - createdAt: When the email was added to Affinity (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"createdAt>=2025-01-01T00:00:00Z\"\n        - updatedAt: When the email was last updated (operators: >, <, >=, <=)\n          Format: ISO 8601 timestamp\n          Example: \"updatedAt<=2025-12-31T23:59:59Z\"\n\n        Date range example:\n        \"sentAt>=2025-01-01T00:00:00Z & sentAt<2025-02-01T00:00:00Z\"\n\n        Boolean logic: & (AND), | (OR), () for grouping\n        Full filtering spec: https://developer.affinity.co/pages/external-api-v2/filtering\n\n    cursor: Cursor for the next or previous page. Pass the value of\n        `pagination.nextCursor` or `pagination.prevCursor` from a prior\n        response. Do NOT parse or modify the cursor string.\n    limit: Number of items to include in the page. Default is 20, max is 20.\n        To get more emails, page through with `cursor`.\n\nReturns:\n    A dict with `data` (list of emails) and `pagination` with\n    `nextCursor` / `prevCursor` strings (pass directly to the `cursor`\n    param; absent when there is no such page) and `nextUrl` / `prevUrl`\n    full URLs (null when there is no such page).\n    Each email has `id`, `sentAt`, `subject`, `direction` (\"sent\" when\n    someone in the organization sent it, else \"received\"), `loggingType`\n    (always \"automated\"), `createdAt`, `updatedAt` (can be null), `from`\n    (an attendee), and `toParticipantsPreview` and `ccParticipantsPreview`\n    (each with `data`, a list of attendees, and `totalCount`). Each attendee\n    has `emailAddress` and `person`, which is null when no person in\n    Affinity has that address.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "filter_expr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Filter Expr"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "get_emailsArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_interactions_for_entity",
+   "description": "Get the calls, chat messages, or emails (not meetings) of a specific company, person, or opportunity.\n\nFor meetings, use get_meetings_for_entity. The results include only the\ninteractions that the current user has permission to see.\n\nIMPORTANT: The date range between start_time and end_time cannot exceed 365 days.\nA larger range is clamped to the most recent 365 days (start_time moves forward),\nand a `warnings` entry in the response states the window that was used. To fetch\nolder interactions, call again with an earlier end_time. start_time must be\nstrictly before end_time: an inverted or empty range causes an error, not a clamp.\n\nArgs:\n    interaction_type: The kind of interaction to get:\n        - InteractionType.CALL (1)\n        - InteractionType.CHAT_MESSAGE (2)\n        - InteractionType.EMAIL (3)\n        If unclear which type the user means, ask before calling.\n    entity_id: The ID of the company, external person, or opportunity. A person must be an\n        external contact or a collaborator: the API rejects an internal person with\n        \"Person is not an external or collaborator\".\n    entity_type: What type of entity this ID refers to. Options: 0 = person, 1 = company, 8 = opportunity\n    start_time: ISO 8601 timestamp. Only interactions that took place at or after this time\n        are returned. Must be before end_time.\n        Format: \"2025-01-01T00:00:00Z\"\n    end_time: ISO 8601 timestamp. Only interactions that took place before this time are\n        returned. Must be after start_time.\n        Format: \"2025-01-01T00:00:00Z\"\n    direction: Return only chat messages or emails in this direction. When not supplied,\n        returns both. Not applicable to calls (omit it for those). Options:\n        - ChatMessageDirection.SENT (0): sent by someone in your organization\n        - ChatMessageDirection.RECEIVED (1): received by someone in your organization\n    internal_person_id: ID of an internal person that took part in the interactions.\n        This parameter filters the interactions of the given entity down to those\n        in which this internal person took part. Cannot be used to find all of an\n        internal person's interactions.\n    page_size: Number of results per page. Default is 10, maximum is 100.\n    page_token: Token for the next page. Pass the value of \"next_page_token\" from the\n        previous response. If \"next_page_token\" is null, the response is the last page.\n        To answer questions that depend on every interaction in the range, call again\n        with each new token until it is null. Do NOT parse or modify the token string.\n\nReturns:\n    A dict with `next_page_token` and one list of interactions, newest first by\n    the date of the interaction. The key of the list depends on interaction_type:\n    - CALL: `events`. Each call has `id`, `v2_id` (the call's id in get_calls),\n      `date` and `start_time` (both the time of the call that the user logged),\n      `end_time`, `updated_at`, `title` (null when the call has no title or the\n      user cannot see it), `type` (1), `attendees` (email addresses),\n      `persons`, `manual_creator_id`, `notes` (ids of the notes on the call), and\n      `ical_uid`.\n    - CHAT_MESSAGE: `chat_messages`. Each message has `id`, `date` (when it was\n      sent), `direction` (0 = sent, 1 = received), `type` (2), `persons`,\n      `manual_creator_id`, and `notes` (ids of the notes on the message, which\n      hold the message text).\n    - EMAIL: `emails`. Each email has `id`, `date` (when it was sent), `subject`\n      (null when the user cannot see it), `type` (3), `direction` (0 = sent,\n      1 = received), `from` (a person, or `{\"email\": ...}` when no person has\n      that address), and `to` and `cc` (the persons that match those addresses,\n      without the addresses that match no person). Email bodies are never returned.\n    Each person has `id`, `type`, `first_name`, `last_name`, `primary_email`, and\n    `emails`. To read the text of a note, use query_notes with filter_expr\n    \"id=<note id>\". If the requested date range exceeded 365 days, a `warnings`\n    list describes the clamped window that was used.\n",
+   "inputSchema": {
+    "$defs": {
+     "ChatMessageDirection": {
+      "description": "Direction of a chat message or email interaction.",
+      "enum": [
+       0,
+       1
+      ],
+      "title": "ChatMessageDirection",
+      "type": "integer"
+     },
+     "EntityType": {
+      "description": "Entity types: 0 = person, 1 = company, 8 = opportunity",
+      "enum": [
+       0,
+       1,
+       8
+      ],
+      "title": "EntityType",
+      "type": "integer"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "interaction_type": {
+      "enum": [
+       1,
+       2,
+       3
+      ],
+      "title": "Interaction Type",
+      "type": "integer"
+     },
+     "entity_id": {
+      "title": "Entity Id",
+      "type": "integer"
+     },
+     "entity_type": {
+      "$ref": "#/$defs/EntityType"
+     },
+     "start_time": {
+      "title": "Start Time",
+      "type": "string"
+     },
+     "end_time": {
+      "title": "End Time",
+      "type": "string"
+     },
+     "direction": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/ChatMessageDirection"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "internal_person_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Internal Person Id"
+     },
+     "page_size": {
+      "default": 10,
+      "title": "Page Size",
+      "type": "integer"
+     },
+     "page_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Page Token"
+     }
+    },
+    "required": [
+     "interaction_type",
+     "entity_id",
+     "entity_type",
+     "start_time",
+     "end_time"
+    ],
+    "title": "get_interactions_for_entityArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_intro_paths",
+   "description": "Find ranked warm intro paths to a person or company: who at your org can\nintroduce you, directly or through one bridge person, strongest path first.\n\nEach path has one or two edges. One edge is a direct relationship between a\nperson at your org and the target. Two edges go through a bridge person,\nwhere `edges[0].to` and `edges[1].from` are the same person. Paths combine\nyour org's interaction history and inferred connections (shared work history,\ninvestor-portfolio relationships).\n\nIMPORTANT: Pass exactly one of `person_id` or `company_id`. Both or neither\nraises ValueError before any API call. These are Affinity IDs, not names:\ncall `search_persons` or `search_companies_top_matches` first to resolve a\nname to its ID.\n\nIMPORTANT: Paths are already ranked by the API. Present them in the order\nreturned, using `rank` and `tier`. Do not re-rank them. The response carries\nno absolute path score, and `interactionScore` on an edge is not a path\nscore.\n\nWhen the paths cannot be loaded for the target, returns `data` as an\nempty list and an `unavailable` message that says what to tell the user.\nWithout `unavailable`, an empty `data` list means no paths were found.\n\nArgs:\n    person_id: The ID of the target person. Mutually exclusive with\n        `company_id`.\n    company_id: The ID of the target company. Ranks paths to any person\n        currently at that company, so paths may lead to different people.\n        Mutually exclusive with `person_id`.\n    cursor: Cursor for the next or previous page. Pass the value of\n        `pagination.nextCursor` or `pagination.prevCursor` from a prior\n        response. Do NOT parse or modify the cursor string.\n    limit: Number of paths per page (1-100). Default is 20. Values outside\n        1-100 raise ValueError before any API call.\n    total_count: When true, the response pagination object includes the\n        total number of paths. Default is false.\n\nReturns:\n    JSON object with:\n    - data: list of paths, strongest first. Each path has:\n      - rank: position among all paths to the target (1 is strongest),\n        stable across pages of the same request.\n      - tier: \"strong\", \"moderate\", or \"weak\" for the path as a whole.\n      - target: the person the path leads to (`id`, `name`, `title`,\n        `linkedinUrl`, `currentCompany` with `id` / `name` / `domain`, or\n        null).\n      - edges: one or two hops. Each edge has `from` and `to` people (`id`,\n        `firstName`, `lastName`, `primaryEmailAddress`), its own `tier`, and\n        `connectionInfo` with the signals behind it: `interactionScore`,\n        `lastInteraction` (`type` of email / chat-message with `sentAt`, or\n        meeting / call with `startTime` / `endTime`), `linkedIn`\n        (`connectedOn`), `sharedWorkHistory` (`sharedEmployer`,\n        `overlapStartDate`, `overlapEndDate`), and `investmentHistory`\n        (`inference` with `investingFirm` / `portfolioCompany`, and\n        `dealContext` with `fundingEvent`, `investor`, `executive`). Absent\n        signals are null or empty lists.\n    - pagination: object with `nextCursor` / `prevCursor` strings (pass directly\n      to the `cursor` param; absent when there is no such page) and\n      `nextUrl` / `prevUrl` full URLs (null when there is no such page);\n      totalCount is included only when total_count is true.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "person_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Person Id"
+     },
+     "company_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Company Id"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "total_count": {
+      "default": false,
+      "title": "Total Count",
+      "type": "boolean"
+     }
+    },
+    "title": "get_intro_pathsArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "render_intro_paths_graph",
+   "description": "Render ranked warm intro paths from get_intro_paths as an interactive\nnetwork-map graph, with an evidence panel for each relationship.\n\nCall this every time you present get_intro_paths results to the user:\nfirst give the paths as text, then call this tool for the same paths.\nDo not wait for the user to ask for a map. Also call it when the user\nasks to see, map, visualize, or diagram the paths. Do not call it on your\nown when get_intro_paths returned no paths, or returned `unavailable`.\n\nCall this only after fetching paths with get_intro_paths. This tool does\nnot fetch or rank anything itself. It draws exactly the paths it is\ngiven, so pass the same paths already shown to the user in text, in the\nsame order. Never invent a person, relationship, score, or signal that\nget_intro_paths did not return.\n\nEach relationship is drawn by what supports it: one with a `score_pct` as\nconfirmed and scored (solid line with the number), one with only\n`linkedin_connected_on` as a confirmed LinkedIn connection (solid blue\nline, no number), and one with only `shared_work_history` /\n`investment_history` as inferred (dashed line with its tier word). The\nrank 1 path is marked as the recommended path; a later page has none.\n\nExample, one direct path and one path through a bridge contact:\n    people = [\n        {\"id\": 10, \"name\": \"Jamie Chen\"},\n        {\"id\": 22, \"name\": \"Alex Kim\", \"title\": \"CTO\", \"company\": \"Globex\"},\n        {\"id\": 55, \"name\": \"Jane Doe\", \"title\": \"CEO\", \"company\": \"Acme\"},\n    ]\n    paths = [\n        {\"rank\": 1, \"tier\": \"strong\", \"edges\": [\n            {\"from_id\": 10, \"to_id\": 55, \"tier\": \"strong\", \"score_pct\": 85,\n             \"last_interaction\": {\"type\": 3,\n                                  \"occurred_at\": \"2026-08-14T15:04:00Z\"}}]},\n        {\"rank\": 2, \"tier\": \"moderate\", \"edges\": [\n            {\"from_id\": 10, \"to_id\": 22, \"tier\": \"moderate\", \"score_pct\": 55},\n            {\"from_id\": 22, \"to_id\": 55, \"tier\": \"moderate\",\n             \"shared_work_history\": [{\"employer\": \"Globex\",\n                                      \"overlap_start_date\": \"2018-03-01\",\n                                      \"overlap_end_date\": \"2020-11-30\"}]}]},\n    ]\n\nArgs:\n    people: Everyone the paths reference, each listed once. Every entry\n        must appear in at least one path.\n    paths: Ranked paths from get_intro_paths, in ascending `rank` order.\n        Maximum 5. The tool still accepts an empty list and renders an\n        empty state, but only pass one when the user asks for it.\n    current_user_id: The caller's own person ID, not the user ID that\n        get_current_user returns: match its `user.emailAddress` to a\n        `primaryEmailAddress` on the paths' edges and pass that person's\n        `id`. Marks them \"(You)\" and addresses the intro request to the\n        next person on the path instead. Omit if unknown.\n    target_company: The company name, for a company search only. The map\n        names the company in its title and lists the contacts in rank\n        order, also when every path reaches one contact. Omit it for a\n        person search.\n\nReturns:\n    JSON object with `people`, `paths`, `current_user_id` and\n    `target_company` (when given), and `generated_at` (server-side UTC\n    timestamp) for the MCP App to render. Each returned path also\n    carries a computed `recommended` boolean, and each edge a computed\n    `kind` (\"scored\", \"linkedin\", or \"inferred\") and `also_linkedin`\n    boolean. Text-only clients receive the same object as plain JSON.\n",
+   "inputSchema": {
+    "$defs": {
+     "InteractionType": {
+      "description": "Types of interactions.\n\nEMAIL is not a valid value for create_interaction (emails can't be\nmanually logged that way) - it exists for tools that only need to\ndescribe a past interaction, e.g. render_intro_paths_graph.",
+      "enum": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "title": "InteractionType",
+      "type": "integer"
+     },
+     "IntroPathsEdge": {
+      "description": "One relationship between two people: a single `edges[]` entry of a\nget_intro_paths path.\n\nArgs:\n    from_id: `from.id`.\n    to_id: `to.id`.\n    tier: The edge's own `tier`: \"strong\", \"moderate\", or \"weak\".\n    score_pct: `connectionInfo.interactionScore` converted to 0-100 and\n        rounded to the nearest integer. Omit when `interactionScore` is\n        null. Never pass a path's rank or tier here.\n    last_interaction: From `connectionInfo.lastInteraction`. Omit when\n        null.\n    linkedin_connected_on: `connectionInfo.linkedIn.connectedOn`, e.g.\n        \"2021-07-14\". Omit when `linkedIn` is null.\n    shared_work_history: From `connectionInfo.sharedWorkHistory`. Max 5.\n    investment_history: From `connectionInfo.investmentHistory`. Max 5.",
+      "properties": {
+       "from_id": {
+        "title": "From Id",
+        "type": "integer"
+       },
+       "to_id": {
+        "title": "To Id",
+        "type": "integer"
+       },
+       "tier": {
+        "enum": [
+         "strong",
+         "moderate",
+         "weak"
+        ],
+        "title": "Tier",
+        "type": "string"
+       },
+       "score_pct": {
+        "anyOf": [
+         {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Score Pct"
+       },
+       "last_interaction": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/IntroPathsLastInteraction"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "linkedin_connected_on": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Linkedin Connected On"
+       },
+       "shared_work_history": {
+        "items": {
+         "$ref": "#/$defs/IntroPathsSharedWorkHistory"
+        },
+        "maxItems": 5,
+        "title": "Shared Work History",
+        "type": "array"
+       },
+       "investment_history": {
+        "items": {
+         "$ref": "#/$defs/IntroPathsInvestment"
+        },
+        "maxItems": 5,
+        "title": "Investment History",
+        "type": "array"
+       }
+      },
+      "required": [
+       "from_id",
+       "to_id",
+       "tier"
+      ],
+      "title": "IntroPathsEdge",
+      "type": "object"
+     },
+     "IntroPathsInvestment": {
+      "description": "One investor-executive signal, from `connectionInfo.investmentHistory[]`.\nThe edge's `from` person is the investor side, `to` the executive side.\n\nArgs:\n    portfolio_company: `inference.portfolioCompany.name`.\n    investing_firm: `inference.investingFirm.name`, when present.\n    funding_series: `dealContext.fundingEvent.series`, e.g. \"Series B\".\n    funding_date: `dealContext.fundingEvent.date`, e.g. \"2021-06-01\".\n    funding_amount: `dealContext.fundingEvent.amount`, copied as-is, e.g.\n        15000000. Omit when null.\n    funding_currency_code: `dealContext.fundingEvent.currencyCode`, the\n        ISO 4217 code for `funding_amount`, e.g. \"USD\". Omit when null.",
+      "properties": {
+       "portfolio_company": {
+        "maxLength": 200,
+        "title": "Portfolio Company",
+        "type": "string"
+       },
+       "investing_firm": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Investing Firm"
+       },
+       "funding_series": {
+        "anyOf": [
+         {
+          "maxLength": 100,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Funding Series"
+       },
+       "funding_date": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Funding Date"
+       },
+       "funding_amount": {
+        "anyOf": [
+         {
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Funding Amount"
+       },
+       "funding_currency_code": {
+        "anyOf": [
+         {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Funding Currency Code"
+       }
+      },
+      "required": [
+       "portfolio_company"
+      ],
+      "title": "IntroPathsInvestment",
+      "type": "object"
+     },
+     "IntroPathsLastInteraction": {
+      "description": "The most recent interaction behind a scored relationship, from the\nedge's `connectionInfo.lastInteraction`.\n\nArgs:\n    type: Options: 0 = meeting (InteractionType.MEETING), 1 = call\n        (InteractionType.CALL), 2 = chat message\n        (InteractionType.CHAT_MESSAGE), 3 = email (InteractionType.EMAIL),\n        for the endpoint's \"meeting\" / \"call\" / \"chat-message\" / \"email\".\n    occurred_at: ISO 8601 timestamp, copied as-is from `sentAt` (email,\n        chat message) or `startTime` (meeting, call), e.g.\n        \"2026-08-14T15:04:00Z\".",
+      "properties": {
+       "type": {
+        "$ref": "#/$defs/InteractionType"
+       },
+       "occurred_at": {
+        "format": "date-time",
+        "title": "Occurred At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "type",
+       "occurred_at"
+      ],
+      "title": "IntroPathsLastInteraction",
+      "type": "object"
+     },
+     "IntroPathsPath": {
+      "description": "One ranked path from get_intro_paths.\n\nArgs:\n    rank: The path's `rank`, copied as-is.\n    tier: The path's `tier`: \"strong\", \"moderate\", or \"weak\".\n    edges: The path's `edges`, in order: one edge for a direct path, two\n        for a path through a bridge contact.",
+      "properties": {
+       "rank": {
+        "minimum": 1,
+        "title": "Rank",
+        "type": "integer"
+       },
+       "tier": {
+        "enum": [
+         "strong",
+         "moderate",
+         "weak"
+        ],
+        "title": "Tier",
+        "type": "string"
+       },
+       "edges": {
+        "items": {
+         "$ref": "#/$defs/IntroPathsEdge"
+        },
+        "maxItems": 2,
+        "minItems": 1,
+        "title": "Edges",
+        "type": "array"
+       }
+      },
+      "required": [
+       "rank",
+       "tier",
+       "edges"
+      ],
+      "title": "IntroPathsPath",
+      "type": "object"
+     },
+     "IntroPathsPerson": {
+      "description": "A node in the intro paths graph: someone at your firm, a bridge\ncontact, or a target.\n\nArgs:\n    id: Affinity person ID, from `edges[].from.id` / `edges[].to.id` in\n        get_intro_paths.\n    name: Display name. Control characters and punctuation outside common\n        name characters (letters, digits, spaces, `'.,-`) are stripped.\n    title: Job title shown under the name, e.g. the path's\n        `target.title`, or `get_person_info`'s\n        `affinity-data-current-job-title` field. Omit only if you have\n        none.\n    company: Employer name shown next to the title, e.g. the path's\n        `target.currentCompany.name`.\n    linkedin_url: Profile URL, e.g. the path's `target.linkedinUrl`. Must\n        be an `https://` URL on `linkedin.com` or `linkedin.cn`.",
+      "properties": {
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "name": {
+        "maxLength": 641,
+        "title": "Name",
+        "type": "string"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "maxLength": 150,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Title"
+       },
+       "company": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Company"
+       },
+       "linkedin_url": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Linkedin Url"
+       }
+      },
+      "required": [
+       "id",
+       "name"
+      ],
+      "title": "IntroPathsPerson",
+      "type": "object"
+     },
+     "IntroPathsSharedWorkHistory": {
+      "description": "One shared-employer signal, from `connectionInfo.sharedWorkHistory[]`.\n\nArgs:\n    employer: `sharedEmployer.name`.\n    overlap_start_date: `overlapStartDate`, e.g. \"2018-03-01\".\n    overlap_end_date: `overlapEndDate`, e.g. \"2021-11-30\".",
+      "properties": {
+       "employer": {
+        "maxLength": 200,
+        "title": "Employer",
+        "type": "string"
+       },
+       "overlap_start_date": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Overlap Start Date"
+       },
+       "overlap_end_date": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Overlap End Date"
+       }
+      },
+      "required": [
+       "employer"
+      ],
+      "title": "IntroPathsSharedWorkHistory",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "people": {
+      "items": {
+       "$ref": "#/$defs/IntroPathsPerson"
+      },
+      "title": "People",
+      "type": "array"
+     },
+     "paths": {
+      "items": {
+       "$ref": "#/$defs/IntroPathsPath"
+      },
+      "title": "Paths",
+      "type": "array"
+     },
+     "current_user_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Current User Id"
+     },
+     "target_company": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Target Company"
+     }
+    },
+    "required": [
+     "people",
+     "paths"
+    ],
+    "title": "render_intro_paths_graphArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_opportunities_info",
+   "description": "Get opportunities (deals) by id: name, list, and whether each is restricted.\n\nUse this when another tool returned opportunity ids without names, for example\nget_reminders, get_entity_files or get_entity_file_metadata. To find a deal by\nname, call search_opportunities. Returns no field values.\n\nArgs:\n    opportunity_ids: 1 to 100 opportunity ids.\n\nReturns:\n    `opportunities` holds every requested opportunity the API returned. When\n    `isRedacted` is true, the opportunity is restricted and the user is not on its\n    allow list. Its name shows as \"[Hidden]\". Tell the user it exists but is hidden,\n    and do not guess its name.\n    `missingIds` lists requested ids that returned nothing, for example a deleted id\n    or one from another organization.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_ids": {
+      "items": {
+       "description": "Opportunity id",
+       "exclusiveMinimum": 0,
+       "type": "integer"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Opportunity Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "opportunity_ids"
+    ],
+    "title": "get_opportunities_infoArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_suggested_field_updates",
+   "description": "Get one set of suggested field updates (SFUs) with all its suggestions.\n\nA set is one Data Update Agent run over a note or meeting. Each suggestion\nproposes a new value for one field on a company, person or opportunity.\nUse list_suggested_field_updates to find set ids. If the note or meeting id\nis known, pass subject_type and subject_id to list only that subject's sets.\n\nIMPORTANT: currentValue is the field's value when the suggestions were\ngenerated. The record may have changed since.\n\nArgs:\n    suggested_field_update_id (required): The set id, a UUID such as\n        \"7c9e6679-7425-40de-944b-e07fc1f90ae7\".\n\nReturns:\n    The set. status \"pending\" is still generating and has no suggestions;\n    \"open\" waits on the user. A run that found nothing is \"done\" with no\n    suggestions. Show records as \"Acme Corp (company 4521)\".\n    Errors: 404 when the set does not exist, is not this user's, or the user\n    has no access to suggested field updates.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "suggested_field_update_id": {
+      "format": "uuid",
+      "title": "Suggested Field Update Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "suggested_field_update_id"
+    ],
+    "title": "get_suggested_field_updatesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_suggested_field_updates_task",
+   "description": "Check whether suggested field update (SFU) generation has finished.\n\nReads the task once. It does not poll. Generation can take several\nminutes; read again when the user asks.\n\nArgs:\n    task_id (required): The task id, a UUID such as\n        \"7c9e6679-7425-40de-944b-e07fc1f90ae7\". It equals the set id.\n\nReturns:\n    The task. On \"success\", call get_suggested_field_updates with\n    suggestedFieldUpdate.id. \"failed\" is final and carries no reason.\n    Errors: 404 when the task does not exist, is not this user's, or the\n    user has no access to suggested field updates.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "task_id": {
+      "format": "uuid",
+      "title": "Task Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "task_id"
+    ],
+    "title": "get_suggested_field_updates_taskArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "list_suggested_field_updates",
+   "description": "List the user's sets of suggested field updates (SFUs), newest first.\n\nA set is one Data Update Agent run over a note or meeting. Items have counts\nbut no suggestions: call get_suggested_field_updates with an id for those.\n\nIMPORTANT: Runs that found nothing are not listed. An empty list does not\nmean the agent is off; say there are no suggestions, and that the agent may\nnot be enabled for this user.\n\nIMPORTANT: Sets the user cannot see are removed after the page is read, so a\npage can be short or empty while `pagination.nextCursor` is set. Keep\npaging until `nextCursor` is null.\n\nArgs:\n    status: Only sets in this status. \"open\" sets wait on the user.\n        \"pending\" sets are still generating.\n    subject_type: Only sets generated from a \"note\" or a \"meeting\".\n    subject_id: Only sets for this note or meeting id. Requires\n        subject_type, because a note and a meeting can share an id; without\n        it, raises ValueError before any API call.\n        A note attached to a meeting has its sets under the meeting id.\n    created_after: Only sets created at or after this ISO 8601 time, for\n        example \"2026-10-01T00:00:00Z\". Lower bound only.\n    limit: Sets per page, 1 to 100. Default 20.\n    cursor: Pass `pagination.nextCursor` or `pagination.prevCursor` from a\n        prior response, unchanged.\n\nReturns:\n    One page of sets. Refer to a set's subject by its label, for example\n    \"the note 'Met Meredith Becker today...' (note 376)\". When \"note\" is\n    set, relay it.\n    Errors: 400 for a bad filter or cursor; 404 when the user has no access\n    to suggested field updates.\n",
+   "inputSchema": {
+    "$defs": {
+     "SubjectType": {
+      "description": "What a set of suggested field updates was generated from.",
+      "enum": [
+       "note",
+       "meeting"
+      ],
+      "title": "SubjectType",
+      "type": "string"
+     },
+     "SuggestedFieldUpdateStatus": {
+      "description": "Status of a set of suggested field updates.",
+      "enum": [
+       "pending",
+       "open",
+       "done",
+       "expired",
+       "failed"
+      ],
+      "title": "SuggestedFieldUpdateStatus",
+      "type": "string"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "status": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/SuggestedFieldUpdateStatus"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "subject_type": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/SubjectType"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "subject_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Subject Id"
+     },
+     "created_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Created After"
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     }
+    },
+    "title": "list_suggested_field_updatesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "list_suggested_field_updates_tasks",
+   "description": "List the user's suggested field update (SFU) generation tasks, newest first.\n\nArgs:\n    status: Only tasks in this status.\n    limit: Tasks per page, 1 to 100. Default 20.\n    cursor: Pass `pagination.nextCursor` or `pagination.prevCursor` from a\n        prior response, unchanged.\n\nReturns:\n    One page of tasks.\n    Errors: 400 for a bad cursor; 404 when the user has no access to\n    suggested field updates.\n",
+   "inputSchema": {
+    "$defs": {
+     "SuggestionTaskStatus": {
+      "description": "Status of a run that generates suggested field updates.",
+      "enum": [
+       "in-progress",
+       "success",
+       "failed"
+      ],
+      "title": "SuggestionTaskStatus",
+      "type": "string"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "status": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/SuggestionTaskStatus"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Cursor"
+     }
+    },
+    "title": "list_suggested_field_updates_tasksArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "data_quality_audit",
+   "description": "Audit the health of an Affinity CRM and deliver a workbook and a one-page HTML audit summary: what is in place today (Your CRM), every check that was run and what it found (Checks), one row per finding with what to do, who does it and a status to track (Findings), and the reference tabs behind them. Use when a user asks for a \"data quality audit\" or a \"CRM audit\", to \"audit our CRM\", \"audit our data\", \"check data quality\", \"how healthy is our Affinity data\", \"clean up our CRM\", \"data hygiene report\", or asks what is wrong with or missing from their lists, fields, companies or people. Also trigger for a single audit by name (\"just audit our lists\"). Also trigger when an audit request asks to find or merge duplicates: the skill explains that duplicate records are out of scope and points to Duplicate Management. Read-only and recommendation-only: never modifies records and never executes clean-up, even when asked.",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Path of a bundled reference file, relative to the skill (e.g. 'audits/lists.md'). Omit to get SKILL.md.",
+      "title": "File"
+     }
+    },
+    "title": "data_quality_auditArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "founder_references",
+   "description": "Find reference-check sources on a named person (a founder, CEO, executive, hiring candidate, operating partner, or advisor), or on the founders of a named company. Builds the background from a pitch deck or other material the user has, public sources such as funding announcements, and Affinity files, then uses Affinity relationship data to find who on the user's team knows them, former colleagues and ex-employees, early investors and co-investors, angels and board members, customers that are portfolio or pipeline companies, people seen in meetings with them, and what past notes already say. Use whenever the user asks for references, backchannel, reference checks, \"who can vouch for\", \"who worked with\", \"who can tell me about\" a person, or wants diligence on a founder or management team, or is vetting a candidate for a portfolio company, operating partner, board, or advisor role, even if they never say the word \"reference\". Read-only: never writes to the CRM or sends anything.",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Path of a bundled reference file, relative to the skill (e.g. 'audits/lists.md'). Omit to get SKILL.md.",
+      "title": "File"
+     }
+    },
+    "title": "founder_referencesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "passed_deal_review",
+   "description": "Anti-portfolio report: finds companies the firm passed on or lost, while there was still time to invest, that went on to raise their next-stage round in a chosen period. Ranks the most painful misses, shows where every data point comes from, and breaks the misses down by pass reason, industry, geography and team. Use when someone asks for an anti-portfolio review or report, missed deals, \"who did we pass on that just raised\", a quarterly or annual pass review, deals they personally passed on, or patterns in pass reasons. Runs on demand against one deal pipeline list in Affinity.",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Path of a bundled reference file, relative to the skill (e.g. 'audits/lists.md'). Omit to get SKILL.md.",
+      "title": "File"
+     }
+    },
+    "title": "passed_deal_reviewArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "portfolio_check_in",
+   "description": "Ranks portfolio companies by whether they need attention right now — specifically, companies with no recent internal touchpoint (meeting, note, email) but a recent external signal (funding, exec change, press, competitor move). Surfaces the company-news mismatch case first (news that names the portco), separates competitor news (news about its competitors or sector), and distinguishes \"couldn't check\" from \"checked, nothing found.\" Use when asked for a portfolio check-in, \"who needs attention,\" or a portco monitoring pass.",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Path of a bundled reference file, relative to the skill (e.g. 'audits/lists.md'). Omit to get SKILL.md.",
+      "title": "File"
+     }
+    },
+    "title": "portfolio_check_inArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "ready_to_raise_indicator",
+   "description": "Flags which companies in an Affinity list or pipeline are statistically due to raise again, using the Affinity MCP connector -- no custom artifact or hosted tool needed, just Claude plus the connector. Trigger on typing \"RTR\" (case-insensitive, standalone or as a prefix like \"RTR my pipeline list\") or on a plain-language ask like \"which of my portfolio companies are due to raise,\" \"check this list for re-raise signals,\" \"run the ready-to-raise estimate,\" or pasting/uploading/referencing a company list with a raise-timing ask. Runs the full methodology directly against the user's live Affinity data, calculated fresh at the moment it's invoked.",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Path of a bundled reference file, relative to the skill (e.g. 'audits/lists.md'). Omit to get SKILL.md.",
+      "title": "File"
+     }
+    },
+    "title": "ready_to_raise_indicatorArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "update_field",
+   "description": "Update a field (custom column): its name, description, or required flag.\n\nWorks on a list-specific field, or on a global company field. Pass only the\nvalues you want to change.\n\nIMPORTANT:\n  - Use the field's `type` from `get_list_fields` or `get_entity_fields`. For\n    \"list\", pass the list_id. For a \"global\" or \"enriched\" company field, omit\n    list_id.\n  - Person fields and global opportunity fields are not supported. A field on an\n    opportunity list is a list field, so pass its list_id.\n  - Only custom fields can be renamed or get a description. Enriched and native\n    company fields (for example \"affinity-data-location\") accept only is_required.\n  - A list field needs the Standard role on the list. The list's Status and\n    Owners fields, and any is_required change, need the Admin role on the list.\n    A company field needs the org-level \"manage global fields\" permission.\n  - A name that another field already uses returns a 400\n    (\"<name> is an existing column.\").\n  - The id that `create_field` returns is the field_id for this tool.\n\nArgs:\n    field_id: Human-readable field ID, for example \"field-1234\" or\n        \"affinity-data-location\".\n    list_id: ID of the list that owns a list-specific field. Omit it for a global\n        company field.\n    name: New field name (1 to 255 characters).\n    description: New description of the field's purpose (up to 255 characters).\n    clear_description: Set to True to remove the field's description. Do not\n        combine with description. Defaults to False.\n    is_required: Whether a value is required when an entity or list entry is\n        created. Omit it to leave the setting unchanged.\n\nReturns:\n    None. The API returns 204 No Content on success.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "field_id": {
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Field Id",
+      "type": "string"
+     },
+     "list_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "List Id"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     },
+     "clear_description": {
+      "default": false,
+      "title": "Clear Description",
+      "type": "boolean"
+     },
+     "is_required": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Is Required"
+     }
+    },
+    "required": [
+     "field_id"
+    ],
+    "title": "update_fieldArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "apply_suggested_field_updates",
+   "description": "Apply suggested field updates (SFUs): accept, edit or reject each pending\nsuggestion in a set, and write the accepted values to the records.\n\nConfirmation gate: with confirm=false (the default) nothing is written. The\nresponse is a preview: \"summary\", one \"rows\" item per pending suggestion\n(decision, record, field, current_value, new_value), \"warning\" and\n\"next_step\". Show the summary and every row in your own message. Call again\nwith the same arguments and confirm=true only after the user approves.\n\nIMPORTANT: Every pending suggestion needs a decision. A suggestion in none\nof accept, reject or edits raises ValueError naming it, before any write.\nAsk the user about those; never decide for them. An id in edits is\naccepted with that value. reject and edits win over accept_all.\n\nCall get_suggested_field_updates first for the suggestion ids, fields and\nvalue types.\n\nArgs:\n    suggested_field_update_id (required): The set id, a UUID.\n    accept: Suggestion ids to accept as suggested.\n    accept_all: true accepts every pending suggestion not in reject or\n        edits.\n    reject: Suggestion ids to reject. Nothing is written for them.\n    edits: {suggestion_id: value} to accept with a different value. The\n        value's \"type\" must equal the suggestion's suggestedValue type.\n        Shapes by type, with \"type\" set to that exact type:\n        - text: {\"type\": \"text\", \"data\": \"CFO\"}\n        - number: {\"type\": \"number\", \"data\": 42}\n        - datetime: {\"type\": \"datetime\", \"data\": \"2026-07-16T00:00:00Z\"}\n        - dropdown or ranked-dropdown: {\"type\": \"ranked-dropdown\", \"data\":\n          {\"dropdownOptionId\": 2}}\n        - dropdown-multi: {\"type\": \"dropdown-multi\", \"data\":\n          [{\"dropdownOptionId\": 2}]}\n        - company or person: {\"type\": \"company\", \"data\": {\"id\": 101}}\n        - company-multi or person-multi: {\"type\": \"company-multi\", \"data\":\n          [{\"id\": 101}]}\n        - location: {\"type\": \"location\", \"data\": {\"city\": \"Austin\",\n          \"state\": \"TX\", \"country\": \"United States\"}}\n    confirm: false returns the preview only; true writes.\n\nReturns:\n    confirm=true: {\"summary\", \"status\", \"rows\", \"next_step\"}. summary reads\n    \"Applied 5, edited 1, rejected 2, failed 1. The set is done.\" Each row\n    has the preview fields plus \"status\" (accepted, edited, rejected,\n    failed), and \"error\" when failed. \"next_step\" is present only when a\n    row failed: show its error, then offer a direct field update.\n    Errors: ValueError for an undecided, unknown or conflicting id, a wrong\n    edit type, or a set that is not open, all before any write. 400 when the\n    API rejects the decisions. 404 when the set is missing or not this\n    user's, or the user has no access to suggested field updates.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "suggested_field_update_id": {
+      "format": "uuid",
+      "title": "Suggested Field Update Id",
+      "type": "string"
+     },
+     "accept": {
+      "anyOf": [
+       {
+        "items": {
+         "format": "uuid",
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Accept"
+     },
+     "accept_all": {
+      "default": false,
+      "title": "Accept All",
+      "type": "boolean"
+     },
+     "reject": {
+      "anyOf": [
+       {
+        "items": {
+         "format": "uuid",
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reject"
+     },
+     "edits": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Edits"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "suggested_field_update_id"
+    ],
+    "title": "apply_suggested_field_updatesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "dismiss_suggested_field_updates",
+   "description": "Dismiss suggested field updates (SFUs): reject every pending suggestion\nin a set and close it. Nothing is written to the records.\n\nConfirmation gate: with confirm=false (the default) nothing changes. The\nresponse has \"total\", a \"warning\" with the fields, and \"next_step\". Show\nthe warning. Call again with confirm=true only after the user approves.\nTo keep some suggestions, use apply_suggested_field_updates instead.\n\nArgs:\n    suggested_field_update_id (required): The set id, a UUID.\n    confirm: false returns the preview only; true dismisses.\n\nReturns:\n    confirm=true: {\"summary\", \"status\"}, for example \"Rejected 3. The set\n    is done.\" Errors: ValueError when the set is not open. 404 when the set\n    is missing or not this user's, or the user has no access to suggested\n    field updates.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "suggested_field_update_id": {
+      "format": "uuid",
+      "title": "Suggested Field Update Id",
+      "type": "string"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "suggested_field_update_id"
+    ],
+    "title": "dismiss_suggested_field_updatesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "suggest_field_updates",
+   "description": "Run the Data Update Agent on a note or meeting to get suggested field updates (SFUs).\n\nThe agent reads the note or meeting and suggests new values for fields on\nthe companies, persons and opportunities it mentions. Nothing is written\nuntil the user applies the suggestions.\n\nFind the note or meeting first with the note and meeting tools\n(search_notes, get_notes_for_entity, get_meetings_for_entity). If more\nthan one matches the user's words, show the candidates and ask. Never\nguess.\n\nThe tool starts generation, then checks it every 5 seconds for up to 20\nseconds, and returns within 25 seconds. A meeting note runs as its meeting. While a run for the subject\nis still generating, a repeat call waits on that run and starts no second\none. Otherwise each call starts a new run, and the user's previous open\nset for the subject becomes done: its undecided suggestions can no longer\nbe decided.\n\nArgs:\n    note_id: The note id. Pass exactly one of note_id, meeting_id or\n        note_url.\n    meeting_id: The meeting id. When picking it from\n        get_meetings_for_entity, ALWAYS use the response's `v2_id` field if\n        it is present and non-null. Only fall back to `id` when `v2_id` is\n        absent.\n    note_url: A note link such as \"https://<tenant>.affinity.co/notes/123\",\n        as create_note returns.\n\nReturns:\n    The run. On \"success\", suggestedFieldUpdates holds the set; a set\n    that is \"done\" with no suggestions means the agent found nothing to\n    update. On \"failed\", relay message. On \"in-progress\", follow\n    nextStep: check later with get_suggested_field_updates_task, then\n    get_suggested_field_updates.\n    Errors: 400 for an empty note or a meeting with no external attendee;\n    404 when the note or meeting does not exist or is not readable, or the\n    user has no access to suggested field updates; 403 for a token without\n    write access.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "note_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Note Id"
+     },
+     "meeting_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Meeting Id"
+     },
+     "note_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Note Url"
+     }
+    },
+    "title": "suggest_field_updatesArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "delete_field",
+   "description": "Permanently delete a field (custom column) and every value set on it.\n\nWorks on a custom field of a list, or on a custom global company field.\n\nConfirmation gate: with confirm=false (the default) nothing is deleted. The\nresponse is a summary (warning, field, records_with_values, list_name for a\nlist field, next_step). records_with_values is the number of list entries or\ncompanies with a value on the field, or null when Affinity could not count\nthem. Show the whole warning to the user in your own message, keeping the\nfield name, the list name and the count. Call again with confirm=true only\nafter the user approves (or already approved this deletion in the\nconversation).\n\nIMPORTANT:\n  - Use the field's `type` from `get_list_fields` or `get_entity_fields`. For\n    \"list\", pass the list_id. For a \"global\" company field, omit list_id.\n  - Person fields, global opportunity fields, and enriched or native fields\n    are not supported. A field on an opportunity list is a list field, so pass\n    its list_id.\n  - A list field needs the Admin role on the list. A user with the Standard\n    role can delete it only when no list entry has a value on it. A company\n    field needs the org-level \"manage global fields\" permission. Without the\n    permission, the confirmed call returns a 403.\n  - A list field that Affinity manages, such as a list's Status field, returns\n    a 400 (\"Field cannot be deleted\").\n  - To remove one option from a dropdown field, use\n    `delete_list_field_dropdown_option`, not this tool.\n\nArgs:\n    field_id: ID of a custom field, for example \"field-1234\".\n    list_id: ID of the list that owns a list field. Omit it for a global company\n        field.\n    confirm: false returns the summary only; true performs the deletion.\n\nReturns:\n    confirm=false: the summary, nothing deleted.\n    confirm=true: {\"success\": true, \"field_id\": field_id}. A field or list that\n    does not exist returns a 404 (\"Resource not found\"). A global company field\n    with a list_id returns the same 404. Omit list_id for it.\n",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "field_id": {
+      "pattern": "^field-[1-9][0-9]*$",
+      "title": "Field Id",
+      "type": "string"
+     },
+     "list_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "List Id"
+     },
+     "confirm": {
+      "default": false,
+      "title": "Confirm",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "field_id"
+    ],
+    "title": "delete_fieldArguments",
+    "type": "object"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
   }
  ]
 }

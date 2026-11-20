@@ -311,7 +311,7 @@ describe("docs", () => {
     expect(guide).not.toMatch(/refuses this declaration|accepts no unknown keys/)
     // R18: a tool Affinity adds later is undeclared, so Jelly runs it with the plugin's own default.
     expect(guide).toContain("in Jelly it runs with the plugin's own default: allowed, even if it changes something")
-    const destructive = guide.split("- The seven deletes")[1]?.split("A tool the upstream server adds later")[0] ?? ""
+    const destructive = guide.split("- The eight deletes")[1]?.split("A tool the upstream server adds later")[0] ?? ""
     for (const name of DESTRUCTIVE_TOOLS) expect(destructive).toContain(`affinity_${name}`)
     const skills = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).jelly.skills as string[]
     expect(guide).toContain(`Declared: ${skills.map((name) => `\`${name}\``).join(", ")}.`)

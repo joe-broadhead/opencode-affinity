@@ -44,9 +44,9 @@ default (the person's own choice replaces it). A Jelly agent can create a note, 
 two companies or delete a reminder without a prompt. A Jelly admin restricts one tool by setting its effect to `ask`
 or `deny` in the card.
 
-- The seven deletes remove CRM data for good: `affinity_delete_company`, `affinity_delete_person`,
+- The eight deletes remove CRM data for good: `affinity_delete_company`, `affinity_delete_person`,
   `affinity_delete_opportunity`, `affinity_delete_note`, `affinity_delete_list_entries`,
-  `affinity_delete_list_field_dropdown_option` and `affinity_delete_reminder`.
+  `affinity_delete_list_field_dropdown_option`, `affinity_delete_reminder` and `affinity_delete_field`.
 - The two merges delete the duplicate: `affinity_merge_companies` and `affinity_merge_persons`.
 - `affinity_send_feedback` sends text to Affinity's team.
 - `affinity_issue_entity_files_download_token` returns a single-use download credential.
