@@ -10,13 +10,13 @@ carries a class: the worst thing that tool can do.
 | --- | --- | --- |
 | `read` | one per known read: `search_persons`, `get_lists`, `search_list_entries`, `get_notes_for_entity`, `get_current_user` and the others | it only reads |
 | `read` | Affinity's seventeen workflow playbooks too, such as `affinity_meeting_prep`, `warm_intro` and `crm_audit` | each only returns text; what it can drive is the caller's own decision, under the caller's rules |
-| `write` | the twenty writes, such as `create_note`, `create_person`, `update_person` and `upsert_list_entry_field_values` | it changes the firm's shared CRM, or issues a file credential |
-| `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`, `send_feedback` | removes CRM data for good, or sends text to Affinity's team |
+| `write` | the twenty-four writes, such as `create_note`, `create_person`, `update_person` and `upsert_list_entry_field_values` | it changes the firm's shared CRM, or issues a file credential |
+| `destructive` | `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`, `delete_list_field_dropdown_option`, `delete_reminder`, `delete_field`, `merge_companies`, `merge_persons`, `send_feedback` | removes CRM data for good, or sends text to Affinity's team |
 | `read` | `events_list` and `probe`, the meetings source's two methods (`affinity_events_list` and `affinity_probe`), which the plugin runs itself: see [The meetings source](#the-meetings-source) | it only reads, and every `access` value allows it |
 | `describe` | none: lists the methods, their class, their permission action, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — given a session — whether that session may call it |
 
 The methods come from the plugin's one tool table, `src/affinity-tools.ts`: the known reads (`READ_TOOLS` in
-`src/affinity-tools.ts`), the workflow playbooks in `WORKFLOW_TOOLS`, the writes in `WRITE_TOOLS`, and the ten denied
+`src/affinity-tools.ts`), the workflow playbooks in `WORKFLOW_TOOLS`, the writes in `WRITE_TOOLS`, and the eleven denied
 tools in `DENIED_TOOLS`. Call `describe` for the list: it marks a known tool that OpenCode does not list now as
 unavailable.
 

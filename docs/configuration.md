@@ -216,7 +216,7 @@ prints the one in force, and its `Agents without default rules` row prints it as
 
 `READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its seventeen workflow playbooks such as
 `affinity_affinity_meeting_prep`, which return Affinity's instructions for a task as text. `WRITE_TOOLS` lists its
-write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool that Affinity adds later matches only
+write tools, and `DESTRUCTIVE_TOOLS` the eleven of the destructive class. A tool that Affinity adds later matches only
 `affinity_*`, so it takes the value's own effect: allowed under `all`, asked about under `ask-changes`, denied under
 `read-only`. `/affinity-status` names the tools in neither list. Affinity lists the same tools to everyone; your access
 (Deal Assist, unified events, a read-only grant) shows as an error when a tool is called.

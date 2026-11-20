@@ -67,7 +67,7 @@ two sources of the source contract, `affinity.meetings` and the list snapshot `a
 - **The tools RPC.** The transport is the source contract's `tools-rpc` module, pinned in `package-lock.json` and
   bundled; `src/tools-rpc.ts` holds only Affinity's part. Never copy the module. Its methods are every known tool
   in `src/affinity-tools.ts`, by exact name and with its class: the reads (the workflow playbooks among them), the writes
-  and the ten destructive tools, and never an unknown tool. A write or a destructive tool is a method but runs only on a resolved
+  and the eleven destructive tools, and never an unknown tool. A write or a destructive tool is a method but runs only on a resolved
   `allow`. Keep the RPC id `affinity.crm.tools` and its method names stable: scripts call them by name.
 - **The meetings source.** `package.json`'s `sources` declares `affinity.meetings` and the list snapshot `affinity.companies` (`output: "list"`, the existing `search_all_companies` read through `events_list`, not a second client). `affinity.meetings` is not renamed. `src/events.ts` serves both with the
   source contract's `events` and `cursor` modules, never copies. `permission.operations` is exactly what the reads
