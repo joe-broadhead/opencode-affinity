@@ -6,10 +6,10 @@ import { join } from "node:path"
 import { declarationProblems } from "@we-the-rebel-alliance/source-contract/conformance"
 import { EVENTS_LIST, PROBE } from "@we-the-rebel-alliance/source-contract/events"
 import { COMPANIES_ID, COMPANIES_LIST } from "../../src/companies.js"
-import { COST_UNIT, EVENTS_ACTION, MAX_BYTES, PACKAGE, PROBE_ACTION, SOURCE, SOURCE_ID } from "../../src/events.js"
+import { COST_UNIT, EVENTS_ACTION, MAX_BYTES, PACKAGE, PROBE_ACTION, SOURCE, SOURCE_ID, eventsMethod, signIns } from "../../src/events.js"
 import { SOURCE_METHODS } from "../../src/permissions.js"
 import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
-import { ROOT, conformanceReports, declaredSources, declaredTools, installed } from "../support/conformance.js"
+import { ACCOUNT, FIXTURE, ROOT, call, conformanceReports, declaredSources, declaredTools, fakeDeps, installed } from "../support/conformance.js"
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { name: string; sources: Record<string, unknown> }
 
@@ -53,6 +53,25 @@ describe("the sources declaration", () => {
   test("declares none of the keys a consumer on source-contract 0.1 refuses", () => {
     const text = JSON.stringify(pkg.sources)
     for (const key of ["identityRules", "readsIdentity", "\"server\"", "\"conditions\"", "\"min\"", "\"verified\""]) expect({ key, found: text.includes(key) }).toEqual({ key, found: false })
+  })
+})
+
+describe("a listing after a restart, in a fresh instance with no probe", () => {
+  // The kit (v0.3.0) refuses a content read that asserts an identity operation unless the item declares
+  // `permission.readsIdentity`, a key a consumer on source-contract 0.1 refuses, so the kit runs after a probe and this
+  // test holds the fresh-instance case: only the grants the declaration already has, and the listing answers.
+  test("asserts only the item's own grants and its declared identity operation, and names the account probe names", async () => {
+    const asserted: string[] = []
+    const permission = { assert: async (input: { action: string }) => void asserted.push(input.action) }
+    const deps = fakeDeps(FIXTURE, permission as never, { signIns: signIns() })
+    const page = (await eventsMethod(deps).run({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, call())) as { account: string; events: unknown[] }
+    expect(page.account).toBe(ACCOUNT)
+    expect(page.events.length).toBeGreaterThan(0)
+    const meetings = declaredSources().items.find((item) => item.id === SOURCE_ID)!
+    const granted = new Set([EVENTS_ACTION, ...(meetings.permission.operations ?? []).map((operation: string) => `affinity_${operation}`)])
+    expect(asserted.every((action) => granted.has(action))).toBe(true)
+    expect(asserted).toContain("affinity_get_current_user")
+    expect(meetings.permission.identity).toEqual(["get_current_user"])
   })
 })
 

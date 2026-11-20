@@ -151,8 +151,11 @@ A consumer calls two tools RPC methods, never tools the model sees, and the defa
   event per meeting: Affinity's meeting id, its start, its title, and the people on it whom Affinity matched to a
   person record (`affinity:person/<id>` and their name). It carries no notes, transcripts, email addresses, phone
   numbers, relationship scores or link (Affinity's meetings have none); its text is always empty. A meeting is listed
-  once it started an hour ago. A listing names the account `probe` named, and is refused until `probe` has named it
-  for the current sign-in; a new sign-in forgets it. A meeting whose title holds a secret is refused for good.
+  once it started an hour ago. A listing names the account `probe` names and needs no `probe` before it: when the plugin
+  does not know the sign-in yet (after a start of OpenCode, a plugin reload or a new sign-in, since it keeps this in
+  memory only), the listing makes the same one `get_current_user` call itself, once, and keeps the answer for the
+  sign-in. Another account than the signed-in one is `ACCOUNT_MISMATCH`, as before. This matters because a consumer such
+  as Memory probes only when you bind a source. A meeting whose title holds a secret is refused for good.
 - A meeting logged in Affinity after a listing passed its start (logged late, or a calendar connected later) is
   listed by a later listing, once, wherever in the read-back it started. A 10-minute margin absorbs Affinity's indexing
   lag and clock skew.
@@ -162,7 +165,7 @@ A consumer calls two tools RPC methods, never tools the model sees, and the defa
   `{ "source": "affinity", "list": "companies" }`. A read returns the first page of the firm's companies, at most 50,
   as `{ source, account, data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary
   domain as a note. It calls the existing `search_all_companies` read, not a second client, and names the account
-  `probe` named. No fields, email addresses or scores. A name or domain that holds a secret is screened whole and only
+  `probe` names, which it reads itself, as `events_list` does, when no `probe` has. No fields, email addresses or scores. A name or domain that holds a secret is screened whole and only
   then cut, so a secret cannot pass as the start of a cut title; a repeated id is listed once and the answer stops
   before the declared `maxBytes`. It is not editable. `affinity.meetings` is not renamed.
 
@@ -171,7 +174,7 @@ and usually one: a consumer that reads every hour makes one call a listing, and 
 A page that runs out of calls ends with what it listed, `more: true`, and a cursor that carries on, so a calendar
 backfill of thousands of meetings drains over several listings at no more than 10 calls each. Affinity lists every
 meeting you may see, colleagues' included, and the source keeps only yours, so a firm whose calendars Affinity shares
-widely uses more calls. Each page's `cost` says how many calls it made; a probe is one call. `npm run conformance` runs
+widely uses more calls. Each page's `cost` says how many calls the listing's reads made; a probe is one call, and so is the one `get_current_user` call a listing makes the first time after a start (not counted in `cost`). `npm run conformance` runs
 the contract's conformance kit over the source, and each release attaches its report.
 
 ## Permissions
@@ -754,7 +757,7 @@ Every error reads `CODE: What happened. Next step: What to do.` The codes are th
 | `NEEDS_SIGN_IN` | source | The `affinity` server needs a sign-in. |
 | `SCOPE_MISSING` | source | The Affinity sign-in lacks a scope the read needs. |
 | `RATE_LIMITED` | source | Affinity refused a call for a rate limit or the firm's monthly API quota. |
-| `UNAVAILABLE` | source | Probe has not named the sign-in yet, or Affinity's answer could not be read. |
+| `UNAVAILABLE` | source | The server is not Affinity's or not connected, or Affinity's answer could not be read (`get_current_user`'s too). |
 
 `source` codes are the source contract's own, from the meetings source's `events_list` and `probe` (see
 [The meetings source](#the-meetings-source)).

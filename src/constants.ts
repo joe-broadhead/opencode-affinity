@@ -70,7 +70,7 @@ export const CODES = {
   NEEDS_SIGN_IN: { surface: "source", when: "The `affinity` server needs a sign-in." },
   SCOPE_MISSING: { surface: "source", when: "The Affinity sign-in lacks a scope the read needs." },
   RATE_LIMITED: { surface: "source", when: "Affinity refused a call for a rate limit or the firm's monthly API quota." },
-  UNAVAILABLE: { surface: "source", when: "Probe has not named the sign-in yet, or Affinity's answer could not be read." },
+  UNAVAILABLE: { surface: "source", when: "The server is not Affinity's or not connected, or Affinity's answer could not be read (`get_current_user`'s too)." },
 } as const
 
 /** One code from {@link CODES}. */

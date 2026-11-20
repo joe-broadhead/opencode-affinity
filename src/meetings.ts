@@ -65,16 +65,29 @@ export function resultText(result: Answer): string {
   return ""
 }
 
-/** The answer's JSON objects: its structured output, then its text parsed, each with the objects one level down. */
+/** A text that holds a JSON object, parsed; undefined when it is anything else, Markdown included. */
+function jsonObject(text: string): Record<string, unknown> | undefined {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith("{")) return undefined
+  try {
+    const value: unknown = JSON.parse(trimmed)
+    return record(value) ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The answer's JSON objects: its structured output, then its text parsed, each with the objects one level down. A
+ * server may wrap its text as `{ "result": "<text>" }`: that text is read when it is JSON, never guessed at when it is not.
+ */
 function objects(result: Answer): Record<string, unknown>[] {
   const found: unknown[] = [result.output]
-  const text = resultText(result).trim()
-  if (text.startsWith("{")) {
-    try {
-      found.push(JSON.parse(text))
-    } catch {
-      // Not JSON: nothing to read.
-    }
+  const parsed = jsonObject(resultText(result))
+  if (parsed !== undefined) found.push(parsed)
+  for (const value of [...found]) {
+    const wrapped = record(value) && typeof value.result === "string" ? jsonObject(value.result) : undefined
+    if (wrapped !== undefined) found.push(wrapped)
   }
   return found.filter(record).flatMap((value) => [value, ...Object.values(value).filter(record)])
 }

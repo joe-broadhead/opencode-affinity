@@ -42,8 +42,9 @@ it.
 
 `events_list` and `probe` are the source contract's methods for `affinity.meetings` and the list snapshot
 `affinity.companies`, the sources `package.json` declares under `sources`. They are for a consumer such as Memory, jelly or Artifacts, and for a script that keeps its
-own cursor. Call `probe` first: it makes one `get_current_user` call and answers the account, its owner and the
-sign-in's scopes, and the plugin remembers it for the current sign-in.
+own cursor. `probe` makes one `get_current_user` call and answers the account, its owner and the
+sign-in's scopes, and the plugin remembers it for the current sign-in. A listing needs no `probe` before it: after a
+start of OpenCode or a new sign-in it makes that one call itself, once.
 
 ```sh
 opencode api post /api/rpc/affinity.crm.tools/probe \
@@ -196,7 +197,7 @@ A refusal or failure is the RPC error `failed`, with a message `CODE: what happe
 | `NEEDS_SIGN_IN` | The `affinity` server needs a sign-in. |
 | `SCOPE_MISSING` | Affinity says the sign-in lacks a scope the read needs. |
 | `RATE_LIMITED` | Affinity refused a call for its rate limit or the firm's monthly quota. Call again later, never in a loop. |
-| `UNAVAILABLE` | `probe` has not named the current sign-in yet (call it, then list again), the server is not Affinity's or not connected, Affinity's answer could not be read, or Affinity failed in another way. |
+| `UNAVAILABLE` | The server is not Affinity's or not connected, Affinity's answer could not be read (`get_current_user`'s too), or Affinity failed in another way. |
 
 OpenCode itself answers `rpc.method_not_found` for a method that does not exist, such as a tool Affinity added later,
 and `rpc.invalid_input` for a body that is not the envelope above, with one message per problem:

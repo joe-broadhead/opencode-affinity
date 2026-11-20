@@ -322,13 +322,90 @@ describe("events_list", () => {
     expect(calls).toEqual([])
   })
 
-  test("waits for probe: no listing for a sign-in probe has not named, and none after a new sign-in", async () => {
-    const calls: FakeOptions["calls"] = []
-    expect(await code(list({ account: ACCOUNT, since: SINCE }, { signIns: signIns(), calls }))).toBe("UNAVAILABLE")
-    const known = await probed()
-    known.clear()
-    expect(await code(list({ account: ACCOUNT, since: SINCE }, { signIns: known, calls }))).toBe("UNAVAILABLE")
-    expect(calls).toEqual([])
+  describe("after a restart, with no probe in this process", () => {
+    const identity = (calls: NonNullable<FakeOptions["calls"]>) => calls.filter((entry) => entry.tool === "get_current_user")
+    const reads = (calls: NonNullable<FakeOptions["calls"]>) => calls.filter((entry) => entry.tool !== "get_current_user")
+
+    test("a listing in a fresh instance answers, and names the account and owner probe names", async () => {
+      const probeAnswer = await probeMethod(fakeDeps(FIXTURE, OPEN)).run({}, call())
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const fresh = signIns()
+      const page = (await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: fresh, calls })).run({ account: ACCOUNT, since: SINCE }, call())) as EventsListResult
+      expect(page).toMatchObject({ account: ACCOUNT, owner: (probeAnswer as { owner: unknown }).owner })
+      expect(ids(page).length).toBeGreaterThan(0)
+      expect(resultProblems(page, 500, MAX_BYTES)).toEqual([])
+      // Only the declared identity operation, once, before the listing's own reads.
+      expect(calls[0]).toEqual({ tool: "get_current_user", input: {} })
+      expect(identity(calls)).toHaveLength(1)
+      expect(reads(calls).every((entry) => entry.tool === "get_meetings")).toBe(true)
+      // Kept for the sign-in: the next listing asks Affinity nothing about who is signed in.
+      expect([...fresh.keys()]).toEqual([CREDENTIAL])
+      calls.length = 0
+      await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: fresh, calls })).run({ account: ACCOUNT, since: SINCE }, call())
+      expect(identity(calls)).toEqual([])
+    })
+
+    test("it lists the same events as a listing after a probe", async () => {
+      const afterProbe = await list({ account: ACCOUNT, since: SINCE })
+      const fresh = await list({ account: ACCOUNT, since: SINCE }, { signIns: signIns() })
+      expect({ ...fresh, asOf: undefined, cost: undefined }).toEqual({ ...afterProbe, asOf: undefined, cost: undefined })
+    })
+
+    test("an account that is not the signed-in one is ACCOUNT_MISMATCH, and no meeting is read", async () => {
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      for (const account of ["4821/someone@example.com", "9999/pilot.owner@example.com"]) {
+        expect(await code(list({ account, since: SINCE }, { signIns: signIns(), calls }))).toBe("ACCOUNT_MISMATCH")
+      }
+      expect(reads(calls)).toEqual([])
+    })
+
+    test("a request that is invalid, or a cursor for another account, reads nothing at all", async () => {
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const first = await list({ account: ACCOUNT, since: SINCE, limit: 2 })
+      const options = { signIns: signIns(), calls }
+      expect(await code(list({ since: SINCE }, options))).toBe("INPUT_INVALID")
+      expect(await code(list({ account: "default" }, options))).toBe("INPUT_INVALID")
+      expect(await code(list({ account: ACCOUNT, source: "notes" }, options))).toBe("SOURCE_UNKNOWN")
+      expect(await code(list({ account: "4821/someone@example.com", cursor: first.cursor }, options))).toBe("ACCOUNT_MISMATCH")
+      expect(calls).toEqual([])
+    })
+
+    test("the companies snapshot reads who is signed in itself too", async () => {
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const input = { source: "affinity", list: "companies" }
+      const answer = (await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: signIns(), calls })).run({ ...input, account: ACCOUNT }, call())) as { account: string; data: { items: unknown[] } }
+      expect(answer.account).toBe(ACCOUNT)
+      expect(answer.data.items.length).toBeGreaterThan(0)
+      expect(calls.map((entry) => entry.tool)).toEqual(["get_current_user", "search_all_companies"])
+      const other = fakeDeps(FIXTURE, OPEN, { signIns: signIns(), calls: [] })
+      expect(await code(eventsMethod(other).run({ ...input, account: "4821/someone@example.com" }, call()))).toBe("ACCOUNT_MISMATCH")
+    })
+
+    test("when Affinity cannot say who is signed in, the listing fails with that read's code, keeps nothing, and tries again next time", async () => {
+      const fresh = signIns()
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      expect(await code(list({ account: ACCOUNT, since: SINCE }, { signIns: fresh, calls, fail: { tool: "get_current_user", message: "429 Rate limit exceeded" } }))).toBe("RATE_LIMITED")
+      expect(await code(list({ account: ACCOUNT, since: SINCE }, { signIns: fresh, calls, fail: { tool: "get_current_user", message: "Affinity is down" } }))).toBe("UNAVAILABLE")
+      const unreadable = { ...FIXTURE, currentUser: { user: {} } }
+      expect(await code(list({ account: ACCOUNT, since: SINCE }, { fixture: unreadable, signIns: fresh, calls }))).toBe("UNAVAILABLE")
+      expect(fresh.size).toBe(0)
+      expect(reads(calls)).toEqual([])
+      expect((await list({ account: ACCOUNT, since: SINCE }, { signIns: fresh })).account).toBe(ACCOUNT)
+    })
+
+    test("a new sign-in is another credential: what was read for the old one does not cover it", async () => {
+      const known = await probed()
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const switched = { ...fakeDeps(FIXTURE, OPEN, { signIns: known, calls }), signIn: async () => "crd_other" }
+      await eventsMethod(switched).run({ account: ACCOUNT, since: SINCE }, call())
+      expect(identity(calls)).toHaveLength(1)
+      expect([...known.keys()].sort()).toEqual([CREDENTIAL, "crd_other"].sort())
+      // What the plugin does on credential.updated or credential.switched: forget, so the next listing asks again.
+      known.clear()
+      calls.length = 0
+      await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: known, calls })).run({ account: ACCOUNT, since: SINCE }, call())
+      expect(identity(calls)).toHaveLength(1)
+    })
   })
 
   test("Affinity's failures carry the contract's codes: the quota, a missing scope, anything else, an answer it cannot read", async () => {
@@ -372,6 +449,17 @@ describe("Affinity's answers", () => {
     expect(readMeetingsPage({ output: { result: { data: [], pagination: { nextCursor: "n2" } } } })).toEqual({ meetings: [], next: "n2" })
     expect(readMeetingsPage({ output: { data: [], pagination: { nextUrl: null } } })).toEqual({ meetings: [] })
     expect(readMeetingsPage({ content: "No meetings." })).toBeUndefined()
+  })
+
+  test("an answer wrapped as { result: <JSON text> }, as a server may wrap its text, is unwrapped; Markdown is not guessed at", () => {
+    const user = JSON.stringify(FIXTURE.currentUser)
+    expect(readCurrentUser({ output: { result: user } })).toMatchObject({ tenant: "4821", email: "pilot.owner@example.com" })
+    expect(readCurrentUser({ output: JSON.stringify({ result: user }) })).toMatchObject({ tenant: "4821" })
+    expect(readCurrentUser({ content: [{ type: "text", text: JSON.stringify({ result: user }) }] })).toMatchObject({ tenant: "4821" })
+    const page = JSON.stringify({ data: [{ id: 7, startTime: "2026-11-12T09:00:00Z" }] })
+    expect(readMeetingsPage({ output: { result: page } })?.meetings.map((entry) => entry.id)).toEqual(["7"])
+    expect(readCurrentUser({ output: { result: "**Pilot Owner** (pilot.owner@example.com), Example Ventures" } })).toBeUndefined()
+    expect(readMeetingsPage({ output: { result: "No meetings." } })).toBeUndefined()
   })
 
   test("a meeting without an id or a zoned start is not dated, and no link is read: Affinity's meetings have none", () => {

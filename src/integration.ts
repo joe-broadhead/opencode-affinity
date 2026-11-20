@@ -74,7 +74,7 @@ export function watchIntegration(ctx: IntegrationContext, owned: () => boolean, 
         const events = ctx.event.subscribe({ types: ["integration.updated", "mcp.status.changed", "credential.updated", "credential.switched"], signal: stopped.signal })
         for await (const event of events) {
           // A new or switched credential may be another person or organisation under the same credential id: what
-          // probe read for the old one no longer holds, so a listing waits for the next probe.
+          // probe read for the old one no longer holds, so the next listing reads who is signed in again.
           if (event.type === "credential.updated" || event.type === "credential.switched") signedInAgain()
           if (event.type !== "mcp.status.changed" || event.data.server === SERVER_NAME) schedule()
         }

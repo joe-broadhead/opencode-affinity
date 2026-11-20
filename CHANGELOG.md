@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`events_list` works after any restart of OpenCode, with no `probe` before it.** The plugin kept who is signed in
+  only in memory, and only `probe` filled it, so a consumer that probes once, at bind, such as Memory, found every
+  later `affinity.meetings` listing and `affinity.companies` read `UNAVAILABLE` ("no probe has named this sign-in's
+  account") after OpenCode started again, a plugin reload or a second OpenCode process, for good. Now a read that does
+  not know the sign-in yet makes the one call `probe` makes, `get_current_user` (the declared identity operation in
+  `permission.identity`, which a collection session already allows), once, keeps the answer for the sign-in as `probe`
+  does, and then runs. The account check is as strict as before: an account other than the signed-in one is
+  `ACCOUNT_MISMATCH`. If that call fails, the listing fails with that call's own code (`RATE_LIMITED`, `SCOPE_MISSING`,
+  `NEEDS_SIGN_IN` or `UNAVAILABLE`) and keeps nothing; one that answers in a shape the plugin does not read is
+  `UNAVAILABLE`. A request that is invalid, or a cursor for another account, is still refused before any call.
+  **For Memory and every consumer:** nothing changes in what the plugin declares or answers when it works, and
+  `package.json`'s `sources` is unchanged, so a consumer does not ask to confirm Affinity again. The first read after a
+  start makes one more Affinity call against the firm's quota (not counted in the page's `cost`).
+- An Affinity answer wrapped as `{ "result": "<JSON text>" }` is read like the same JSON text; any other text, Markdown
+  included, is still not guessed at and is `UNAVAILABLE`.
+
 ## [0.0.7] - 2026-11-20
 
 ### Added

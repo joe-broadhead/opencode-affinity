@@ -56,9 +56,9 @@ describe("affinity.companies", () => {
     expect(Number.isNaN(Date.parse(result.asOf))).toBe(false)
   })
 
-  test("refuses until probe has named the sign-in, and another account", async () => {
-    const missing = eventsMethod(fakeDeps(FIXTURE, OPEN)).run({ source: "affinity", list: "companies", account: ACCOUNT }, call())
-    await expect(missing).rejects.toThrow("UNAVAILABLE")
+  test("with no probe in this process it reads who is signed in itself; another account is refused", async () => {
+    const answered = await eventsMethod(fakeDeps(FIXTURE, OPEN)).run({ source: "affinity", list: "companies", account: ACCOUNT }, call())
+    expect(answered).toMatchObject({ account: ACCOUNT })
     const known = signIns()
     await probeMethod(fakeDeps(FIXTURE, OPEN, { signIns: known })).run({}, call())
     const other = eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: known })).run({ list: "companies", account: "4821/someone@example.com" }, call())
