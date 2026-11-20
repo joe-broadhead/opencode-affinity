@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format follows [Kee
   **For Memory and every consumer:** nothing changes in what the plugin declares or answers when it works, and
   `package.json`'s `sources` is unchanged, so a consumer does not ask to confirm Affinity again. The first read after a
   start makes one more Affinity call against the firm's quota (not counted in the page's `cost`).
+- Listings that start at once, with the sign-in not yet known, share one `get_current_user` call (every call counts against
+  the firm's quota), and an identity read that was still running when a new or switched sign-in cleared what was kept
+  never stores its old answer, for `probe` too.
 - An Affinity answer wrapped as `{ "result": "<JSON text>" }` is read like the same JSON text; any other text, Markdown
   included, is still not guessed at and is `UNAVAILABLE`.
 

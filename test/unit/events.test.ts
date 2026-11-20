@@ -393,6 +393,71 @@ describe("events_list", () => {
       expect((await list({ account: ACCOUNT, since: SINCE }, { signIns: fresh })).account).toBe(ACCOUNT)
     })
 
+    /** The fake host with get_current_user held until `release()`, so a read can be in flight while something else happens. */
+    const gated = (signInMap: SignIns, calls: NonNullable<FakeOptions["calls"]>) => {
+      let release = () => {}
+      const open = new Promise<void>((resolve) => (release = resolve))
+      const deps = fakeDeps(FIXTURE, OPEN, { signIns: signInMap, calls })
+      const inner = deps.tool.list
+      const tool = {
+        list: async () =>
+          (await inner()).map((entry) => (entry.id === "affinity_get_current_user" ? { ...entry, execute: async (input: never, context: never) => (await open, entry.execute(input, context)) } : entry)) as never,
+      }
+      return { deps: { ...deps, tool }, release }
+    }
+
+    test("an identity read still in flight when the kept sign-in is cleared stores nothing", async () => {
+      const map = signIns()
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const { deps, release } = gated(map, calls)
+      const running = eventsMethod(deps).run({ account: ACCOUNT, since: SINCE }, call())
+      await Bun.sleep(5)
+      // What the plugin does on credential.updated or credential.switched.
+      map.clear()
+      release()
+      // The listing that asked still answers for the account it read, but the old answer is not kept for the new sign-in.
+      expect(((await running) as EventsListResult).account).toBe(ACCOUNT)
+      expect(map.size).toBe(0)
+      calls.length = 0
+      await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: map, calls })).run({ account: ACCOUNT, since: SINCE }, call())
+      expect(identity(calls)).toHaveLength(1)
+    })
+
+    test("a probe still in flight when the kept sign-in is cleared stores nothing", async () => {
+      const map = signIns()
+      const { deps, release } = gated(map, [])
+      const running = probeMethod(deps).run({}, call())
+      await Bun.sleep(5)
+      map.clear()
+      release()
+      await running
+      expect(map.size).toBe(0)
+    })
+
+    test("listings at once share one identity call", async () => {
+      const map = signIns()
+      const calls: NonNullable<FakeOptions["calls"]> = []
+      const { deps, release } = gated(map, calls)
+      const all = Promise.all([
+        eventsMethod(deps).run({ account: ACCOUNT, since: SINCE }, call()),
+        eventsMethod(deps).run({ account: ACCOUNT, since: SINCE }, call()),
+        eventsMethod(deps).run({ source: "affinity", list: "companies", account: ACCOUNT }, call()),
+      ])
+      await Bun.sleep(5)
+      release()
+      const [first, second, companies] = (await all) as [EventsListResult, EventsListResult, { account: string }]
+      expect([first.account, second.account, companies.account]).toEqual([ACCOUNT, ACCOUNT, ACCOUNT])
+      expect(identity(calls)).toHaveLength(1)
+      // A failed shared read is not kept as a pending one: the next listing asks again.
+      const failing = signIns()
+      const failedCalls: NonNullable<FakeOptions["calls"]> = []
+      const broken = fakeDeps(FIXTURE, OPEN, { signIns: failing, calls: failedCalls, fail: { tool: "get_current_user", message: "Affinity is down" } })
+      const both = await Promise.allSettled([eventsMethod(broken).run({ account: ACCOUNT }, call()), eventsMethod(broken).run({ account: ACCOUNT }, call())])
+      expect(both.map((entry) => entry.status)).toEqual(["rejected", "rejected"])
+      expect(identity(failedCalls)).toHaveLength(1)
+      expect(await code(list({ account: ACCOUNT, since: SINCE }, { signIns: failing }))).toBeUndefined()
+    })
+
     test("a new sign-in is another credential: what was read for the old one does not cover it", async () => {
       const known = await probed()
       const calls: NonNullable<FakeOptions["calls"]> = []

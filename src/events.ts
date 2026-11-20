@@ -313,8 +313,18 @@ export interface SignedIn {
  * compares the account it is asked for with this, so it never labels a page with an account it has not seen signed in.
  * One per plugin instance, in memory: after a restart or a new sign-in, the next listing reads it again.
  */
-export type SignIns = Map<string, SignedIn>
-export const signIns = (): SignIns => new Map()
+export class SignIns extends Map<string, SignedIn> {
+  /** Counts the clears: a read that started before one never stores its answer. */
+  generation = 0
+  /** The identity read in flight per sign-in, so listings at once share one call against the firm's quota. */
+  readonly pending = new Map<string, Promise<SignedIn>>()
+  override clear(): void {
+    this.generation++
+    this.pending.clear()
+    super.clear()
+  }
+}
+export const signIns = (): SignIns => new SignIns()
 
 /** An account as this source names it: `<tenant id>/<email>`, lowercase; undefined when the value is not one. */
 export function accountOf(value: string): string | undefined {
@@ -723,16 +733,29 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 /**
  * Who the current sign-in is: what probe or an earlier listing kept for it, else read now with the one identity read
  * `probe` makes, and kept for the process. So a listing needs no probe before it, also after a restart, when nothing
- * is kept and a consumer such as Memory probes only at bind. A read that fails keeps nothing and fails the listing with
- * its own code; the identity operation is in `permission.identity`, so this asks for no new grant.
+ * is kept and a consumer such as Memory probes only at bind. Reads at once share one call. A read that fails keeps
+ * nothing and fails the listing with its own code; a read that started before the kept sign-ins were cleared keeps
+ * nothing either; the identity operation is in `permission.identity`, so this asks for no new grant.
  */
 async function signedInFor(deps: EventsDeps, read: Read): Promise<SignedIn> {
   const key = await signInOf(deps)
   const known = deps.signIns.get(key)
   if (known !== undefined) return known
-  const { signedIn } = await identityRead(read)
-  deps.signIns.set(key, signedIn)
-  return signedIn
+  const joined = deps.signIns.pending.get(key)
+  if (joined !== undefined) return joined
+  const generation = deps.signIns.generation
+  const reading = identityRead(read).then(({ signedIn }) => {
+    // A clear (a new or switched sign-in) while the read ran: the answer is for the old sign-in, so it is not kept.
+    if (deps.signIns.generation === generation) deps.signIns.set(key, signedIn)
+    return signedIn
+  })
+  deps.signIns.pending.set(key, reading)
+  try {
+    return await reading
+  } finally {
+    // Only this read's own entry: a clear may have dropped it and a newer read taken its place.
+    if (deps.signIns.pending.get(key) === reading) deps.signIns.pending.delete(key)
+  }
 }
 
 /**
@@ -778,7 +801,10 @@ export async function runEvents(deps: EventsDeps, input: unknown, context: ToolC
 export async function runProbe(deps: EventsDeps, input: unknown, context: ToolContext): Promise<ProbeResult> {
   await assertAction(deps, PROBE_ACTION, context)
   const signIn = await signInOf(deps)
-  return affinityProbe(affinityReader(deps, context, PROBE), input, (signedIn) => void deps.signIns.set(signIn, signedIn))
+  const generation = deps.signIns.generation
+  return affinityProbe(affinityReader(deps, context, PROBE), input, (signedIn) => {
+    if (deps.signIns.generation === generation) deps.signIns.set(signIn, signedIn)
+  })
 }
 
 /** The tools RPC's events_list method: its own run, as the envelope's session. */
