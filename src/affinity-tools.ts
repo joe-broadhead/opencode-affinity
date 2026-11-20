@@ -55,6 +55,17 @@ export const READ_TOOLS: readonly string[] = [
   "get_saved_view_list_entries",
   "get_transcript_fragments",
   "get_users",
+  "get_calls",
+  "get_chat_messages",
+  "get_emails",
+  "get_interactions_for_entity",
+  "get_intro_paths",
+  "render_intro_paths_graph",
+  "get_opportunities_info",
+  "get_suggested_field_updates",
+  "get_suggested_field_updates_task",
+  "list_suggested_field_updates",
+  "list_suggested_field_updates_tasks",
   "render_warm_intro_graph",
   // Affinity's workflow playbooks: each returns Affinity's own instructions for a task as text, not data.
   "affinity_data_migration",
@@ -69,11 +80,16 @@ export const READ_TOOLS: readonly string[] = [
   "market_map_generator",
   "portfolio_attention_score",
   "warm_intro",
+  "data_quality_audit",
+  "founder_references",
+  "passed_deal_review",
+  "portfolio_check_in",
+  "ready_to_raise_indicator",
 ]
 
 /**
  * Affinity's workflow playbooks, a subset of READ_TOOLS. Their text tells the model which tools to call next, and some
- * suggest web searches or changes; the affinity skill's rules win over it. This is also the one record of the twelve,
+ * suggest web searches or changes; the affinity skill's rules win over it. This is also the one record of the seventeen,
  * which the namespace text, OpenCode's `/affinity:<name>` commands and the tests all refer to.
  */
 export const WORKFLOW_TOOLS: readonly string[] = [
@@ -89,6 +105,11 @@ export const WORKFLOW_TOOLS: readonly string[] = [
   "market_map_generator",
   "portfolio_attention_score",
   "warm_intro",
+  "data_quality_audit",
+  "founder_references",
+  "passed_deal_review",
+  "portfolio_check_in",
+  "ready_to_raise_indicator",
 ]
 
 /**
@@ -116,13 +137,17 @@ export const WRITE_TOOLS: readonly string[] = [
   "update_opportunity", // destructive: company_ids and person_ids replace the full sets
   "update_person", // destructive: emails and company_ids replace the full sets
   "update_reminder", // destructive: can reassign a reminder to a colleague
+  "update_field", // destructive: renames a field or clears its description on every record
+  "apply_suggested_field_updates", // destructive: writes the accepted values to the records; confirm=false is a preview
+  "dismiss_suggested_field_updates", // rejects every pending suggestion in a set and closes it
+  "suggest_field_updates", // starts a generation run, and closes the previous open set for the subject
 ]
 
 /**
  * Allowed by default, like every tool: `access: "ask-changes"` asks for each call, and `access: "read-only"` denies them
  * and hides them from the model. A user restricts one agent with an `ask` or `deny` rule in that agent's own
  * permissions, never at the top level (docs/configuration.md).
- * - The seven deletes and two merges remove CRM data permanently (a merge deletes the duplicate; a merge with a global
+ * - The eight deletes and two merges remove CRM data permanently (a merge deletes the duplicate; a merge with a global
  *   company can't be undone). delete_reminder and delete_list_field_dropdown_option have no confirmation step.
  * - `send_feedback` sends text to Affinity's team, and Affinity's server instructions tell the model to offer it
  *   whenever a request can't be done.
@@ -135,6 +160,7 @@ export const DESTRUCTIVE_TOOLS: readonly string[] = [
   "delete_list_entries",
   "delete_list_field_dropdown_option",
   "delete_reminder",
+  "delete_field", // removes a custom field and every value set on it
   "merge_companies",
   "merge_persons",
   "send_feedback",
@@ -179,6 +205,17 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   get_company_relationships: ["company_id*:integer", "cursor:string|null", "limit:integer", "filter_expr:string|null", "order_by:string|null", "total_count:boolean"],
   get_coworker_connections: ["company_id*:integer", "cursor:string|null", "limit:integer", "total_count:boolean"],
   get_current_user: [],
+  get_calls: ["filter_expr:string|null", "cursor:string|null", "limit:integer"],
+  get_chat_messages: ["filter_expr:string|null", "cursor:string|null", "limit:integer"],
+  get_emails: ["filter_expr:string|null", "cursor:string|null", "limit:integer"],
+  get_interactions_for_entity: ["interaction_type*:integer", "entity_id*:integer", "entity_type*", "start_time*:string", "end_time*:string", "direction", "internal_person_id:integer|null", "page_size:integer", "page_token:string|null"],
+  get_intro_paths: ["person_id:integer|null", "company_id:integer|null", "cursor:string|null", "limit:integer", "total_count:boolean"],
+  render_intro_paths_graph: ["people*", "paths*", "current_user_id:integer|null", "target_company:string|null"],
+  get_opportunities_info: ["opportunity_ids*:array<integer>"],
+  get_suggested_field_updates: ["suggested_field_update_id*:string"],
+  get_suggested_field_updates_task: ["task_id*:string"],
+  list_suggested_field_updates: ["status", "subject_type", "subject_id:integer|null", "created_after:string|null", "limit:integer", "cursor:string|null"],
+  list_suggested_field_updates_tasks: ["status", "limit:integer", "cursor:string|null"],
   get_entities_attached_to_note: ["note_id*:integer", "entity_type*", "cursor:string|null", "limit:integer", "total_count:boolean"],
   get_entity_field_dropdown_options: ["entity_type*", "field_id*", "cursor:string|null", "limit:integer"],
   get_entity_fields: ["entity_type*", "cursor:string|null", "limit:integer", "filter:string|null", "includes"],
@@ -222,11 +259,21 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   search_persons: ["search_criteria", "field_ids:array<string>|null", "field_types", "cursor:string|null", "limit:integer", "total_count:boolean"],
   send_feedback: ["subject*:string", "body*:string"],
   update_company: ["company_id*:integer", "name:string|null", "domain:string|null", "person_ids:array<integer>|null"],
+  update_field: ["field_id*:string", "list_id:integer|null", "name:string|null", "description:string|null", "clear_description:boolean", "is_required:boolean|null"],
   update_list_field_dropdown_option: ["list_id*:integer", "field_id*", "dropdown_option_id*:integer", "text:string|null", "rank:integer|null", "color", "status_category", "win_rate:integer|null"],
   update_note: ["note_id*:integer", "content:string|null", "person_ids:array<integer>|null", "company_ids:array<integer>|null", "opportunity_ids:array<integer>|null"],
   update_opportunity: ["opportunity_id*:integer", "name:string|null", "company_ids:array<integer>|null", "person_ids:array<integer>|null"],
   update_person: ["person_id*:integer", "first_name:string|null", "last_name:string|null", "emails:array<string>|null", "company_ids:array<integer>|null"],
   update_reminder: ["reminder_id*:integer", "owner_id:integer|null", "reminder_type", "content:string|null", "due_date:string|null", "reset_type", "reminder_days:integer|null", "is_completed:boolean|null"],
+  apply_suggested_field_updates: ["suggested_field_update_id*:string", "accept:array<string>|null", "accept_all:boolean", "reject:array<string>|null", "edits:object|null", "confirm:boolean"],
+  dismiss_suggested_field_updates: ["suggested_field_update_id*:string", "confirm:boolean"],
+  suggest_field_updates: ["note_id:integer|null", "meeting_id:integer|null", "note_url:string|null"],
+  delete_field: ["field_id*:string", "list_id:integer|null", "confirm:boolean"],
+  data_quality_audit: ["file:string|null"],
+  founder_references: ["file:string|null"],
+  passed_deal_review: ["file:string|null"],
+  portfolio_check_in: ["file:string|null"],
+  ready_to_raise_indicator: ["file:string|null"],
   upsert_entity_field_values: ["entity_type*", "entity_id*:integer", "upserts*"],
   upsert_list_entry_field_values: ["list_id*:integer", "list_entry_id*:integer", "upserts*"],
   warm_intro: ["file:string|null"],

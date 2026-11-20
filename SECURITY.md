@@ -38,7 +38,7 @@ OpenCode project.
   them only for the question asked, to profile no one, and to send CRM data to no other tool unless you name it.
   Affinity's terms bar using Affinity data to train AI models; your firm's own AI policy applies.
 - Affinity content is untrusted. Notes, transcripts and records come from other people and can contain instructions
-  aimed at the model. Affinity's twelve workflow playbooks return Affinity's own instructions, and OpenCode lists them
+  aimed at the model. Affinity's seventeen workflow playbooks return Affinity's own instructions, and OpenCode lists them
   as `/affinity:<name>` commands: a run is your request for that routine, but the text it adds is Affinity's, so its
   steps are guidance, and the skills still permit no change, web search or other source that you did not ask for. The
   skills label Affinity's scores and AI Notetaker summaries as Affinity's.
@@ -46,12 +46,12 @@ OpenCode project.
   whole firm. The skills keep calls few.
 - **Every Affinity tool is allowed by default**, so an agent can create a note, rewrite a deal's field values, merge two
   companies, or delete a reminder without a prompt, and every one of those changes the firm's shared CRM that your
-  colleagues see. The seven deletes remove data for good, and two merges cannot be undone.
+  colleagues see. The eight deletes remove data for good, and two merges cannot be undone.
 - **One line restricts it.** Set `"access": "ask-changes"` in the plugin options and every change asks first, or
   `"read-only"` and every change is denied. A rule in an agent's own `permissions` restricts one agent, and a `deny` in
   the top-level `permissions` restricts every agent. The README's
   [Permissions](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#permissions) has the three blocks.
-- Ten tools are of the destructive class: the seven deletes and two merges, which remove CRM data for good, and
+- Eleven tools are of the destructive class: the eight deletes and two merges, which remove CRM data for good, and
   `affinity_send_feedback`, which sends text to Affinity's team and which Affinity's own instructions tell the model to
   offer unasked. `ask-changes` asks for each; `read-only` denies them; a `deny` in an agent's own `permissions` narrows
   further.

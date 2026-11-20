@@ -1,11 +1,11 @@
 // The docs and skills must match the code: tool names, the deny rule, error codes, the uninstall order and the Jelly
-// guide. They state no tool counts, so a change to src/affinity-tools.ts cannot leave a stale number behind.
+// guide, and the few counts they do state, which this file derives from src/affinity-tools.ts.
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { CODES, TESTED_HOSTS, UNTESTED_EXAMPLE } from "../../src/constants.js"
-import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
+import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WORKFLOW_TOOLS, WRITE_TOOLS } from "../../src/affinity-tools.js"
 import { METHODS, NEXT_STEPS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { ACCESS, defaultRules, SOURCE_METHODS } from "../../src/permissions.js"
 
@@ -23,6 +23,32 @@ const FILES = [
 const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, ...SOURCE_METHODS]
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
 const text = (file: string) => raw(file).replace(/\s+/g, " ")
+
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
+/** A count as the docs write it: a word to twenty, then hyphenated tens, else the digits. */
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+const count = (n: number) => (n <= 20 ? WORDS[n]! : n < 100 ? `${TENS[Math.floor(n / 10)]}${n % 10 === 0 ? "" : `-${WORDS[n % 10]}`}` : String(n))
+const deletes = DESTRUCTIVE_TOOLS.filter((tool) => tool.startsWith("delete_")).length
+
+describe("the tool counts the docs state", () => {
+  // Every number here comes from the classification, so a tool added to a list fails this test until the docs follow.
+  test("the write, destructive and playbook counts match src/affinity-tools.ts wherever the docs print them", () => {
+    expect(text("SECURITY.md")).toContain(`${count(WORKFLOW_TOOLS.length)} workflow playbooks`)
+    expect(text("SECURITY.md")).toContain(`${count(DESTRUCTIVE_TOOLS.length).replace(/^./, (c) => c.toUpperCase())} tools are of the destructive class`)
+    expect(text("SECURITY.md")).toContain(`The ${count(deletes)} deletes remove data for good`)
+    expect(text("docs/configuration.md")).toContain(`${count(DESTRUCTIVE_TOOLS.length)} of the destructive class`)
+    expect(text("docs/scripting.md")).toContain(`the ${count(WRITE_TOOLS.length)} writes`)
+    expect(text("docs/scripting.md")).toContain(`${count(WORKFLOW_TOOLS.length)} workflow playbooks`)
+    expect(text("docs/scripting.md")).toContain(`the ${count(DESTRUCTIVE_TOOLS.length)} denied`)
+    expect(text("AGENTS.md")).toContain(`the ${count(DESTRUCTIVE_TOOLS.length)} destructive tools`)
+    expect(text("docs/jelly.md")).toContain(`The ${count(deletes)} deletes`)
+  })
+
+  test("names every destructive tool in the scripting guide, and prints no stale digit form of a count", () => {
+    for (const tool of DESTRUCTIVE_TOOLS) expect(text("docs/scripting.md")).toContain(`\`${tool}\``)
+    expect(text("docs/scripting.md")).not.toMatch(/the \d+ (?:writes|denied)/)
+  })
+})
 
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
@@ -120,7 +146,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout affinity")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.6")
+    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.7")
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
@@ -311,7 +337,7 @@ describe("docs", () => {
     expect(guide).not.toMatch(/refuses this declaration|accepts no unknown keys/)
     // R18: a tool Affinity adds later is undeclared, so Jelly runs it with the plugin's own default.
     expect(guide).toContain("in Jelly it runs with the plugin's own default: allowed, even if it changes something")
-    const destructive = guide.split("- The seven deletes")[1]?.split("A tool the upstream server adds later")[0] ?? ""
+    const destructive = guide.split("- The eight deletes")[1]?.split("A tool the upstream server adds later")[0] ?? ""
     for (const name of DESTRUCTIVE_TOOLS) expect(destructive).toContain(`affinity_${name}`)
     const skills = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).jelly.skills as string[]
     expect(guide).toContain(`Declared: ${skills.map((name) => `\`${name}\``).join(", ")}.`)

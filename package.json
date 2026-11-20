@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-affinity",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Unofficial OpenCode plugin for Affinity CRM: find, read and update your firm's companies, people, deals, notes and relationships through Affinity's official MCP server",
   "keywords": [
@@ -123,6 +123,45 @@
           }
         },
         "maxBytes": 65536
+      },
+      {
+        "id": "affinity.companies",
+        "kind": "snapshot",
+        "tool": "events_list",
+        "input": {
+          "source": "affinity",
+          "list": "companies"
+        },
+        "output": "list",
+        "accounts": {
+          "named": true
+        },
+        "permission": {
+          "tool": "affinity_events_list",
+          "operations": [
+            "get_current_user",
+            "search_all_companies"
+          ],
+          "identity": [
+            "get_current_user"
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "metered",
+          "units": [
+            {
+              "per": "call",
+              "usd": 0
+            }
+          ],
+          "probe": {
+            "per": "call",
+            "usd": 0
+          }
+        },
+        "maxAgeSec": 900,
+        "maxBytes": 65536
       }
     ]
   },
@@ -134,7 +173,7 @@
     "@opentui/solid": "0.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
-    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.2.0",
+    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.3.0",
     "esbuild": "0.28.2",
     "solid-js": "1.9.17",
     "typescript": "5.9.3"
@@ -380,6 +419,102 @@
         "readOnly": true
       },
       {
+        "name": "affinity.get_calls",
+        "permission": "affinity_get_calls",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_chat_messages",
+        "permission": "affinity_get_chat_messages",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_emails",
+        "permission": "affinity_get_emails",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_interactions_for_entity",
+        "permission": "affinity_get_interactions_for_entity",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_intro_paths",
+        "permission": "affinity_get_intro_paths",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.render_intro_paths_graph",
+        "permission": "affinity_render_intro_paths_graph",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_opportunities_info",
+        "permission": "affinity_get_opportunities_info",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_suggested_field_updates",
+        "permission": "affinity_get_suggested_field_updates",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.get_suggested_field_updates_task",
+        "permission": "affinity_get_suggested_field_updates_task",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.list_suggested_field_updates",
+        "permission": "affinity_list_suggested_field_updates",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.list_suggested_field_updates_tasks",
+        "permission": "affinity_list_suggested_field_updates_tasks",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.data_quality_audit",
+        "permission": "affinity_data_quality_audit",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.founder_references",
+        "permission": "affinity_founder_references",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.passed_deal_review",
+        "permission": "affinity_passed_deal_review",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.portfolio_check_in",
+        "permission": "affinity_portfolio_check_in",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "affinity.ready_to_raise_indicator",
+        "permission": "affinity_ready_to_raise_indicator",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
         "name": "affinity.render_warm_intro_graph",
         "permission": "affinity_render_warm_intro_graph",
         "effect": "allow",
@@ -578,6 +713,30 @@
         "readOnly": false
       },
       {
+        "name": "affinity.update_field",
+        "permission": "affinity_update_field",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "affinity.apply_suggested_field_updates",
+        "permission": "affinity_apply_suggested_field_updates",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "affinity.dismiss_suggested_field_updates",
+        "permission": "affinity_dismiss_suggested_field_updates",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "affinity.suggest_field_updates",
+        "permission": "affinity_suggest_field_updates",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
         "name": "affinity.delete_company",
         "permission": "affinity_delete_company",
         "effect": "allow",
@@ -616,6 +775,12 @@
       {
         "name": "affinity.delete_reminder",
         "permission": "affinity_delete_reminder",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "affinity.delete_field",
+        "permission": "affinity_delete_field",
         "effect": "allow",
         "readOnly": false
       },

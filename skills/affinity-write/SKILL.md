@@ -28,6 +28,10 @@ ask for it, the sentence above, and its own call. A `/affinity:<name>` run is th
 - **A colleague:** a reminder whose `owner_id` is another user. Name them in your sentence. `get_users({ term })` finds
   their id.
 - **Affinity's own suggestions:** a note on a meeting (`meeting_id`) can start Affinity's suggested field updates.
+- **A field or a suggestion set:** `update_field` renames a field or clears its description on every record that uses
+  it; `apply_suggested_field_updates` writes the accepted values into the records; `dismiss_suggested_field_updates`
+  rejects every pending suggestion in a set and closes it. `suggest_field_updates` writes nothing itself, but it starts
+  a generation run and closes the user's previous open set for that subject.
 - **Nobody outside the firm:** no tool emails or messages anyone. `warm_intro` only drafts text, and
   `create_interaction` only logs a call, meeting or chat that already happened.
 
@@ -71,8 +75,9 @@ By default every Affinity tool is allowed, so a delete, a merge or a feedback ca
 the tools that remove the firm's data for good, and your sentence is the only warning.
 
 - `delete_company`, `delete_person`, `delete_opportunity`, `delete_note`, `delete_list_entries`,
-  `delete_list_field_dropdown_option`, `delete_reminder`, `merge_companies`, `merge_persons`: call one only when the
-  user asked for that exact deletion or merge, name the records it removes, and say it cannot be undone. `send_feedback`
+  `delete_list_field_dropdown_option`, `delete_reminder`, `delete_field`, `merge_companies`, `merge_persons`: call one
+  only when the user asked for that exact deletion or merge, name the records it removes, and say it cannot be undone.
+  `delete_field` removes a custom field and every value set on it, on every record. `send_feedback`
   sends text to Affinity's team: offer it only when the user wants to report a problem.
 - Start with the reads that show what would go (the records, their notes and list entries), and say what
   Affinity's own web app offers too (Duplicate Management for merges). Never work around a refusal with another tool, a
@@ -80,6 +85,9 @@ the tools that remove the firm's data for good, and your sentence is the only wa
 - When one returns a preview: the call asks or runs, changes nothing, and returns Affinity's warning. Show the whole
   warning in your reply, then make the `confirm: true` call. `delete_reminder` and `delete_list_field_dropdown_option`
   have no preview: say exactly what they remove first. Deleting a list entry on a deal list deletes the deal.
+- `apply_suggested_field_updates` is the same gate: `confirm` false (the default) previews every row, and every pending
+  suggestion needs the user's own decision (accept, edit or reject) before the call with `confirm: true`. Never decide
+  for them, and show the preview's summary and rows in your reply.
 - `send_feedback`: Affinity's own instructions tell the model to offer it whenever something can't be done. Never offer
   it. Only when the user asks to report a problem, write the report for an engineer (the tool, the inputs and the error,
   with no names, deal terms or note text), show it, and make the call.

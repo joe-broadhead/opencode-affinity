@@ -43,7 +43,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
 const affinityTools = (host: Host) =>
   until("Affinity's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("affinity_"))
-    return ids.length === 3 + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
+    return ids.length === 5 + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
   })
 
 async function status(host: Host, sessionID: string) {
@@ -58,7 +58,7 @@ async function status(host: Host, sessionID: string) {
 /** Enough of the tools RPC's contract for the client to call describe and the methods these tests use. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "create_note", ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "search_all_companies", "get_meetings", "create_note", "events_list", "probe", ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -102,7 +102,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "affinity.crm")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "affinity")?.status).toEqual({ status: "connected" })
-    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "search_persons", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `affinity_${tool}`)].sort())
+    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "get_meetings", "search_persons", "search_all_companies", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `affinity_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("affinity")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -316,6 +316,46 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const { data: commands } = await host.client.command.list({ location: host.location })
     expect(commands.map((command) => command.name)).not.toContain("affinity-status")
   })
+
+})
+
+describe("the companies list snapshot", () => {
+  // The host validates a tools-RPC method's answer against the method's declared output. The list rides `events_list`,
+  // whose declared output is the events page, so the method declares both shapes: without that, a list read is
+  // refused `rpc.invalid_output`, and no consumer can read it on any host. Its own host, because a probe records the
+  // account for the sign-in, which the block above asserts has not been read yet.
+  test("a script reads the companies list through the tools RPC on this host", async () => {
+    const listing = await startHost({ fake: { numericTenant: true } })
+    try {
+      await affinityTools(listing)
+      const reader = await session(listing)
+      const probed = JSON.parse(await scriptCall(listing, "probe", { sessionID: reader, input: {} })) as { account: string }
+      expect(probed.account).toBe("4821/jane.doe@example.com")
+      const answer = JSON.parse(await scriptCall(listing, "events_list", { sessionID: reader, input: { account: probed.account, list: "companies" } })) as {
+        account: string
+        data: { items: { id: string; text: string; note?: string }[]; editable: boolean }
+        asOf: string
+        trust: string
+      }
+      expect(answer).toMatchObject({
+        account: probed.account,
+        trust: "untrusted",
+        data: {
+          editable: false,
+          items: [
+            { id: "2001", text: "Horizon Technologies", note: "horizontech.example" },
+            { id: "2002", text: "Crestwood Capital", note: "crestwoodcap.example" },
+          ],
+        },
+      })
+      // An events read still answers the page the method declared before this change.
+      const page = JSON.parse(await scriptCall(listing, "events_list", { sessionID: reader, input: { account: probed.account } })) as { source: string; events: unknown[] }
+      expect(page.source).toBe("affinity")
+      expect(Array.isArray(page.events)).toBe(true)
+    } finally {
+      await listing.close()
+    }
+  }, 120_000)
 })
 
 describe("the user's own affinity server, signing in with an API key", () => {

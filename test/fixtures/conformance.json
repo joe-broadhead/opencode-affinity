@@ -1,5 +1,5 @@
 {
-  "$comment": "Affinity's answers for the source-contract conformance kit and the events tests, offline, in the shapes of Affinity's API v2 (GET /v2/auth/whoami, GET /v2/meetings), which its MCP server's get_current_user and get_meetings return. No live call is made. Every organisation, person, address and meeting is invented. The signed-in user is Pilot Owner; meeting 1003 is a colleague's, which the source leaves out; meeting 1004's title holds a secret, which the source refuses; meeting 1006 started less than an hour before now, and 1007 is in the future; meeting 1008 started on the 12th but was logged in Affinity half an hour after now, so only a later listing sees it.",
+  "$comment": "Affinity's answers for the source-contract conformance kit and the events tests, offline, in the shapes of Affinity's API v2 (GET /v2/auth/whoami, GET /v2/meetings), which its MCP server's get_current_user and get_meetings return. No live call is made. Every organisation, person, address, meeting and company is invented. The companies page is search_all_companies' answer: 2001 and 2002 are listed, 2004's name holds a secret and is left out, and 2005 has no name. The signed-in user is Pilot Owner; meeting 1003 is a colleague's, which the source leaves out; meeting 1004's title holds a secret, which the source refuses; meeting 1006 started less than an hour before now, and 1007 is in the future; meeting 1008 started on the 12th but was logged in Affinity half an hour after now, so only a later listing sees it.",
   "now": "2026-11-13T12:00:00.000Z",
   "currentUser": {
     "tenant": {
@@ -313,5 +313,44 @@
         "totalCount": 2
       }
     }
-  ]
+  ],
+  "companies": {
+    "data": [
+      {
+        "id": 2001,
+        "name": "Horizon Technologies",
+        "domain": "horizontech.example",
+        "domains": ["horizontech.example"],
+        "isGlobal": false,
+        "fields": []
+      },
+      {
+        "id": 2002,
+        "name": "Crestwood Capital",
+        "domain": "crestwoodcap.example",
+        "domains": ["crestwoodcap.example"],
+        "isGlobal": false,
+        "fields": []
+      },
+      {
+        "id": 2004,
+        "name": "The staging password is: Qv7mZr2pLx9T",
+        "domain": "secret.example",
+        "domains": ["secret.example"],
+        "isGlobal": false,
+        "fields": []
+      },
+      {
+        "id": 2005,
+        "domain": "noname.example",
+        "domains": ["noname.example"],
+        "isGlobal": false,
+        "fields": []
+      }
+    ],
+    "pagination": {
+      "prevUrl": null,
+      "nextUrl": null
+    }
+  }
 }

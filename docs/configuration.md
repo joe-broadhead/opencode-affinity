@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7" }]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -76,7 +76,7 @@ the whole organisation, set it once in the system config's plugin entry
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "clientId": "<the app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "clientId": "<the app's client ID>" } }
   ]
 }
 ```
@@ -214,9 +214,9 @@ after that rule. The README prints the whole block for all three `access` values
 [Permissions](https://github.com/joe-broadhead/opencode-affinity/blob/HEAD/README.md#permissions); `/affinity-status`
 prints the one in force, and its `Agents without default rules` row prints it as a list to paste.
 
-`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its twelve workflow playbooks such as
+`READ_TOOLS` in `src/affinity-tools.ts` lists Affinity's read tools, including its seventeen workflow playbooks such as
 `affinity_affinity_meeting_prep`, which return Affinity's instructions for a task as text. `WRITE_TOOLS` lists its
-write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool that Affinity adds later matches only
+write tools, and `DESTRUCTIVE_TOOLS` the eleven of the destructive class. A tool that Affinity adds later matches only
 `affinity_*`, so it takes the value's own effect: allowed under `all`, asked about under `ask-changes`, denied under
 `read-only`. `/affinity-status` names the tools in neither list. Affinity lists the same tools to everyone; your access
 (Deal Assist, unified events, a read-only grant) shows as an error when a tool is called.
@@ -224,7 +224,7 @@ write tools, and `DESTRUCTIVE_TOOLS` the ten of the destructive class. A tool th
 **Every tool is allowed by default**, so nothing is switched off for you. The destructive class deserves its own
 sentences before you decide:
 
-- the seven deletes remove CRM data for good. `affinity_delete_reminder` and
+- the eight deletes remove CRM data for good. `affinity_delete_reminder` and
   `affinity_delete_list_field_dropdown_option` have no confirmation step in Affinity; the others first return a preview
   and change nothing until they are called again with `confirm: true`. Deleting a list entry on a deal list deletes the
   deal;
@@ -322,7 +322,7 @@ No recipe here makes a change run without a prompt. Answering "Always allow" at 
 moment, and it applies to every agent in the project.
 
 A strict agent where every Affinity tool asks, reads included: put these in that agent's own `permissions`, after the
-block. The last match wins, so the `affinity_*` ask alone would turn the ten destructive tools into asks too; repeating
+block. The last match wins, so the `affinity_*` ask alone would turn the eleven destructive tools into asks too; repeating
 their denies after it keeps them off:
 
 ```json
@@ -335,6 +335,7 @@ their denies after it keeps them off:
   { "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" },
   { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" },
   { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
+  { "action": "affinity_delete_field", "resource": "*", "effect": "deny" },
   { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
   { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
   { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" }
@@ -402,7 +403,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Affinity's server and from OpenCode pass through unchanged, such as `Insufficient scope` on a read-only

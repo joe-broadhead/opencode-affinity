@@ -32,18 +32,18 @@ Affinity Photo, Designer or Publisher, Canva's design apps.
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.6
+opencode plugin add github:joe-broadhead/opencode-affinity#v0.0.7
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/affinity-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.5`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.6`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-affinity#v<version>`.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7" }] }
 ```
 
 The plugin registers Affinity's MCP server under the name `affinity`, adds default permission rules, the
@@ -128,7 +128,7 @@ opencode api post /api/rpc/affinity.crm.tools/get_lists \
   -d '{"input":{"sessionID":"ses_…","input":{"term":"Pipeline"}}}'
 ```
 
-OpenCode also lists Affinity's twelve workflow playbooks as `/affinity:<name>` commands, such as
+OpenCode also lists Affinity's seventeen workflow playbooks as `/affinity:<name>` commands, such as
 `/affinity:affinity-meeting-prep` and `/affinity:warm-intro`. A run is your request for that routine; the text it adds
 is Affinity's, so its steps are guidance, and any change still needs your own sentence; at `ask-changes` it also needs
 OpenCode's permission prompt.
@@ -138,10 +138,11 @@ tools module); see [Scripting](https://github.com/joe-broadhead/opencode-affinit
 
 ### The meetings source
 
-The plugin declares one source of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
-`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read your Affinity meetings with
-your consent: `affinity.meetings`, events of kind `meeting`. A consumer calls two tools RPC methods, never tools the
-model sees, and the default rules allow both under every `access` value, because they only read:
+The plugin declares sources of the [source contract](https://github.com/we-the-rebel-alliance/source-contract) in
+`package.json`'s `sources`, so Memory, jelly, Artifacts and any other consumer can read them with your consent:
+`affinity.meetings`, events of kind `meeting`, and `affinity.companies`, a `list` snapshot of the firm's companies.
+A consumer calls two tools RPC methods, never tools the model sees, and the default rules allow both under every
+`access` value, because they only read:
 
 - `probe` (`affinity_probe`) makes one `get_current_user` call and names who is signed in: the account
   `<organisation id>/<email>`, its owner (`mailto:` and the email, labelled with your name and the organisation's) and
@@ -157,6 +158,13 @@ model sees, and the default rules allow both under every `access` value, because
   lag and clock skew.
 - It reads back 90 days, by choice, to bound the quota. A `since` further back starts at 90 days with `gap`
   `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
+- `affinity.companies` is a snapshot. Its `tool` is `events_list`, its `output` is `list`, and its `input` is
+  `{ "source": "affinity", "list": "companies" }`. A read returns the first page of the firm's companies, at most 50,
+  as `{ source, account, data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary
+  domain as a note. It calls the existing `search_all_companies` read, not a second client, and names the account
+  `probe` named. No fields, email addresses or scores. A name or domain that holds a secret is screened whole and only
+  then cut, so a secret cannot pass as the start of a cut title; a repeated id is listed once and the answer stops
+  before the declared `maxBytes`. It is not editable. `affinity.meetings` is not renamed.
 
 Every call counts against the firm's monthly API quota, so a listing makes **at most 10 calls**, whatever it finds,
 and usually one: a consumer that reads every hour makes one call a listing, and so does a first read of the last day.
@@ -181,7 +189,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -241,6 +249,17 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_calls", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_chat_messages", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_emails", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_interactions_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_intro_paths", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_intro_paths_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_opportunities_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates_tasks", "resource": "*", "effect": "allow" },
     { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
@@ -254,6 +273,11 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
     { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
     { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_data_quality_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_founder_references", "resource": "*", "effect": "allow" },
+    { "action": "affinity_passed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_check_in", "resource": "*", "effect": "allow" },
+    { "action": "affinity_ready_to_raise_indicator", "resource": "*", "effect": "allow" },
     { "action": "affinity_create_company", "resource": "*", "effect": "allow" },
     { "action": "affinity_create_field", "resource": "*", "effect": "allow" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "allow" },
@@ -274,6 +298,10 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_update_opportunity", "resource": "*", "effect": "allow" },
     { "action": "affinity_update_person", "resource": "*", "effect": "allow" },
     { "action": "affinity_update_reminder", "resource": "*", "effect": "allow" },
+    { "action": "affinity_update_field", "resource": "*", "effect": "allow" },
+    { "action": "affinity_apply_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_dismiss_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_suggest_field_updates", "resource": "*", "effect": "allow" },
     { "action": "affinity_delete_company", "resource": "*", "effect": "allow" },
     { "action": "affinity_delete_person", "resource": "*", "effect": "allow" },
     { "action": "affinity_delete_opportunity", "resource": "*", "effect": "allow" },
@@ -281,6 +309,7 @@ The plugin adds these rules for `access: "all"`:
     { "action": "affinity_delete_list_entries", "resource": "*", "effect": "allow" },
     { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "allow" },
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "allow" },
+    { "action": "affinity_delete_field", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "allow" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "allow" },
     { "action": "affinity_send_feedback", "resource": "*", "effect": "allow" },
@@ -335,6 +364,17 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_calls", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_chat_messages", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_emails", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_interactions_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_intro_paths", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_intro_paths_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_opportunities_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates_tasks", "resource": "*", "effect": "allow" },
     { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
@@ -348,6 +388,11 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
     { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
     { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_data_quality_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_founder_references", "resource": "*", "effect": "allow" },
+    { "action": "affinity_passed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_check_in", "resource": "*", "effect": "allow" },
+    { "action": "affinity_ready_to_raise_indicator", "resource": "*", "effect": "allow" },
     { "action": "affinity_create_company", "resource": "*", "effect": "ask" },
     { "action": "affinity_create_field", "resource": "*", "effect": "ask" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "ask" },
@@ -368,6 +413,10 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_update_opportunity", "resource": "*", "effect": "ask" },
     { "action": "affinity_update_person", "resource": "*", "effect": "ask" },
     { "action": "affinity_update_reminder", "resource": "*", "effect": "ask" },
+    { "action": "affinity_update_field", "resource": "*", "effect": "ask" },
+    { "action": "affinity_apply_suggested_field_updates", "resource": "*", "effect": "ask" },
+    { "action": "affinity_dismiss_suggested_field_updates", "resource": "*", "effect": "ask" },
+    { "action": "affinity_suggest_field_updates", "resource": "*", "effect": "ask" },
     { "action": "affinity_delete_company", "resource": "*", "effect": "ask" },
     { "action": "affinity_delete_person", "resource": "*", "effect": "ask" },
     { "action": "affinity_delete_opportunity", "resource": "*", "effect": "ask" },
@@ -375,6 +424,7 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "affinity_delete_list_entries", "resource": "*", "effect": "ask" },
     { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "ask" },
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "ask" },
+    { "action": "affinity_delete_field", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "ask" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "ask" },
     { "action": "affinity_send_feedback", "resource": "*", "effect": "ask" },
@@ -429,6 +479,17 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_get_saved_view_list_entries", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_transcript_fragments", "resource": "*", "effect": "allow" },
     { "action": "affinity_get_users", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_calls", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_chat_messages", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_emails", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_interactions_for_entity", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_intro_paths", "resource": "*", "effect": "allow" },
+    { "action": "affinity_render_intro_paths_graph", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_opportunities_info", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_get_suggested_field_updates_task", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates", "resource": "*", "effect": "allow" },
+    { "action": "affinity_list_suggested_field_updates_tasks", "resource": "*", "effect": "allow" },
     { "action": "affinity_render_warm_intro_graph", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_data_migration", "resource": "*", "effect": "allow" },
     { "action": "affinity_affinity_event_setup", "resource": "*", "effect": "allow" },
@@ -442,6 +503,11 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_market_map_generator", "resource": "*", "effect": "allow" },
     { "action": "affinity_portfolio_attention_score", "resource": "*", "effect": "allow" },
     { "action": "affinity_warm_intro", "resource": "*", "effect": "allow" },
+    { "action": "affinity_data_quality_audit", "resource": "*", "effect": "allow" },
+    { "action": "affinity_founder_references", "resource": "*", "effect": "allow" },
+    { "action": "affinity_passed_deal_review", "resource": "*", "effect": "allow" },
+    { "action": "affinity_portfolio_check_in", "resource": "*", "effect": "allow" },
+    { "action": "affinity_ready_to_raise_indicator", "resource": "*", "effect": "allow" },
     { "action": "affinity_create_company", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" },
@@ -462,6 +528,10 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_update_opportunity", "resource": "*", "effect": "deny" },
     { "action": "affinity_update_person", "resource": "*", "effect": "deny" },
     { "action": "affinity_update_reminder", "resource": "*", "effect": "deny" },
+    { "action": "affinity_update_field", "resource": "*", "effect": "deny" },
+    { "action": "affinity_apply_suggested_field_updates", "resource": "*", "effect": "deny" },
+    { "action": "affinity_dismiss_suggested_field_updates", "resource": "*", "effect": "deny" },
+    { "action": "affinity_suggest_field_updates", "resource": "*", "effect": "deny" },
     { "action": "affinity_delete_company", "resource": "*", "effect": "deny" },
     { "action": "affinity_delete_person", "resource": "*", "effect": "deny" },
     { "action": "affinity_delete_opportunity", "resource": "*", "effect": "deny" },
@@ -469,6 +539,7 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "affinity_delete_list_entries", "resource": "*", "effect": "deny" },
     { "action": "affinity_delete_list_field_dropdown_option", "resource": "*", "effect": "deny" },
     { "action": "affinity_delete_reminder", "resource": "*", "effect": "deny" },
+    { "action": "affinity_delete_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_companies", "resource": "*", "effect": "deny" },
     { "action": "affinity_merge_persons", "resource": "*", "effect": "deny" },
     { "action": "affinity_send_feedback", "resource": "*", "effect": "deny" },
@@ -509,7 +580,7 @@ Every action is `affinity_` followed by the tool's name. A later rule wins, so t
 }
 ```
 
-The seven deletes remove CRM data for good, and two have no confirmation step in Affinity. The two merges delete the
+The eight deletes remove CRM data for good, and two have no confirmation step in Affinity. The two merges delete the
 duplicate, and a merge with a global company can't be undone. `affinity_send_feedback` sends text to Affinity's team,
 and Affinity's own instructions tell the model to offer it whenever something can't be done.
 
@@ -532,7 +603,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -594,7 +665,7 @@ dropdown options, which change every record of their type:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.6" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-affinity#v0.0.7" }],
   "permissions": [
     { "action": "affinity_create_field", "resource": "*", "effect": "deny" },
     { "action": "affinity_create_list_field_dropdown_option", "resource": "*", "effect": "deny" }
@@ -607,7 +678,7 @@ With route 2, add the app's client ID to the same entry:
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-affinity#v0.0.6", "options": { "clientId": "<your app's client ID>" } }
+    { "package": "github:joe-broadhead/opencode-affinity#v0.0.7", "options": { "clientId": "<your app's client ID>" } }
   ]
 }
 ```
@@ -724,7 +795,7 @@ credential store.
 1. Sign out: `opencode mcp logout affinity` from the project folder. Right after OpenCode starts or reloads, it can
    answer `MCP server not found: affinity` for a few seconds; wait, then run it again.
 2. Check: `/connect` → **Affinity** shows no account; `opencode auth list` after step 3 shows no Affinity credential.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.6`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-affinity#v0.0.7`, then `opencode reload`.
    `opencode mcp list` no longer lists `affinity`.
 4. Remove any Affinity rules you copied into your agents' own `permissions`. If you used an API key, revoke it in
    Affinity: Settings, Manage Apps. An admin who no longer wants OpenCode for anyone revokes its app there, which
