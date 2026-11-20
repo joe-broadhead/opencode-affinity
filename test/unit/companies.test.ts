@@ -22,6 +22,20 @@ describe("readCompanies", () => {
       { id: "2002", text: "Crestwood Capital", note: "crestwoodcap.example" },
     ])
   })
+
+  test("screens the whole name before it cuts, so a secret that straddles the cut cannot pass as a prefix", () => {
+    const name = `${"a".repeat(196)}Password: Ku7pLm2QzR9w`
+    expect(companyItems([{ id: "3001", name }])).toEqual([])
+    expect(companyItems([{ id: "3002", name: "b".repeat(300) }])).toEqual([{ id: "3002", text: "b".repeat(200) }])
+  })
+
+  test("lists a repeated id once and stops before the answer passes its byte budget", () => {
+    expect(companyItems([{ id: "4001", name: "Once" }, { id: "4001", name: "Twice" }])).toEqual([{ id: "4001", text: "Once" }])
+    const many = Array.from({ length: 50 }, (_, index) => ({ id: String(5000 + index), name: "c".repeat(200), domain: "d".repeat(200) }))
+    const items = companyItems(many)
+    expect(items.length).toBeLessThanOrEqual(50)
+    expect(Buffer.byteLength(JSON.stringify({ data: { items, editable: false } }))).toBeLessThanOrEqual(60_000)
+  })
 })
 
 describe("affinity.companies", () => {
@@ -32,13 +46,13 @@ describe("affinity.companies", () => {
     const result = (await eventsMethod(fakeDeps(FIXTURE, OPEN, { signIns: known, calls })).run(
       { source: "affinity", list: "companies", account: ACCOUNT },
       call(),
-    )) as { data: { items: { id: string; text: string }[]; editable: boolean }; trust: string; account: string; cost: { units: { per: string; count: number }[] } }
+    )) as { data: { items: { id: string; text: string }[]; editable: boolean }; trust: string; account: string; asOf: string }
     expect(calls).toEqual([{ tool: "search_all_companies", input: { limit: 50 } }])
     expect(result.account).toBe(ACCOUNT)
     expect(result.trust).toBe("untrusted")
     expect(result.data.editable).toBe(false)
     expect(result.data.items.map((item) => item.text)).toEqual(["Horizon Technologies", "Crestwood Capital"])
-    expect(result.cost).toEqual({ units: [{ per: "call", count: 1 }] })
+    expect(Number.isNaN(Date.parse(result.asOf))).toBe(false)
   })
 
   test("refuses until probe has named the sign-in, and another account", async () => {

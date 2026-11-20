@@ -97,11 +97,35 @@ export function readCompanies(result: Answer): CompanyFacts[] | undefined {
   return undefined
 }
 
-/** The contract's `list` items: id, name, and the domain as a note. A secret is left out. At most `LIST_CAP`. */
+/** The most JSON bytes one list answer may take: the declared `maxBytes`, with room for the envelope. */
+const LIST_BUDGET = 60_000
+/** Control characters would escape to six bytes each in JSON and only make a title unreadable. */
+const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/g
+
+/** Collapse whitespace and drop control characters, so a cut is a cut of text a person can read. */
+const clean = (value: string) => value.replace(CONTROLS, " ").replace(/\s+/g, " ").trim()
+
+/**
+ * The contract's `list` items: id, name, and the domain as a note. A name or domain that holds a secret is left out,
+ * screened whole and only then cut to the item's length, so a secret that straddles the cut cannot pass as a prefix.
+ * Affinity's own order is kept, a repeated id is listed once, and items stop before the answer passes its byte budget.
+ */
 export function companyItems(companies: readonly CompanyFacts[]): CompanyItem[] {
-  return companies.slice(0, LIST_CAP).flatMap((company) => {
-    const text = company.name.slice(0, 200)
-    if (text === "" || secretKinds(text).length > 0 || (company.domain !== undefined && secretKinds(company.domain).length > 0)) return []
-    return [{ id: company.id, text, ...(company.domain === undefined ? {} : { note: company.domain }) }]
-  })
+  const items: CompanyItem[] = []
+  const seen = new Set<string>()
+  let bytes = 0
+  for (const company of companies) {
+    if (items.length >= LIST_CAP) break
+    if (seen.has(company.id)) continue
+    const name = clean(company.name)
+    const domain = company.domain === undefined ? undefined : clean(company.domain)
+    if (name === "" || secretKinds(name).length > 0 || (domain !== undefined && secretKinds(domain).length > 0)) continue
+    const item: CompanyItem = { id: company.id, text: name.slice(0, 200), ...(domain === undefined || domain === "" ? {} : { note: domain.slice(0, 200) }) }
+    const size = JSON.stringify(item).length + 1
+    if (bytes + size > LIST_BUDGET) break
+    bytes += size
+    seen.add(company.id)
+    items.push(item)
+  }
+  return items
 }

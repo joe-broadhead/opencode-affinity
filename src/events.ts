@@ -238,6 +238,43 @@ export const EVENTS_OUTPUT = {
   },
 } as const satisfies JsonSchema
 
+/** The registry's `list` output, as a consumer validates it. */
+const LIST_DATA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items", "editable"],
+  properties: {
+    items: {
+      type: "array",
+      maxItems: LIST_CAP,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "text"],
+        properties: { id: { type: "string", minLength: 1, maxLength: 128 }, text: { type: "string", maxLength: 200 }, note: { type: "string", maxLength: 200 } },
+      },
+    },
+    editable: { type: "boolean" },
+  },
+} as const satisfies JsonSchema
+
+/**
+ * The companies list snapshot's answer: the family's snapshot envelope around the registry's `list` output. The host
+ * validates every tools-RPC method's answer against the method's declared output, so `events_list` declares both this
+ * and the events page, and a list read is not refused `rpc.invalid_output`.
+ */
+export const COMPANIES_OUTPUT = {
+  type: "object",
+  additionalProperties: false,
+  required: ["account", "data", "asOf", "trust"],
+  properties: {
+    account: STRING,
+    data: LIST_DATA,
+    asOf: { type: "string", description: "When the list was read, UTC ISO." },
+    trust: { type: "string", const: "untrusted" },
+  },
+} as const satisfies JsonSchema
+
 const PROBE_INPUT = {
   type: "object",
   additionalProperties: false,
@@ -698,9 +735,8 @@ async function companiesSnapshot(read: Read, signedIn: SignedIn | undefined, inp
   const items = companyItems(companies)
   return {
     account,
-    data: { items, editable: false as const },
+    data: { items, editable: false },
     asOf: new Date(now).toISOString(),
-    cost: { units: [{ per: COST_UNIT, count: 1 }] },
     trust: "untrusted" as const,
   }
 }
@@ -730,7 +766,7 @@ export function eventsMethod(deps: EventsDeps): OwnedMethod {
     action: EVENTS_ACTION,
     description: EVENTS_DESCRIPTION,
     input: EVENTS_INPUT,
-    output: EVENTS_OUTPUT,
+    output: { anyOf: [EVENTS_OUTPUT, COMPANIES_OUTPUT] },
     run: (input: unknown, call: ToolCall) => runEvents(deps, input, call as unknown as ToolContext),
   }
 }

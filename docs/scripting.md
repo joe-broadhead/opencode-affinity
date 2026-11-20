@@ -72,9 +72,12 @@ once, then reads on from 90 days back. A meeting deleted before a listing reache
 so.
 
 `affinity.companies` is the same `events_list` method with `{ "source": "affinity", "list": "companies" }` and the
-account `probe` named. It returns the contract's `list` output, not events: the first page of the firm's companies,
-at most 50, from one `search_all_companies` read. Each item is the company id, the name, and the primary domain as a
-note. `editable` is false. A name or domain that holds a secret is left out. It does not replace `affinity.meetings`.
+account `probe` named. It answers the family's snapshot envelope around the contract's `list` output, not events:
+`{ account, data: { items, editable: false }, asOf, trust }`. The first page of the firm's companies, at most 50, from
+one `search_all_companies` read. Each item is the company id, the name, and the primary domain as a note. A name or
+domain that holds a secret is screened whole and only then cut; a repeated id is listed once and the answer stops
+before the declared `maxBytes`. `events_list` declares both answers, the events page and this list, so the host
+accepts either. It does not replace `affinity.meetings`.
 
 ## A script runs as a session
 

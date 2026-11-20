@@ -21,7 +21,7 @@ const schema = { type: "object", properties: { query: { type: "string" }, term: 
 /** A tool the plugin has never seen. */
 export const NEW_TOOL = { name: "shiny_new_tool", description: "A tool added upstream after the tool lists were written", annotations: {} }
 const tool = (name: string, readOnlyHint: boolean) => ({ name, description: `Affinity ${name}`, annotations: { readOnlyHint }, inputSchema: schema })
-const TOOLS = [tool("search_persons", true), tool("get_current_user", true), tool("create_note", false), ...DESTRUCTIVE_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const TOOLS = [tool("search_persons", true), tool("search_all_companies", true), tool("get_meetings", true), tool("get_current_user", true), tool("create_note", false), ...DESTRUCTIVE_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
 const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
 
 /** The upstream error a "fail" query gets: two lines, the first with a signed URL. */
@@ -29,9 +29,18 @@ export const UPSTREAM_FAILURE = "Affinity refused https://files.affinity.co/a.pn
 
 /** A fake account, in the shape of Affinity's whoami, which get_current_user returns. */
 export const ACCOUNT = {
-  tenant: { id: "tenant_fake_1", name: "Northwind Capital", subdomain: "northwind-fake" },
+  tenant: { id: "4821", name: "Northwind Capital", subdomain: "northwind-fake" },
   user: { id: "u_fake_1", firstName: "Jane", lastName: "Doe", emailAddress: "jane.doe@example.com" },
   grant: { type: "access-token", scopes: ["mcp.read", "offline_access"], createdAt: "2026-01-01T00:00:00Z" },
+}
+
+/** The company page `search_all_companies` answers: Affinity's API v2 shape, `{ data: [Company], pagination }`. */
+export const COMPANIES = {
+  data: [
+    { id: 2001, name: "Horizon Technologies", domain: "horizontech.example" },
+    { id: 2002, name: "Crestwood Capital", domain: "crestwoodcap.example" },
+  ],
+  pagination: { prevUrl: null, nextUrl: null },
 }
 
 /** The scopes the plugin pins, which every token is issued for. */
@@ -123,6 +132,8 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         const args = message.params?.arguments ?? {}
         inputs.push({ tool: name, arguments: args })
         if (name === "get_current_user") return reply({ content: [{ type: "text", text: JSON.stringify(ACCOUNT) }], structuredContent: ACCOUNT })
+        if (name === "search_all_companies") return reply({ content: [{ type: "text", text: JSON.stringify(COMPANIES) }], structuredContent: COMPANIES })
+        if (name === "get_meetings") return reply({ content: [{ type: "text", text: JSON.stringify({ data: [], pagination: { prevUrl: null, nextUrl: null } }) }], structuredContent: { data: [], pagination: { prevUrl: null, nextUrl: null } } })
         if (String(args.query ?? "").startsWith("fail")) return reply({ content: [{ type: "text", text: UPSTREAM_FAILURE }], isError: true })
         if (String(args.query ?? "").startsWith("text")) return reply({ content: [{ type: "text", text: `text from ${name}` }] })
         return reply({ content: [{ type: "text", text: `called ${name}` }], structuredContent: { tool: name, path, arguments: args } })

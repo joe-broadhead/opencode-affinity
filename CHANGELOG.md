@@ -6,7 +6,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- **List snapshot** `affinity.companies` (`output: "list"`). An app can bind it and render the firm's companies without knowing Affinity. It calls the existing `search_all_companies` read through `events_list`, not a second client. `affinity.meetings` stays the events source and is not renamed. No write is declared. The source-contract pin stays v0.2.0: `list` is already in that pin, and this change sends none of the keys a consumer on an older pin refuses.
+- **List snapshot** `affinity.companies` (`output: "list"`). An app can bind it and render the firm's companies without knowing Affinity. It calls the existing `search_all_companies` read through `events_list`, not a second client. It reads the first page of the firm's companies, `{ id, name, domain }` each, in one `search_all_companies` call and at most 50: the name is the item's text, the primary domain its note, and a name or domain that holds a secret is left out. `affinity.meetings` stays the events source and is not renamed. No write is declared.
+
+### Fixed
+
+- **The companies list can be read through the tools RPC on every host.** `events_list` declared the events page as its answer, and OpenCode validates a tools-RPC method's answer against that declaration, so a list read was refused `rpc.invalid_output` and no consumer could read it. The method now declares both answers, the events page and the list. A host test reads the list through the tools RPC on every tested OpenCode release, so it cannot regress.
+- A company's name and domain are screened whole and only then cut to the item's length, so a secret that straddles the cut can no longer pass as the start of a title. Control characters are dropped, a repeated company id is listed once, and the list stops before the answer passes the declared `maxBytes`.
 
 ## [0.0.6] - 2026-11-18
 

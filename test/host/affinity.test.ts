@@ -43,7 +43,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
 const affinityTools = (host: Host) =>
   until("Affinity's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("affinity_"))
-    return ids.length === 3 + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
+    return ids.length === 5 + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
   })
 
 async function status(host: Host, sessionID: string) {
@@ -58,7 +58,7 @@ async function status(host: Host, sessionID: string) {
 /** Enough of the tools RPC's contract for the client to call describe and the methods these tests use. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "create_note", ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "get_current_user", "search_persons", "search_all_companies", "get_meetings", "create_note", "events_list", "probe", ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -102,7 +102,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "affinity.crm")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "affinity")?.status).toEqual({ status: "connected" })
-    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "search_persons", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `affinity_${tool}`)].sort())
+    expect(await affinityTools(host)).toEqual([...["create_note", "get_current_user", "get_meetings", "search_persons", "search_all_companies", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `affinity_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("affinity")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -199,6 +199,37 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const narrowed = await grantedSession(host, [{ action: "affinity_create_note", resource: "*", effect: "deny" }])
     const refused = JSON.parse(await scriptCall(host, "create_note", { sessionID: narrowed, input: { content: "Example note" } })) as { message: string }
     expect(refused.message).toContain("PERMISSION_DENIED")
+  })
+
+  // The host validates a tools-RPC method's answer against the method's declared output. The companies list snapshot
+  // rides `events_list`, whose declared output is the events page, so the method declares both shapes: without that,
+  // a list read is refused `rpc.invalid_output` and no consumer can read it on any host.
+  test("a script reads the companies list snapshot through the tools RPC on this host", async () => {
+    await affinityTools(host)
+    const reader = await session(host)
+    const probed = JSON.parse(await scriptCall(host, "probe", { sessionID: reader, input: {} })) as { account: string }
+    expect(probed.account).toBe("4821/jane.doe@example.com")
+    const answer = JSON.parse(await scriptCall(host, "events_list", { sessionID: reader, input: { account: probed.account, list: "companies" } })) as {
+      account: string
+      data: { items: { id: string; text: string; note?: string }[]; editable: boolean }
+      asOf: string
+      trust: string
+    }
+    expect(answer).toMatchObject({
+      account: probed.account,
+      trust: "untrusted",
+      data: {
+        editable: false,
+        items: [
+          { id: "2001", text: "Horizon Technologies", note: "horizontech.example" },
+          { id: "2002", text: "Crestwood Capital", note: "crestwoodcap.example" },
+        ],
+      },
+    })
+    // An events read still answers the page the method declared before this change.
+    const page = JSON.parse(await scriptCall(host, "events_list", { sessionID: reader, input: { account: probed.account } })) as { source: string; events: unknown[] }
+    expect(page.source).toBe("affinity")
+    expect(Array.isArray(page.events)).toBe(true)
   })
 
   test("describe with a session reports each method's class and permission, and without one no permission", async () => {
@@ -300,8 +331,8 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain("- Organisation setup: done: this Affinity organisation lets OpenCode sign in\n")
     expect(await statusRpc(host)).toMatchObject({ organisation: "Northwind Capital", grant: "read-only", adminStep: null, access: "all", unguardedAgents: [] })
     // Only the organisation's name and the grant: no user, email or ids from the result.
-    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane|jane\.doe/)
-    expect(text).not.toMatch(/u_fake_1|tenant_fake_1|northwind-fake|Jane|jane\.doe/)
+    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/u_fake_1|4821|northwind-fake|Jane|jane\.doe/)
+    expect(text).not.toMatch(/u_fake_1|4821|northwind-fake|Jane|jane\.doe/)
   })
 
   test("H6: unloading the plugin removes the server, the rules and the command", async () => {
@@ -396,7 +427,7 @@ describe("a model turn that reads the account", () => {
     })
     expect(text).toContain("- Account: Northwind Capital\n")
     expect(text).toContain("- Access: Affinity grant: read-only, so Affinity refuses changes;")
-    expect(text).not.toMatch(/u_fake_1|tenant_fake_1|Jane/)
+    expect(text).not.toMatch(/u_fake_1|4821|Jane/)
   })
 
   test("DC-5: the model's own calls to the ten denied tools never reach Affinity, and none is offered to it", async () => {
@@ -451,7 +482,7 @@ describe("a Code Mode turn that reads the account", () => {
       return posted.includes("Northwind Capital") ? posted : undefined
     })
     expect(text).toContain("- Account: Northwind Capital\n")
-    expect(text).not.toMatch(/u_fake_1|tenant_fake_1|Jane/)
+    expect(text).not.toMatch(/u_fake_1|4821|Jane/)
   })
 
   test("AF-5: inside execute, each denied tool is missing from the namespace call and never reaches Affinity", async () => {

@@ -160,10 +160,11 @@ A consumer calls two tools RPC methods, never tools the model sees, and the defa
   `window-truncated`, and a cursor more than 100 days old restarts there with `gap` `expired`, each once.
 - `affinity.companies` is a snapshot. Its `tool` is `events_list`, its `output` is `list`, and its `input` is
   `{ "source": "affinity", "list": "companies" }`. A read returns the first page of the firm's companies, at most 50,
-  as `{ data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary domain as a
-  note. It calls the existing `search_all_companies` read, not a second client, and names the account `probe` named.
-  No fields, email addresses or scores. A name or domain that holds a secret is left out. It is not editable.
-  `affinity.meetings` is not renamed.
+  as `{ account, data: { items, editable: false }, asOf, trust }`: Affinity's company id, the name, and the primary
+  domain as a note. It calls the existing `search_all_companies` read, not a second client, and names the account
+  `probe` named. No fields, email addresses or scores. A name or domain that holds a secret is screened whole and only
+  then cut, so a secret cannot pass as the start of a cut title; a repeated id is listed once and the answer stops
+  before the declared `maxBytes`. It is not editable. `affinity.meetings` is not renamed.
 
 Every call counts against the firm's monthly API quota, so a listing makes **at most 10 calls**, whatever it finds,
 and usually one: a consumer that reads every hour makes one call a listing, and so does a first read of the last day.
